@@ -1,0 +1,26 @@
+{
+  "name": "sess-ctut",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DuTuanKiet/SESS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DuTuanKiet/SESS/issues"
+  },
+  "homepage": "https://github.com/DuTuanKiet/SESS#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
