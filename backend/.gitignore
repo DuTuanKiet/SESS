@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+*.env
+npm-debug.log*
+
+# Test directories and test files (Local only - do not push to GitHub)
+tests/
+test/
+**/tests/
+**/test/
+**/__tests__/
+coverage/
+scripts/
