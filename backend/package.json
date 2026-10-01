@@ -5,14 +5,19 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "chcp 65001 >nul && node server.js",
+    "dev": "chcp 65001 >nul && nodemon server.js",
+    "lint": "eslint src",
+    "seed": "chcp 65001 >nul && node scripts/seed.js",
+    "seed:admin": "node scripts/seed-user.js --role=admin",
+    "seed:student": "node scripts/seed-user.js --role=student",
+    "seed:whitelist": "node scripts/seed-whitelist.js",
+    "cleanup": "node scripts/cleanup.js",
+    "seed:fr05": "node src/scripts/seed.js",
     "test:rubrics": "node src/scripts/testRubrics.js",
     "test:milestones": "node src/scripts/testMilestones.js",
     "test:milestones:full": "node src/scripts/testMilestonesFullSuite.js",
-    "test:project-completion": "node src/scripts/testProjectCompletion.js",
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "seed": "node src/scripts/seed.js",
-    "lint": "eslint src"
+    "test:project-completion": "node src/scripts/testProjectCompletion.js"
   },
   "keywords": [],
   "author": "",
@@ -24,8 +29,11 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "google-auth-library": "^11.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.1",
+    "nodemailer": "^10.0.10",
     "zod": "^4.6.5"
   },
   "devDependencies": {

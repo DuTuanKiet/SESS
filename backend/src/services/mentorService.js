@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Mentor = require('../models/Mentor');
 const MentorAssignment = require('../models/MentorAssignment');
 const AuditLog = require('../models/AuditLog');
 const { createAuditLog } = require('./auditService');
@@ -7,12 +8,15 @@ const projectService = require('./projectService');
 const { createError } = require('../middlewares/errorHandler');
 const {
   SYSTEM_ROLES,
+  USER_ROLES,
   USER_STATUS,
   PROJECT_STATUS,
   ASSIGNMENT_STATUS,
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
   MAX_PROJECTS_PER_MENTOR,
+  MENTOR_STATUS,
+  MENTOR_DEFAULT_MAX_PROJECTS,
   MENTORSHIP_ELIGIBLE_STATUSES,
 } = require('../utils/constants');
 /**
@@ -383,7 +387,39 @@ async function completeAssignmentByProjectId(projectId, { session = null } = {})
   return activeAssignment;
 }
 
+/**
+ * Bảo đảm tồn tại hồ sơ Mentor cho user (FR-MENTOR-01):
+ * tạo mới nếu chưa có, giữ nguyên dữ liệu nếu đã có (không ghi đè cấu hình của Mentor).
+ */
+const ensureMentorProfile = async (user) => {
+  if (!user || user.role !== USER_ROLES.MENTOR) return null;
+
+  return Mentor.findOneAndUpdate(
+    { userId: user._id },
+    {
+      $setOnInsert: {
+        userId: user._id,
+        email: user.email,
+        fullName: user.fullName ?? '',
+        expertise: [],
+        fields: [],
+        maxProjects: MENTOR_DEFAULT_MAX_PROJECTS,
+        status: MENTOR_STATUS.ACTIVE,
+      },
+    },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+  );
+};
+
+/** Lấy hồ sơ Mentor theo userId */
+const findMentorByUserId = (userId) => Mentor.findOne({ userId });
+
 module.exports = {
+  // --- FR-MENTOR-01 (FR01-FR04): hồ sơ Mentor ---
+  ensureMentorProfile,
+  findMentorByUserId,
+
+  // --- FR05-FR08: danh sách mentor, phân công / phân công lại, lịch sử ---
   getMentors,
   getMentorById,
   assignMentorToProject,
