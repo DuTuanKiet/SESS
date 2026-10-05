@@ -1,0 +1,1762 @@
+{
+    "clientName": "Thunder Client",
+    "collectionName": "SESS - Auth & Authorization API",
+    "collectionId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+    "dateExported": "2026-09-20T10:00:00.000Z",
+    "version": "1.2",
+    "folders": [
+        {
+            "_id": "f1000000-0001-4000-8000-000000000001",
+            "name": "1. Auth (OTP)",
+            "containerId": "",
+            "created": "2026-09-20T10:00:00.000Z",
+            "sortNum": 10000
+        },
+        {
+            "_id": "f1000000-0002-4000-8000-000000000002",
+            "name": "2. Users",
+            "containerId": "",
+            "created": "2026-09-20T10:00:00.000Z",
+            "sortNum": 20000
+        },
+        {
+            "_id": "f1000000-0003-4000-8000-000000000003",
+            "name": "3. Admin & RBAC",
+            "containerId": "",
+            "created": "2026-09-20T10:00:00.000Z",
+            "sortNum": 30000
+        },
+        {
+            "_id": "f1000000-0004-4000-8000-000000000004",
+            "name": "4. Google OAuth",
+            "containerId": "",
+            "created": "2026-09-20T10:00:00.000Z",
+            "sortNum": 40000
+        },
+        {
+            "_id": "f1000000-0005-4000-8000-000000000005",
+            "name": "5. Negative Cases",
+            "containerId": "",
+            "created": "2026-09-20T10:00:00.000Z",
+            "sortNum": 50000
+        },
+        {
+            "_id": "f1000000-0006-4000-8000-000000000006",
+            "name": "6. Hồ sơ (FR02)",
+            "containerId": "",
+            "created": "2026-09-22T10:00:00.000Z",
+            "sortNum": 60000
+        },
+        {
+            "_id": "f1000000-0007-4000-8000-000000000007",
+            "name": "7. Dự án & Revision (FR03)",
+            "containerId": "",
+            "created": "2026-09-22T10:00:00.000Z",
+            "sortNum": 70000
+        },
+        {
+            "_id": "f1000000-0008-4000-8000-000000000008",
+            "name": "8. Thành viên (FR04)",
+            "containerId": "",
+            "created": "2026-09-22T10:00:00.000Z",
+            "sortNum": 80000
+        }
+    ],
+    "requests": [
+        {
+            "_id": "a1000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0001-4000-8000-000000000001",
+            "name": "1. Login sinh viên lần đầu (chưa xác thực -> 403 + gửi OTP)",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\",\n  \"password\": \"Student@12345\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "403"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "EMAIL_NOT_VERIFIED"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.errors.devOtp",
+                    "action": "setTo",
+                    "value": "{{otp}}"
+                }
+            ],
+            "docs": "CHUẨN BỊ: chạy `npm run seed:whitelist` (danh sách sinh viên của trường) và `npm run seed:student` trong /backend trước khi test.\n\nSinh viên KHÔNG tự đăng ký: email @student.ctuet.edu.vn phải có trong StudentWhitelist. Lần đăng nhập đầu tiên trả 403 EMAIL_NOT_VERIFIED và hệ thống gửi OTP 6 số (hết hạn 5 phút, tối đa 3 lần nhập sai, chờ 60s mới được gửi lại) tới Gmail sinh viên.\n- Dev: OTP được in ra console server và trả kèm ở errors.devOtp -> test tự set biến {{otp}}.\n- Production: EXPOSE_OTP_IN_DEV=false, OTP chỉ gửi qua email."
+        },
+        {
+            "_id": "a1000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0001-4000-8000-000000000001",
+            "name": "2. Xác thực OTP (kích hoạt tài khoản)",
+            "url": "http://localhost:5000/api/v1/auth/verify-otp",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\",\n  \"otp\": \"{{otp}}\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.isEmailVerified",
+                    "action": "equal",
+                    "value": "true"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{accessToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.refreshToken",
+                    "action": "setTo",
+                    "value": "{{refreshToken}}"
+                }
+            ],
+            "docs": "OTP gồm 6 chữ số, hết hạn sau 5 phút, nhập sai quá 3 lần thì mã bị huỷ (fail fast) và phải chờ 60s mới được yêu cầu mã mới. Xác thực thành công: kích hoạt tài khoản, trả về JWT access/refresh token VÀ gửi thêm email thông báo \"Đăng nhập thành công\" (kèm MSSV, lớp, thời gian) tới Gmail sinh viên."
+        },
+        {
+            "_id": "a1000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0001-4000-8000-000000000001",
+            "name": "3. Login sinh viên (đã xác thực)",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\",\n  \"password\": \"Student@12345\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.role",
+                    "action": "equal",
+                    "value": "student"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{accessToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.refreshToken",
+                    "action": "setTo",
+                    "value": "{{refreshToken}}"
+                }
+            ],
+            "docs": "Access token 15 phút, refresh token 7 ngày. Response luôn ẩn password/googleId/refreshTokens."
+        },
+        {
+            "_id": "a1000000-0004-4000-8000-000000000004",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0001-4000-8000-000000000001",
+            "name": "4. Refresh token (rotation)",
+            "url": "http://localhost:5000/api/v1/auth/refresh-token",
+            "method": "POST",
+            "sortNum": 40000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{accessToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.refreshToken",
+                    "action": "setTo",
+                    "value": "{{refreshToken}}"
+                }
+            ],
+            "docs": "Refresh token được ROTATION: token cũ bị thu hồi ngay khi cấp token mới. Dùng lại token cũ sẽ nhận 401 SESSION_REVOKED (chống replay/đánh cắp token)."
+        },
+        {
+            "_id": "a1000000-0005-4000-8000-000000000005",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0001-4000-8000-000000000001",
+            "name": "5. Logout (thu hồi refresh token)",
+            "url": "http://localhost:5000/api/v1/auth/logout",
+            "method": "POST",
+            "sortNum": 50000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"allSessions\": false\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                }
+            ],
+            "docs": "Logout xác thực bằng chính refresh token nên không cần access token còn hạn. allSessions=true sẽ thu hồi toàn bộ phiên (mọi thiết bị). Sau logout, gọi lại request 4 sẽ nhận 401 SESSION_REVOKED."
+        },
+        {
+            "_id": "a2000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0002-4000-8000-000000000002",
+            "name": "1. GET /users/me (cần đăng nhập)",
+            "url": "http://localhost:5000/api/v1/users/me",
+            "method": "GET",
+            "sortNum": 10000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.email",
+                    "action": "equal",
+                    "value": "dtkietktpm2311025@student.ctuet.edu.vn"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.user.id",
+                    "action": "setTo",
+                    "value": "{{userId}}"
+                }
+            ],
+            "docs": "Middleware authenticate: kiểm tra JWT -> nạp user từ DB -> chặn ngay nếu status = SUSPENDED (403). Biến {{userId}} được set tự động để dùng cho API admin."
+        },
+        {
+            "_id": "a2000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0002-4000-8000-000000000002",
+            "name": "2. GET /users/me (không token -> 401)",
+            "url": "http://localhost:5000/api/v1/users/me",
+            "method": "GET",
+            "sortNum": 20000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "401"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "MISSING_ACCESS_TOKEN"
+                }
+            ],
+            "docs": "Thiếu Authorization header dạng Bearer <access_token>."
+        },
+        {
+            "_id": "a3000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "1. Login admin (chạy npm run seed:admin trước)",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"admin@ctuet.edu.vn\",\n  \"password\": \"Admin@12345\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.role",
+                    "action": "equal",
+                    "value": "admin"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{adminAccessToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.refreshToken",
+                    "action": "setTo",
+                    "value": "{{adminRefreshToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.user.id",
+                    "action": "setTo",
+                    "value": "{{adminUserId}}"
+                }
+            ],
+            "docs": "Tạo tài khoản admin: npm run seed:admin (admin@ctuet.edu.vn / Admin@12345). Token admin lưu vào biến riêng để không ghi đè token sinh viên."
+        },
+        {
+            "_id": "a3000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "2. PATCH /admin/users/{{userId}}/status -> SUSPENDED",
+            "url": "http://localhost:5000/api/v1/admin/users/{{userId}}/status",
+            "method": "PATCH",
+            "sortNum": 20000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"status\": \"SUSPENDED\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.status",
+                    "action": "equal",
+                    "value": "SUSPENDED"
+                }
+            ],
+            "docs": "Route /admin yêu cầu authenticate + checkRole('admin'). Khi chuyển sang SUSPENDED, hệ thống thu hồi toàn bộ refresh token của người dùng ngay lập tức. Biến {{userId}} lấy tự động từ request GET /users/me."
+        },
+        {
+            "_id": "a3000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "3. GET /users/me khi bị SUSPENDED -> 403",
+            "url": "http://localhost:5000/api/v1/users/me",
+            "method": "GET",
+            "sortNum": 30000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "403"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "ACCOUNT_SUSPENDED"
+                }
+            ],
+            "docs": "Access token còn hạn nhưng middleware đọc status mới nhất từ DB nên chặn ngay với 403 ACCOUNT_SUSPENDED."
+        },
+        {
+            "_id": "a3000000-0004-4000-8000-000000000004",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "4. PATCH /admin/users/{{userId}}/status -> ACTIVE (mở khoá)",
+            "url": "http://localhost:5000/api/v1/admin/users/{{userId}}/status",
+            "method": "PATCH",
+            "sortNum": 40000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.user.status",
+                    "action": "equal",
+                    "value": "ACTIVE"
+                }
+            ],
+            "docs": "Mở khoá tài khoản. Người dùng có thể đăng nhập lại bình thường (các phiên cũ đã bị thu hồi khi khoá)."
+        },
+        {
+            "_id": "a3000000-0005-4000-8000-000000000005",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "5. Student gọi API admin -> 403 (RBAC)",
+            "url": "http://localhost:5000/api/v1/admin/users/{{userId}}/status",
+            "method": "PATCH",
+            "sortNum": 50000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"status\": \"SUSPENDED\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "403"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "INSUFFICIENT_ROLE"
+                }
+            ],
+            "docs": "Token sinh viên hợp lệ nhưng middleware checkRole('admin') chặn với 403 INSUFFICIENT_ROLE."
+        },
+        {
+            "_id": "a3000000-0006-4000-8000-000000000006",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "6. Admin tự tạm khoá chính mình -> 400",
+            "url": "http://localhost:5000/api/v1/admin/users/{{adminUserId}}/status",
+            "method": "PATCH",
+            "sortNum": 60000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"status\": \"SUSPENDED\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "CANNOT_SUSPEND_SELF"
+                }
+            ],
+            "docs": "Chốt an toàn: admin không thể tự khoá tài khoản của mình (tránh mất toàn bộ quyền quản trị)."
+        },
+        {
+            "_id": "a3000000-0007-4000-8000-000000000007",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0003-4000-8000-000000000003",
+            "name": "7. PATCH với id sai định dạng -> 400",
+            "url": "http://localhost:5000/api/v1/admin/users/abc/status",
+            "method": "PATCH",
+            "sortNum": 70000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{adminAccessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"status\": \"SUSPENDED\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "INVALID_ID"
+                }
+            ],
+            "docs": "Mongoose CastError được Error Middleware chuẩn hoá thành 400 INVALID_ID."
+        },
+        {
+            "_id": "a4000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0004-4000-8000-000000000004",
+            "name": "1. POST /auth/google (idToken thật -> auto create/link)",
+            "url": "http://localhost:5000/api/v1/auth/google",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"idToken\": \"{{googleIdToken}}\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{accessToken}}"
+                }
+            ],
+            "docs": "CẦN CẤU HÌNH: GOOGLE_CLIENT_ID trong .env (Web client ID) và biến {{googleIdToken}} = credential/idToken thật lấy từ Google Identity Services ở frontend.\n\nXử lý 3 nhánh:\n1. Email chưa có trong DB -> tự tạo tài khoản student (role=student, isEmailVerified=true, authProvider=GOOGLE), trích xuất MSSV từ email, gửi email chào mừng qua Nodemailer.\n2. Email đã có trong DB (nhà trường cấp sẵn) -> liên kết googleId + isEmailVerified=true, KHÔNG tạo tài khoản trùng.\n3. Email ngoài @student.ctuet.edu.vn và chưa được cấp tài khoản -> 403 DOMAIN_NOT_ALLOWED."
+        },
+        {
+            "_id": "a4000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0004-4000-8000-000000000004",
+            "name": "2. POST /auth/google (thiếu idToken -> 400)",
+            "url": "http://localhost:5000/api/v1/auth/google",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "MISSING_GOOGLE_ID_TOKEN"
+                }
+            ],
+            "docs": "Kiểm tra đầu vào trước khi gọi Google. Nếu GOOGLE_CLIENT_ID chưa cấu hình, request có idToken sẽ trả 503 GOOGLE_NOT_CONFIGURED."
+        },
+        {
+            "_id": "a5000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "1. Login sai mật khẩu -> 401",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\",\n  \"password\": \"SaiMatKhau@1\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "401"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "INVALID_CREDENTIALS"
+                }
+            ],
+            "docs": "Thông báo lỗi giống nhau cho cả email không tồn tại và sai mật khẩu (chống dò tài khoản)."
+        },
+        {
+            "_id": "a5000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "2. Login thiếu password -> 400",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "MISSING_FIELD"
+                }
+            ],
+            "docs": "Thiếu trường bắt buộc trong body."
+        },
+        {
+            "_id": "a5000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "3. Verify OTP sai mã -> 400",
+            "url": "http://localhost:5000/api/v1/auth/verify-otp",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"dtkietktpm2311025@student.ctuet.edu.vn\",\n  \"otp\": \"999999\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                }
+            ],
+            "docs": "code = OTP_INVALID (sai mã, còn lượt thử) hoặc OTP_NOT_FOUND (mã đã dùng/hết hạn). Nhập sai quá 5 lần -> 429 OTP_MAX_ATTEMPTS và mã bị huỷ."
+        },
+        {
+            "_id": "a5000000-0004-4000-8000-000000000004",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "4. Refresh token sau logout -> 401",
+            "url": "http://localhost:5000/api/v1/auth/refresh-token",
+            "method": "POST",
+            "sortNum": 40000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "401"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "SESSION_REVOKED"
+                }
+            ],
+            "docs": "Chạy sau request Logout (folder 1) để thấy token đã bị thu hồi. Hash refresh token được xoá khỏi DB nên không thể tái sử dụng."
+        },
+        {
+            "_id": "a5000000-0005-4000-8000-000000000005",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "5. GET /users/me với token rác -> 401",
+            "url": "http://localhost:5000/api/v1/users/me",
+            "method": "GET",
+            "sortNum": 50000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer abc.def.ghi"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "401"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "INVALID_TOKEN"
+                }
+            ],
+            "docs": "JsonWebTokenError được Error Middleware chuẩn hoá thành 401 INVALID_TOKEN (token hết hạn -> 401 TOKEN_EXPIRED)."
+        },
+        {
+            "_id": "a5000000-0006-4000-8000-000000000006",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "6. POST /auth/register (đã loại bỏ) -> 404",
+            "url": "http://localhost:5000/api/v1/auth/register",
+            "method": "POST",
+            "sortNum": 60000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"khach@student.ctuet.edu.vn\",\n  \"password\": \"Whatever@123\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "404"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "ROUTE_NOT_FOUND"
+                }
+            ],
+            "docs": "Sinh viên KHÔNG thể tự đăng ký. Tài khoản do nhà trường cấp sẵn (script seed) hoặc tự động tạo khi đăng nhập Google với email @student.ctuet.edu.vn."
+        },
+        {
+            "_id": "a5000000-0007-4000-8000-000000000007",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "7. Route không tồn tại -> 404",
+            "url": "http://localhost:5000/api/v1/route-khong-ton-tai",
+            "method": "GET",
+            "sortNum": 70000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "404"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "ROUTE_NOT_FOUND"
+                }
+            ],
+            "docs": "notFoundHandler + errorHandler xử lý tập trung mọi lỗi 404."
+        },
+        {
+            "_id": "a5000000-0008-4000-8000-000000000008",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0005-4000-8000-000000000005",
+            "name": "8. Login email KHÔNG có trong danh sách nhà trường -> 404",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 80000,
+            "created": "2026-09-20T10:00:00.000Z",
+            "modified": "2026-09-20T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"invalid_student_9999@student.ctuet.edu.vn\",\n  \"password\": \"Anything@123\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "404"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "STUDENT_NOT_IN_WHITELIST"
+                }
+            ],
+            "docs": "Ban ghi truoc khi test: npm run seed:whitelist (nap danh sach sinh vien cua truong) va npm run seed:student.\n\nFail fast: email sinh vien PHAI co trong collection StudentWhitelist thi moi duoc cap OTP. Truong hop nay he thong KHONG sinh OTP, KHONG goi mailerService (khong gui bat ky email nao) va tra ve 404 STUDENT_NOT_IN_WHITELIST kem huong dan lien he CVHT."
+        },
+        {
+            "_id": "a6000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0006-4000-8000-000000000006",
+            "name": "1. GET /users/profile/me (tự sinh hồ sơ từ danh sách trường)",
+            "url": "http://localhost:5000/api/v1/users/profile/me",
+            "method": "GET",
+            "sortNum": 10000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.profile.studentId",
+                    "action": "equal",
+                    "value": "KTPM2311025"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.profile.className",
+                    "action": "equal",
+                    "value": "KTPM2311"
+                }
+            ],
+            "docs": "Hồ sơ 1-1 với User, tự khởi tạo ở lần truy cập đầu và LUÔN đồng bộ Họ tên/MSSV/Lớp/Email CVHT từ StudentWhitelist."
+        },
+        {
+            "_id": "a6000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0006-4000-8000-000000000006",
+            "name": "2. PUT /users/profile/me (cập nhật thông tin bổ trợ)",
+            "url": "http://localhost:5000/api/v1/users/profile/me",
+            "method": "PUT",
+            "sortNum": 20000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"bio\": \"Sinh viên KTPM - đam mê khởi nghiệp\",\n  \"skills\": [\n    \"Node.js\",\n    \"MongoDB\",\n    \"Vue\"\n  ],\n  \"phone\": \"0912345678\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.profile.phone",
+                    "action": "equal",
+                    "value": "0912345678"
+                }
+            ],
+            "docs": "Chỉ cho phép cập nhật: bio, skills, phone, avatarUrl, socialLinks."
+        },
+        {
+            "_id": "a6000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0006-4000-8000-000000000006",
+            "name": "3. PUT /users/profile/me (sửa MSSV -> bị chặn)",
+            "url": "http://localhost:5000/api/v1/users/profile/me",
+            "method": "PUT",
+            "sortNum": 30000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"studentId\": \"HACKED-999\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "SCHOOL_MANAGED_FIELD"
+                }
+            ],
+            "docs": "MSSV/Email/Họ tên/Lớp do nhà trường quản lý nên người dùng không thể sửa."
+        },
+        {
+            "_id": "a7000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "1. POST /projects (tạo dự án mới -> DRAFT)",
+            "url": "http://localhost:5000/api/v1/projects",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"title\": \"SESS - Nền tảng hỗ trợ khởi nghiệp sinh viên\",\n  \"problemStatement\": \"Sinh viên thiếu kênh kết nối với cố vấn, mentor và nhà đầu tư\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "201"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.project.status",
+                    "action": "equal",
+                    "value": "DRAFT"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.project.id",
+                    "action": "setTo",
+                    "value": "{{projectId}}"
+                }
+            ],
+            "docs": "Người tạo tự động là OWNER, dự án bắt đầu ở DRAFT, version = 1, mã dự án tự sinh dạng SESS-<năm>-<số>."
+        },
+        {
+            "_id": "a7000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "2. PUT /projects/:id (DRAFT -> được sửa)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}",
+            "method": "PUT",
+            "sortNum": 20000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"businessModel\": \"SaaS thu phí theo trường\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                }
+            ],
+            "docs": "Chỉ OWNER/MEMBER (đã chấp nhận) được sửa và dự án phải ở DRAFT hoặc NEED_REVISION."
+        },
+        {
+            "_id": "a7000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "3. POST /projects/:id/submit (thiếu trường cốt lõi -> 400)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/submit",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "MISSING_REQUIRED_FIELDS"
+                }
+            ],
+            "docs": "Fail fast: yêu cầu đủ title, category, abstract, solution trước khi nộp."
+        },
+        {
+            "_id": "a7000000-0004-4000-8000-000000000004",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "4. PUT /projects/:id (bổ sung trường cốt lõi)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}",
+            "method": "PUT",
+            "sortNum": 40000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"category\": \"Công nghệ giáo dục\",\n  \"abstract\": \"Nền tảng kết nối sinh viên với cố vấn và nhà đầu tư\",\n  \"solution\": \"Web app + quy trình duyệt dự án theo từng phiên bản\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                }
+            ],
+            "docs": ""
+        },
+        {
+            "_id": "a7000000-0005-4000-8000-000000000005",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "5. POST /projects/:id/submit (đủ trường -> tạo revision v1)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/submit",
+            "method": "POST",
+            "sortNum": 50000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.project.status",
+                    "action": "equal",
+                    "value": "SUBMITTED"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.revision.versionNumber",
+                    "action": "equal",
+                    "value": "1"
+                }
+            ],
+            "docs": "Nộp thành công: lưu snapshot vào ProjectRevision (v1), chuyển SUBMITTED và tăng version lên 2."
+        },
+        {
+            "_id": "a7000000-0006-4000-8000-000000000006",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "6. GET /projects/:id/revisions (lịch sử phiên bản)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/revisions",
+            "method": "GET",
+            "sortNum": 60000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.success",
+                    "action": "equal",
+                    "value": "true"
+                }
+            ],
+            "docs": "Chỉ thành viên đã chấp nhận của dự án mới xem được lịch sử phiên bản."
+        },
+        {
+            "_id": "a7000000-0007-4000-8000-000000000007",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0007-4000-8000-000000000007",
+            "name": "7. PUT sau khi SUBMITTED -> 403 (khóa sửa)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}",
+            "method": "PUT",
+            "sortNum": 70000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"abstract\": \"Sửa trái phép khi dự án đã nộp\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "403"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "PROJECT_NOT_EDITABLE"
+                }
+            ],
+            "docs": "SUBMITTED/APPROVED bị khóa, không cho chỉnh sửa."
+        },
+        {
+            "_id": "a8000000-0001-4000-8000-000000000001",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "1. Login sinh viên B (thành viên được mời)",
+            "url": "http://localhost:5000/api/v1/auth/login",
+            "method": "POST",
+            "sortNum": 10000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"110122002@student.ctuet.edu.vn\",\n  \"password\": \"Student@12345\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.tokens.accessToken",
+                    "action": "setTo",
+                    "value": "{{memberAccessToken}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.user.id",
+                    "action": "setTo",
+                    "value": "{{memberUserId}}"
+                }
+            ],
+            "docs": "Chạy npm run seed trước: sinh viên B = 110122002@student.ctuet.edu.vn (đã xác thực)."
+        },
+        {
+            "_id": "a8000000-0002-4000-8000-000000000002",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "2. POST /projects/:id/members/invite (mời sinh viên B)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/invite",
+            "method": "POST",
+            "sortNum": 20000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"110122002@student.ctuet.edu.vn\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "201"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.invitation.status",
+                    "action": "equal",
+                    "value": "INVITED"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.invitation.id",
+                    "action": "setTo",
+                    "value": "{{invitationId}}"
+                },
+                {
+                    "type": "set-env-var",
+                    "custom": "json.data.invitation.userId",
+                    "action": "setTo",
+                    "value": "{{memberUserId}}"
+                }
+            ],
+            "docs": "Chỉ OWNER mời được. Email phải có trong StudentWhitelist và đã kích hoạt; ở dev mail được mô phỏng (log DEV MAILER SIMULATION)."
+        },
+        {
+            "_id": "a8000000-0003-4000-8000-000000000003",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "3. Sinh viên B chấp nhận lời mời (ACCEPTED)",
+            "url": "http://localhost:5000/api/v1/projects/invitations/{{invitationId}}/respond",
+            "method": "POST",
+            "sortNum": 30000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{memberAccessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"response\": \"ACCEPTED\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.data.invitation.status",
+                    "action": "equal",
+                    "value": "ACCEPTED"
+                }
+            ],
+            "docs": "Chỉ người được mời phản hồi được; response = ACCEPTED hoặc REJECTED."
+        },
+        {
+            "_id": "a8000000-0004-4000-8000-000000000004",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "4. OWNER thử rời nhóm khi chưa chuyển quyền -> 400",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/leave",
+            "method": "POST",
+            "sortNum": 40000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "OWNER_MUST_TRANSFER"
+                }
+            ],
+            "docs": "Ràng buộc: Trưởng nhóm phải chuyển quyền cho thành viên khác trước khi rời dự án."
+        },
+        {
+            "_id": "a8000000-0005-4000-8000-000000000005",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "5. Invite email KHÔNG có trong danh sách trường -> 404",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/invite",
+            "method": "POST",
+            "sortNum": 50000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"khong-co-trong-danh-sach@student.ctuet.edu.vn\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "404"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "STUDENT_NOT_IN_WHITELIST"
+                }
+            ],
+            "docs": "Fail fast: KHÔNG sinh OTP và KHÔNG gửi email cho email không có trong StudentWhitelist."
+        },
+        {
+            "_id": "a8000000-0006-4000-8000-000000000006",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "6. Invite sinh viên CHƯA kích hoạt tài khoản -> 400",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/invite",
+            "method": "POST",
+            "sortNum": 60000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"email\": \"110122004@student.ctuet.edu.vn\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "INVITEE_NOT_ACTIVATED"
+                }
+            ],
+            "docs": "110122004 có trong danh sách trường nhưng chưa kích hoạt tài khoản -> chặn trước khi gửi mail."
+        },
+        {
+            "_id": "a8000000-0007-4000-8000-000000000007",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "7. Chuyển quyền Trưởng nhóm cho sinh viên B",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/transfer-ownership",
+            "method": "POST",
+            "sortNum": 70000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "body": {
+                "type": "json",
+                "raw": "{\n  \"userId\": \"{{memberUserId}}\"\n}",
+                "form": []
+            },
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                }
+            ],
+            "docs": "Chỉ OWNER hiện tại chuyển được; người nhận phải là thành viên đã ACCEPTED."
+        },
+        {
+            "_id": "a8000000-0008-4000-8000-000000000008",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "8. Trưởng nhóm cũ rời nhóm (giờ là MEMBER)",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/leave",
+            "method": "POST",
+            "sortNum": 80000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "200"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.success",
+                    "action": "equal",
+                    "value": "true"
+                }
+            ],
+            "docs": ""
+        },
+        {
+            "_id": "a8000000-0009-4000-8000-000000000009",
+            "colId": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f",
+            "containerId": "f1000000-0008-4000-8000-000000000008",
+            "name": "9. OWNER mới tự xoá chính mình -> 400",
+            "url": "http://localhost:5000/api/v1/projects/{{projectId}}/members/{{memberUserId}}",
+            "method": "DELETE",
+            "sortNum": 90000,
+            "created": "2026-09-22T10:00:00.000Z",
+            "modified": "2026-09-22T10:00:00.000Z",
+            "headers": [
+                {
+                    "name": "Authorization",
+                    "value": "Bearer {{memberAccessToken}}"
+                }
+            ],
+            "params": [],
+            "tests": [
+                {
+                    "type": "res-code",
+                    "custom": "",
+                    "action": "equal",
+                    "value": "400"
+                },
+                {
+                    "type": "json-path",
+                    "custom": "$.code",
+                    "action": "equal",
+                    "value": "CANNOT_REMOVE_OWNER"
+                }
+            ],
+            "docs": "Không thể xoá Trưởng nhóm khỏi dự án."
+        }
+    ],
+    "ref": "b7c1d2e3-f4a5-4b6c-9d8e-1a2b3c4d5e6f"
+}

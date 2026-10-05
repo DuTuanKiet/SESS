@@ -8,3 +8,17 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+doc
+.agents/
+
+# Test directories and test files (Local only - do not push to GitHub)
+tests/
+test/
+**/tests/
+**/test/
+**/__tests__/
+coverage/
+
+thunder-collection_SESS_Backend.json
+thunder-environment_SESS_Local.json
