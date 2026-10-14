@@ -9,7 +9,18 @@ const { errorHandler: legacyErrorHandler } = require('./middlewares/errorHandler
 const app = express();
 
 // Middlewares cơ bản
-app.use(cors({ origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(','), credentials: true }));
+const corsOptions = {
+  credentials: true,
+};
+if (env.corsOrigin && env.corsOrigin !== '*') {
+  corsOptions.origin = env.corsOrigin.split(',');
+} else if (env.corsOrigin === '*') {
+  corsOptions.origin = true;
+} else {
+  // Production without CORS_ORIGIN set - disable CORS
+  corsOptions.origin = false;
+}
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
 // Route kiểm tra sức khỏe server (Health Check)

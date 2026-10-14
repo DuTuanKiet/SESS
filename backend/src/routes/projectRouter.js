@@ -9,7 +9,9 @@ const router = express.Router();
 router.use(authenticate);
 
 // FR03 - Quản lý dự án & lịch sử phiên bản
+router.get('/', projectController.getProjects);
 router.post('/', projectController.createProject);
+router.get('/:id', projectController.getProject);
 router.put('/:id', projectController.updateProject);
 router.post('/:id/submit', projectController.submitProject);
 router.get('/:id/revisions', projectController.getProjectRevisions);

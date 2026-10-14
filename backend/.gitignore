@@ -1,8 +1,20 @@
 node_modules/
 .env
 .env.local
+.env.*
 *.env
+*.env.local
+
+# Logs
+*.log
 npm-debug.log*
+
+# Build output
+dist/
+build/
+
+# Coverage
+coverage/
 
 # Test directories and test files (Local only - do not push to GitHub)
 tests/
@@ -10,5 +22,12 @@ test/
 **/tests/
 **/test/
 **/__tests__/
-coverage/
+
+# OS/Editor
+.DS_Store
+.vscode/
+.idea/
+*.sw?
+
+# Scripts
 scripts/
