@@ -3,13 +3,15 @@ const User = require('../models/User');
 const tokenService = require('../services/tokenService');
 const ApiError = require('../utils/apiError');
 const { USER_STATUS } = require('../utils/constants');
+const env = require('../config/env');
 
 /**
- * [FR05-FR08] Middleware xác thực JWT Bearer Token (thuần JWT, không truy vấn DB).
- * Giải mã token bằng JWT_SECRET, gán payload vào req.user.
- * Được giữ nguyên và export riêng là `jwtAuthMiddleware` để không mất logic cũ.
+ * [FR05-FR08] Middleware xác thực JWT Bearer Token (có kiểm tra DB).
+ * Giải mã token, kiểm tra user tồn tại và không bị SUSPENDED, gán payload vào req.user.
+ * Giữ tương thích: req.user = JWT payload (có sub, role, type).
+ * Lưu ý: Middleware này KHÔNG được dùng bởi route nào hiện tại; các route FR05-FR08 dùng `authenticate` (mặc định).
  */
-function jwtAuthMiddleware(req, res, next) {
+async function jwtAuthMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
@@ -21,14 +23,49 @@ function jwtAuthMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.jwt.accessSecret);
+
+    // Kiểm tra user tồn tại và không bị SUSPENDED
+    const user = await User.findById(decoded.sub).select('status').lean();
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        code: 'USER_NOT_FOUND',
+        message: 'Tài khoản không tồn tại',
+      });
+    }
+    if (user.status === USER_STATUS.SUSPENDED) {
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên',
+      });
+    }
+
+    // Giữ contract cũ: req.user = JWT payload (để không phá vỡ code cũ nếu có)
     req.user = decoded;
     next();
-  } catch {
-    return res.status(401).json({
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        code: 'TOKEN_EXPIRED',
+        message: 'Token đã hết hạn, vui lòng làm mới phiên đăng nhập',
+      });
+    }
+    if (error.name === 'JsonWebTokenError' || error.name === 'NotBeforeError') {
+      return res.status(401).json({
+        success: false,
+        code: 'INVALID_TOKEN',
+        message: 'Token không hợp lệ',
+      });
+    }
+    // Lỗi MongoDB hoặc khác -> không cho request đi tiếp, trả 503
+    console.error('[jwtAuthMiddleware] Lỗi xác thực:', error);
+    return res.status(503).json({
       success: false,
-      code: 'INVALID_TOKEN',
-      message: 'Token không hợp lệ hoặc đã hết hạn.',
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+      message: 'Dịch vụ xác thực tạm thời không khả dụng',
     });
   }
 }

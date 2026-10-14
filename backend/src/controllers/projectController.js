@@ -1,4 +1,72 @@
 const projectService = require('../services/projectService');
+const { PROJECT_STATUS } = require('../utils/constants');
+const ApiError = require('../utils/apiError');
+
+const MAX_PAGE_LIMIT = 100;
+
+/** Validate pagination params: page >= 1, limit 1..100 integer.
+ *  Applies defaults only when value is undefined (omitted).
+ *  Empty string or explicitly provided invalid values are rejected.
+ */
+const validatePagination = (page, limit, maxLimit = MAX_PAGE_LIMIT) => {
+  // Apply defaults only for undefined (omitted), not for empty string or other values
+  const pageValue = page === undefined ? 1 : page;
+  const limitValue = limit === undefined ? 10 : limit;
+
+  const pageNum = Number(pageValue);
+  const limitNum = Number(limitValue);
+
+  if (!Number.isInteger(pageNum) || pageNum < 1) {
+    throw ApiError.badRequest('"page" phải là số nguyên lớn hơn hoặc bằng 1', 'INVALID_PAGE');
+  }
+  if (!Number.isInteger(limitNum) || limitNum < 1 || limitNum > maxLimit) {
+    throw ApiError.badRequest(`"limit" phải là số nguyên từ 1 đến ${maxLimit}`, 'INVALID_LIMIT');
+  }
+  return { page: pageNum, limit: limitNum };
+};
+
+/** Validate project status against enum */
+const validateProjectStatus = (status) => {
+  if (status === undefined || status === null || status === '') return undefined;
+  const allowed = Object.values(PROJECT_STATUS);
+  if (!allowed.includes(status)) {
+    throw ApiError.badRequest(`"status" không hợp lệ. Chỉ chấp nhận: ${allowed.join(', ')}`, 'INVALID_STATUS');
+  }
+  return status;
+};
+
+/** GET /projects - danh sách dự án của người dùng (có phân trang, lọc theo status) */
+const getProjects = async (req, res) => {
+  const { page, limit } = validatePagination(req.query.page, req.query.limit);
+  const status = validateProjectStatus(req.query.status);
+
+  const { projects, pagination } = await projectService.getProjects({
+    userId: req.user.id,
+    page,
+    limit,
+    status,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Lấy danh sách dự án thành công.',
+    data: { projects, pagination },
+  });
+};
+
+/** GET /projects/:id - chi tiết dự án */
+const getProject = async (req, res) => {
+  const { project, membership } = await projectService.getProject({
+    projectId: req.params.id,
+    userId: req.user.id,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Lấy chi tiết dự án thành công.',
+    data: { project, membership },
+  });
+};
 
 // ===========================================================================
 // Nhánh FR05-FR08: duyệt dự án & phân công mentor (Admin)
@@ -110,6 +178,8 @@ module.exports = {
   handleGetUnassignedProjects,
   handleUpdateProjectStatus,
   // FR01-FR04
+  getProjects,
+  getProject,
   createProject,
   updateProject,
   submitProject,

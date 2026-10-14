@@ -33,6 +33,16 @@ const {
  * Điều kiện: status thuộc [Submitted, InReview, NeedRevision] VÀ không có assignment 'Assigned'.
  */
 async function getUnassignedProjects({ page = 1, limit = 10, field, keyword } = {}) {
+  // Validate pagination
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+  if (!Number.isInteger(pageNum) || pageNum < 1) {
+    throw ApiError.badRequest('"page" phải là số nguyên lớn hơn hoặc bằng 1', 'INVALID_PAGE');
+  }
+  if (!Number.isInteger(limitNum) || limitNum < 1 || limitNum > 100) {
+    throw ApiError.badRequest('"limit" phải là số nguyên từ 1 đến 100', 'INVALID_LIMIT');
+  }
+
   // Lấy tất cả projectId đang có mentor kích hoạt
   const activeAssignments = await MentorAssignment.find(
     { status: ASSIGNMENT_STATUS.ASSIGNED },
@@ -52,20 +62,20 @@ async function getUnassignedProjects({ page = 1, limit = 10, field, keyword } = 
     query.name = { $regex: keyword, $options: 'i' };
   }
 
-  const skip = (page - 1) * limit;
+  const skip = (pageNum - 1) * limitNum;
   const total = await Project.countDocuments(query);
   const projects = await Project.find(query)
     .select('name field status createdAt')
     .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limit)
+    .limit(limitNum)
     .lean();
 
   return {
     projects,
     pagination: {
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
+      currentPage: pageNum,
+      totalPages: Math.ceil(total / limitNum),
       totalRecords: total,
     },
   };
@@ -434,11 +444,48 @@ const getProjectRevisions = async ({ projectId, userId }) => {
   return { project, revisions };
 };
 
+/** Lấy danh sách dự án của user (phân trang, lọc status) */
+const getProjects = async ({ userId, page = 1, limit = 10, status }) => {
+  const userMemberships = await ProjectMember.find({ userId, status: PROJECT_MEMBER_STATUS.ACCEPTED }).select('projectId').lean();
+  const projectIds = userMemberships.map((m) => m.projectId);
+
+  if (!projectIds.length) {
+    return { projects: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+  }
+
+  const filter = { _id: { $in: projectIds } };
+  if (status) filter.status = status;
+
+  const skip = (page - 1) * limit;
+  const [projects, total] = await Promise.all([
+    Project.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+    Project.countDocuments(filter),
+  ]);
+
+  return {
+    projects,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+/** Lấy chi tiết dự án (chỉ thành viên đã chấp nhận) */
+const getProject = async ({ projectId, userId }) => {
+  const { project, membership } = await projectMemberService.assertProjectMember(projectId, userId);
+  return { project, membership };
+};
+
 module.exports = {
   createProject,
   updateProject,
   submitProject,
   getProjectRevisions,
+  getProjects,
+  getProject,
   // Guard dùng chung được định nghĩa ở projectMemberService (tránh circular dependency)
   assertProjectEditable: projectMemberService.assertProjectEditable,
   assertNoActiveProject: projectMemberService.assertNoActiveProject,
