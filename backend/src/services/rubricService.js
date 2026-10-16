@@ -16,7 +16,7 @@ async function _findRubricById(rubricId, session = null) {
 /**
  * ENGINE ĐIỀU PHỐI VÒNG ĐỜI & THAY ĐỔI DỮ LIỆU TẬP TRUNG
  * - Chặn sửa bộ tiêu chí đã Deprecated.
- * - Active: Tự động clone Version mới trong Transaction, deprecate bản cũ, ghi AuditLog.
+ * - Active: Tự động clone Version mới trong Transaction, giữ nguyên Active bản cũ (chỉ deprecate khi kích hoạt bản mới), chặn clone nếu đã có Draft đang chờ, ghi AuditLog.
  * - Draft: Cập nhật trực tiếp trên bản ghi hiện tại (không ghi AuditLog).
  */
 async function _applyRubricMutation({ rubric, changes: { name, description, criteria }, adminId, actionDetail }) {
@@ -36,6 +36,22 @@ async function _applyRubricMutation({ rubric, changes: { name, description, crit
       let newRubric;
       await session.withTransaction(async () => {
         const rootId = rubric.rootRubricId || rubric._id;
+
+        // Chặn sinh rác nhiều bản nháp khi sửa liên tục trên bản Active.
+        // Kiểm tra xem đã có bản ghi nào cùng rootRubricId đang ở trạng thái Draft hay chưa.
+        const existingDraft = await EvaluationRubric.findOne({
+          rootRubricId: rootId,
+          status: RUBRIC_STATUS.DRAFT,
+        }).session(session);
+
+        if (existingDraft) {
+          throw createError(
+            `Đã tồn tại bản nháp (Phiên bản ${existingDraft.version}) chưa được kích hoạt cho bộ tiêu chí này. Vui lòng tiếp tục chỉnh sửa trên bản nháp hoặc kích hoạt nó trước khi tạo phiên bản mới từ bản Active.`,
+            409,
+            'DRAFT_ALREADY_EXISTS'
+          );
+        }
+
         const latest = await EvaluationRubric.findOne({ rootRubricId: rootId })
           .sort({ version: -1 })
           .session(session)
@@ -57,15 +73,15 @@ async function _applyRubricMutation({ rubric, changes: { name, description, crit
         );
         newRubric = created;
 
-        rubric.status = RUBRIC_STATUS.DEPRECATED;
-        await rubric.save({ session });
+        // Bản cũ tiếp tục giữ status ACTIVE để phục vụ các đợt chấm điểm hiện tại của Hội đồng và AI Evaluator.
+        // Bản cũ chỉ được chuyển thành DEPRECATED khi bản mới chính thức được kích hoạt (activateRubric).
 
         await createAuditLog({
           userId: adminId,
           action: AUDIT_ACTIONS.CHANGE_RUBRIC,
           targetEntity: AUDIT_ENTITIES.EVALUATION_RUBRICS,
           targetId: newRubric._id,
-          oldValues: { id: rubric._id, version: rubric.version, status: rubric.status },
+          oldValues: { id: rubric._id, version: rubric.version, status: RUBRIC_STATUS.ACTIVE },
           newValues: { id: newRubric._id, version: newRubric.version, status: newRubric.status, actionDetail },
           session,
         });
