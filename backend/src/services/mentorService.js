@@ -80,10 +80,21 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
       },
     },
     {
+      // Positive/Whitelist Projection: chỉ trả về các trường an toàn, ngăn chặn rò rỉ password, refreshTokens và PII
       $project: {
-        passwordHash: 0,
-        googleId: 0,
-        activeAssignments: 0,
+        _id: 1,
+        email: 1,
+        fullName: 1,
+        avatarUrl: 1,
+        role: 1,
+        systemRole: 1,
+        status: 1,
+        profile: 1,
+        activeProjectsCount: 1,
+        maxProjects: 1,
+        canAcceptMore: 1,
+        currentProjects: 1,
+        createdAt: 1,
       },
     },
   ];
@@ -110,10 +121,10 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
 }
 //Lấy chi tiết hồ sơ một mentor, bao gồm dự án đang cố vấn và đã hoàn tất.
 async function getMentorById(mentorId) {
-  const mentor = await User.findOne(
-    { _id: mentorId, systemRole: SYSTEM_ROLES.MENTOR },
-    { passwordHash: 0, googleId: 0 }
-  ).lean();
+  // Whitelist select: chỉ lấy các trường công khai an toàn của Mentor
+  const mentor = await User.findOne({ _id: mentorId, systemRole: SYSTEM_ROLES.MENTOR })
+    .select('_id email fullName avatarUrl role systemRole status profile createdAt')
+    .lean();
   if (!mentor) {
     throw createError('Không tìm thấy mentor.', 404, 'MENTOR_NOT_FOUND');}
   const assignments = await MentorAssignment.find({ mentorId })

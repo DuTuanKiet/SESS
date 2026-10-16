@@ -106,6 +106,7 @@ const revokeSession = async (refreshToken, { allSessions = false } = {}) => {
 const revokeAllSessions = (userId) => User.updateOne({ _id: userId }, { $set: { refreshTokens: [] } });
 
 module.exports = {
+  signAccessToken,
   verifyAccessToken,
   verifyRefreshToken,
   issueTokens,

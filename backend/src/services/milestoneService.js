@@ -248,9 +248,12 @@ async function addMilestoneComment({ milestoneId, projectId, mentorId, content }
     );
   }
 
-  // Giảng viên có tối đa 5 ngày kể từ ngày milestone kết thúc (dueDate) để góp ý
+  // Tính hạn góp ý 5 ngày dựa trên thời điểm nộp minh chứng (hoặc dueDate nếu chưa nộp)
+  const baseTime = milestone.evidence?.submittedAt
+    ? new Date(milestone.evidence.submittedAt).getTime()
+    : new Date(milestone.dueDate).getTime();
   const commentDeadline = new Date(
-    new Date(milestone.dueDate).getTime() + COMMENT_DEADLINE_DAYS * 24 * 60 * 60 * 1000
+    baseTime + COMMENT_DEADLINE_DAYS * 24 * 60 * 60 * 1000
   );
   if (new Date() > commentDeadline) {
     throw createError(
@@ -283,7 +286,11 @@ async function addMilestoneComment({ milestoneId, projectId, mentorId, content }
 }
 
 //Lấy danh sách góp ý của một milestone, mới nhất trước
-async function getMilestoneComments({ milestoneId, projectId }) {
+async function getMilestoneComments({ milestoneId, projectId, user }) {
+  // Xác thực quyền truy cập dự án chống IDOR ở tầng service
+  if (user) {
+    await projectService.verifyProjectAccess(user.id || user._id, projectId, user.systemRole || user.role);
+  }
   await findMilestoneOrFail(milestoneId, projectId);
 
   return MilestoneComment.find({ milestoneId })

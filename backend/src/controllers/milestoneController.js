@@ -149,7 +149,7 @@ async function handleGetComments(req, res, next) {
   try {
     const { projectId, milestoneId } = req.params;
 
-    const data = await milestoneService.getMilestoneComments({ milestoneId, projectId });
+    const data = await milestoneService.getMilestoneComments({ milestoneId, projectId, user: req.user });
 
     return res.status(200).json({
       success: true,

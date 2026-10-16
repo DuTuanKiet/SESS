@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true });
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
+const authorizeProjectAccess = require('../middlewares/projectAccessMiddleware');
 const validate = require('../middlewares/validateMiddleware');
 const {projectIdParamsSchema, milestoneIdParamsSchema, createMilestoneBodySchema, updateMilestoneBodySchema, submitEvidenceBodySchema, addCommentBodySchema,} = require('../validations/milestoneValidation');
 const {handleCreateMilestone, handleUpdateMilestone, handleGetMilestones, handleGetMilestoneById, handleSubmitEvidence, handleAddComment, handleGetComments,} = require('../controllers/milestoneController');
@@ -86,6 +87,7 @@ router.get(
   '/:milestoneId/comments',
   authMiddleware,
   validate({ params: milestoneIdParamsSchema }),
+  authorizeProjectAccess(),
   handleGetComments
 );
 

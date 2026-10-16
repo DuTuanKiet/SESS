@@ -10,6 +10,7 @@ const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
 const {
   ASSIGNMENT_STATUS,
+  SYSTEM_ROLES,
   PROJECT_STATUS,
   MILESTONE_STATUS,
   PROJECT_CODE_PREFIX,
@@ -214,6 +215,58 @@ async function verifyMentorOfProject(mentorId, projectId) {
     );
   }
   return activeAssignment;
+}
+
+//Kiểm tra quyền truy cập dự án (Dùng cho Admin, Mentor phụ trách và Thành viên nhóm).
+//Ngăn chặn lỗ hổng IDOR khi đọc thông tin nhạy cảm của dự án (FR05/FR07).
+async function verifyProjectAccess(userId, projectId, userRole) {
+  // 1. Quản trị viên (Admin) luôn có quyền truy cập
+  if (userRole === SYSTEM_ROLES.ADMIN || userRole === 'admin') {
+    return { hasAccess: true, role: 'Admin' };
+  }
+
+  // 2. Kiểm tra sự tồn tại của dự án
+  const project = await Project.findById(projectId).lean();
+  if (!project) {
+    throw createError('Không tìm thấy dự án.', 404, 'PROJECT_NOT_FOUND');
+  }
+
+  // 3. Nếu là Mentor: Kiểm tra có được phân công phụ trách dự án đang hoạt động hay không
+  if (userRole === SYSTEM_ROLES.MENTOR || userRole === 'mentor' || userRole === 'teacher') {
+    const activeAssignment = await MentorAssignment.findOne({
+      projectId,
+      mentorId: userId,
+      status: ASSIGNMENT_STATUS.ASSIGNED,
+    }).lean();
+
+    if (activeAssignment) {
+      return { hasAccess: true, role: 'Mentor', project };
+    }
+  }
+
+  // 4. Nếu là Sinh viên / Thành viên: Kiểm tra cả 2 nhánh (ProjectMember độc lập và project.members / ownerId)
+  const isOwner = project.ownerId && project.ownerId.toString() === userId.toString();
+  const isEmbeddedMember = (project.members || []).some(
+    (m) => m.userId && m.userId.toString() === userId.toString()
+  );
+
+  if (isOwner || isEmbeddedMember) {
+    return { hasAccess: true, role: 'Member', project };
+  }
+
+  // Kiểm tra trong bảng ProjectMember (nhánh FR04)
+  const membership = await ProjectMember.findOne({
+    projectId,
+    userId,
+    status: PROJECT_MEMBER_STATUS.ACCEPTED,
+  }).lean();
+
+  if (membership) {
+    return { hasAccess: true, role: 'Member', project };
+  }
+
+  // Không thuộc bất kỳ nhóm nào trên -> Từ chối truy cập
+  throw createError('Bạn không có quyền xem góp ý của dự án này.', 403, 'FORBIDDEN');
 }
 
 
@@ -497,4 +550,5 @@ module.exports = {
   updateProjectStatus,
   verifyProjectOwner,
   verifyMentorOfProject,
+  verifyProjectAccess,
 };

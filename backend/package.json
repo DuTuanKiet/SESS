@@ -17,7 +17,8 @@
     "test:rubrics": "node src/scripts/testRubrics.js",
     "test:milestones": "node src/scripts/testMilestones.js",
     "test:milestones:full": "node src/scripts/testMilestonesFullSuite.js",
-    "test:project-completion": "node src/scripts/testProjectCompletion.js"
+    "test:project-completion": "node src/scripts/testProjectCompletion.js",
+    "test:mentor:security": "node src/scripts/testMentorSecurity.js"
   },
   "keywords": [],
   "author": "",
