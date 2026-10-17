@@ -11,23 +11,25 @@ const { SYSTEM_ROLES } = require('../utils/constants');
 
 /**
  * GET /api/v1/projects/:projectId/milestones
- * Lấy danh sách milestones. Yêu cầu đăng nhập.
+ * Lấy danh sách milestones. Yêu cầu đăng nhập & kiểm tra quyền truy cập dự án chống IDOR.
  */
 router.get(
   '/',
   authMiddleware,
   validate({ params: projectIdParamsSchema }),
+  authorizeProjectAccess(),
   handleGetMilestones
 );
 
 /**
  * GET /api/v1/projects/:projectId/milestones/:milestoneId
- * Lấy chi tiết milestone. Yêu cầu đăng nhập.
+ * Lấy chi tiết milestone. Yêu cầu đăng nhập & kiểm tra quyền truy cập dự án chống IDOR.
  */
 router.get(
   '/:milestoneId',
   authMiddleware,
   validate({ params: milestoneIdParamsSchema }),
+  authorizeProjectAccess(),
   handleGetMilestoneById
 );
 

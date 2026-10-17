@@ -180,23 +180,61 @@ async function updateProjectStatus(projectId, status, { session: externalSession
   }
 }
 
-//Kiểm tra user là Owner của dự án. Ném 403 nếu không phải Owner.
+/**
+ * Kiểm tra user là Owner của dự án. Ném 403 nếu không phải Owner.
+ * Thiết kế theo Kịch bản B:
+ * - Ưu tiên 1: Chuẩn FR01-FR04 qua bảng ProjectMember độc lập
+ * - Ưu tiên 2: Trường liên kết trực tiếp project.ownerId
+ * - Fallback: Mảng nhúng project.members (tương thích ngược với test fixtures FR05)
+ * @param {string|ObjectId} studentId - ID của sinh viên
+ * @param {string|ObjectId} projectId - ID của dự án
+ * @returns {Promise<Object>} project document đã tìm thấy
+ */
 async function verifyProjectOwner(studentId, projectId) {
   const project = await Project.findById(projectId).lean();
   if (!project) {
     throw createError('Không tìm thấy dự án.', 404, 'PROJECT_NOT_FOUND');
   }
-  const isOwner = (project.members || []).some(
-    (m) => m.userId.toString() === studentId && m.projectRole === 'Owner'
-  );
-  if (!isOwner) {
-    throw createError(
-      'Chỉ Owner của dự án mới có quyền thực hiện thao tác này.',
-      403,
-      'NOT_PROJECT_OWNER'
-    );
+
+  const studentIdStr = studentId.toString();
+
+  // 1. Chuẩn FR01-FR04: Kiểm tra trực tiếp bảng ProjectMember độc lập
+  const membership = await ProjectMember.findOne({
+    projectId,
+    userId: studentId,
+    role: PROJECT_MEMBER_ROLES.OWNER,
+    status: PROJECT_MEMBER_STATUS.ACCEPTED,
+  }).lean();
+
+  if (membership) {
+    return project;
   }
-  return project;
+
+  // 2. Chuẩn FR01-FR04: Kiểm tra trường ownerId trực tiếp trên Project
+  if (project.ownerId && project.ownerId.toString() === studentIdStr) {
+    return project;
+  }
+
+  // 3. Fallback FR05-FR08: Kiểm tra mảng nhúng members trong Project (an toàn khi mảng bị xóa)
+  const isEmbeddedOwner = Boolean(
+    (project.members || []).some(
+      (m) =>
+        m.userId &&
+        m.userId.toString() === studentIdStr &&
+        typeof m.projectRole === 'string' &&
+        m.projectRole.toLowerCase() === 'owner'
+    )
+  );
+
+  if (isEmbeddedOwner) {
+    return project;
+  }
+
+  throw createError(
+    'Chỉ Owner của dự án mới có quyền thực hiện thao tác này.',
+    403,
+    'NOT_PROJECT_OWNER'
+  );
 }
 
 //Kiểm tra mentor có đang phụ trách dự án với trạng thái 'Assigned'. Ném lỗi 403 nếu không phải mentor active của dự án.
@@ -266,7 +304,7 @@ async function verifyProjectAccess(userId, projectId, userRole) {
   }
 
   // Không thuộc bất kỳ nhóm nào trên -> Từ chối truy cập
-  throw createError('Bạn không có quyền xem góp ý của dự án này.', 403, 'FORBIDDEN');
+  throw createError('Bạn không có quyền truy cập thông tin của dự án này.', 403, 'FORBIDDEN');
 }
 
 

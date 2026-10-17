@@ -59,7 +59,7 @@ async function handleUpdateMilestone(req, res, next) {
 async function handleGetMilestones(req, res, next) {
   try {
     const { projectId } = req.params;
-    const data = await milestoneService.getMilestonesByProject(projectId);
+    const data = await milestoneService.getMilestonesByProject({ projectId, user: req.user });
 
     return res.status(200).json({
       success: true,
@@ -77,7 +77,7 @@ async function handleGetMilestones(req, res, next) {
 async function handleGetMilestoneById(req, res, next) {
   try {
     const { projectId, milestoneId } = req.params;
-    const data = await milestoneService.getMilestoneById({ milestoneId, projectId });
+    const data = await milestoneService.getMilestoneById({ milestoneId, projectId, user: req.user });
 
     return res.status(200).json({
       success: true,

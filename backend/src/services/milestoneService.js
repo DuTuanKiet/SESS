@@ -15,7 +15,7 @@ const {
 //Tính toán trạng thái chính xác của milestone theo thời gian thực (Computed Status).
 function resolveMilestoneStatus(milestone, now = new Date()) {
   if (milestone.evidence && milestone.evidence.submittedAt) {
-    return milestone.status;
+    return MILESTONE_STATUS.COMPLETED;
   }
 
   const start = new Date(milestone.startDate);
@@ -151,8 +151,27 @@ async function updateMilestone({ milestoneId, projectId, mentorId, updates }) {
 }
 
 //Lấy danh sách milestones của dự án.
-async function getMilestonesByProject(projectId) {
-  await projectService.getProjectById(projectId);
+async function getMilestonesByProject(params, maybeUser = null) {
+  let projectId;
+  let user = maybeUser;
+
+  if (params && typeof params === 'object' && 'projectId' in params) {
+    projectId = params.projectId;
+    user = params.user || maybeUser;
+  } else {
+    projectId = params;
+  }
+
+  // Xác thực quyền truy cập dự án chống IDOR ở tầng service
+  if (user) {
+    await projectService.verifyProjectAccess(
+      user.id || user._id,
+      projectId,
+      user.systemRole || user.role
+    );
+  } else {
+    await projectService.getProjectById(projectId);
+  }
 
   const milestones = await ProjectMilestone.find({ projectId })
     .populate('createdBy', 'profile.fullName email')
@@ -166,7 +185,16 @@ async function getMilestonesByProject(projectId) {
   }));
 }
 //Lấy thông tin chi tiết một milestone theo ID
-async function getMilestoneById({ milestoneId, projectId }) {
+async function getMilestoneById({ milestoneId, projectId, user = null }) {
+  // Xác thực quyền truy cập dự án chống IDOR ở tầng service
+  if (user) {
+    await projectService.verifyProjectAccess(
+      user.id || user._id,
+      projectId,
+      user.systemRole || user.role
+    );
+  }
+
   const milestone = await ProjectMilestone.findOne({ _id: milestoneId, projectId })
     .populate('createdBy', 'profile.fullName email')
     .populate('evidence.submittedBy', 'profile.fullName email')
@@ -213,17 +241,15 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
   }
 
   const submittedAt = new Date();
-  const finalStatus =
-    submittedAt <= new Date(milestone.dueDate)
-      ? MILESTONE_STATUS.COMPLETED
-      : MILESTONE_STATUS.OVERDUE;
+  const isLate = submittedAt > new Date(milestone.dueDate);
 
-  milestone.status = finalStatus;
+  milestone.status = MILESTONE_STATUS.COMPLETED;
   milestone.evidence = {
     submittedBy: studentId,
     url,
     note: note || '',
     submittedAt,
+    isLate,
   };
 
   await milestone.save();
