@@ -20,28 +20,63 @@ const {
   MENTORSHIP_ELIGIBLE_STATUSES,
 } = require('../utils/constants');
 /**
- * Lấy danh sách mentor với số lượng dự án đang cố vấn được tính theo thời gian thực.
- * Hỗ trợ phân trang, lọc theo chuyên môn, tìm kiếm tên/email và lọc theo tình trạng tải.*/
+ * Lấy danh sách mentor trực tiếp từ bảng Mentor với số lượng dự án đang phát triển (UnderMentorship).
+ * Hỗ trợ phân trang, lọc theo lĩnh vực/chuyên môn, tìm kiếm tên/email và lọc theo tình trạng tải.
+ * Một mentor tối đa chỉ nhận 2 dự án cố vấn đồng thời.
+ */
 async function getMentors({ page = 1, limit = 10, field, keyword, availability = 'all' } = {}) {
-  const matchStage = { systemRole: SYSTEM_ROLES.MENTOR };
-  if (field) { matchStage['profile.field'] = { $regex: field, $options: 'i' };}
+  const matchConditions = [];
+
+  // Lọc theo lĩnh vực nhận hướng dẫn (fields) hoặc chuyên môn sâu (expertise) trực tiếp từ bảng Mentor
+  if (field) {
+    matchConditions.push({
+      $or: [
+        { fields: { $regex: field, $options: 'i' } },
+        { expertise: { $regex: field, $options: 'i' } },
+      ],
+    });
+  }
+
+  // Lọc theo họ tên hoặc email trực tiếp từ bảng Mentor
   if (keyword) {
-    matchStage.$or = [
-      { 'profile.fullName': { $regex: keyword, $options: 'i' } },
-      { email: { $regex: keyword, $options: 'i' } },
-    ];}
+    matchConditions.push({
+      $or: [
+        { fullName: { $regex: keyword, $options: 'i' } },
+        { email: { $regex: keyword, $options: 'i' } },
+      ],
+    });
+  }
+
+  const matchStage = matchConditions.length > 0 ? { $and: matchConditions } : {};
   const skip = (page - 1) * limit;
-  // Aggregation: join với MentorAssignments để đếm số dự án đang active
+
+  // Aggregation bắt đầu trực tiếp từ Model Mentor
   const pipeline = [
     { $match: matchStage },
+    // Join với bảng User để lấy thông tin tài khoản (avatarUrl, role)
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'user',
+      },
+    },
+    {
+      $unwind: {
+        path: '$user',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    // Join với MentorAssignments để đếm các dự án ĐANG PHÁT TRIỂN (UNDER_MENTORSHIP)
     {
       $lookup: {
         from: 'mentorassignments',
-        let: { mentorId: '$_id' },
+        let: { mentorUserId: '$userId' },
         pipeline: [
           {
             $match: {
-              $expr: { $eq: ['$mentorId', '$$mentorId'] },
+              $expr: { $eq: ['$mentorId', '$$mentorUserId'] },
               status: ASSIGNMENT_STATUS.ASSIGNED,
             },
           },
@@ -54,12 +89,19 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
             },
           },
           { $unwind: { path: '$project', preserveNullAndEmptyArrays: true } },
+          // Chỉ tính các dự án đang trong giai đoạn cố vấn phát triển (UNDER_MENTORSHIP)
+          {
+            $match: {
+              'project.status': PROJECT_STATUS.UNDER_MENTORSHIP,
+            },
+          },
           {
             $project: {
               _id: 0,
               projectId: '$project._id',
               projectName: '$project.name',
               projectField: '$project.field',
+              status: '$project.status',
             },
           },
         ],
@@ -69,27 +111,36 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
     {
       $addFields: {
         activeProjectsCount: { $size: '$activeAssignments' },
-        maxProjects: MAX_PROJECTS_PER_MENTOR,
+        maxProjects: MAX_PROJECTS_PER_MENTOR, // Luôn cố định là 2 dự án đồng thời
         canAcceptMore: {
           $and: [
-            { $eq: ['$status', USER_STATUS.ACTIVE] },
+            { $eq: ['$status', MENTOR_STATUS.ACTIVE] },
             { $lt: [{ $size: '$activeAssignments' }, MAX_PROJECTS_PER_MENTOR] },
           ],
         },
         currentProjects: '$activeAssignments',
       },
     },
+    // Whitelist Positive Projection: Nhận trường role từ bảng User, thông tin chuyên môn từ bảng Mentor
     {
-      // Positive/Whitelist Projection: chỉ trả về các trường an toàn, ngăn chặn rò rỉ password, refreshTokens và PII
       $project: {
-        _id: 1,
+        _id: '$userId',
+        mentorProfileId: '$_id',
+        userId: '$userId',
         email: 1,
         fullName: 1,
-        avatarUrl: 1,
-        role: 1,
-        systemRole: 1,
+        avatarUrl: { $ifNull: ['$user.avatarUrl', ''] },
+        role: { $ifNull: ['$user.role', USER_ROLES.MENTOR] },
+        systemRole: { $ifNull: ['$user.systemRole', SYSTEM_ROLES.MENTOR] },
         status: 1,
-        profile: 1,
+        expertise: 1,
+        fields: 1,
+        bio: 1,
+        profile: {
+          fullName: '$fullName',
+          bio: '$bio',
+          field: { $ifNull: [{ $arrayElemAt: ['$fields', 0] }, ''] },
+        },
         activeProjectsCount: 1,
         maxProjects: 1,
         canAcceptMore: 1,
@@ -98,18 +149,21 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
       },
     },
   ];
-  // Lọc theo availability sau khi tính toán
+
+  // Lọc theo availability nếu có
   if (availability === 'available') {
     pipeline.push({ $match: { canAcceptMore: true } });
   } else if (availability === 'full') {
-    pipeline.push({ $match: { canAcceptMore: false, status: USER_STATUS.ACTIVE } });
+    pipeline.push({ $match: { canAcceptMore: false, status: MENTOR_STATUS.ACTIVE } });
   }
-  // Đếm tổng trước khi phân trang
+
   const countPipeline = [...pipeline, { $count: 'total' }];
-  const [countResult] = await User.aggregate(countPipeline);
+  const [countResult] = await Mentor.aggregate(countPipeline);
   const total = countResult?.total ?? 0;
+
   pipeline.push({ $skip: skip }, { $limit: limit });
-  const mentors = await User.aggregate(pipeline);
+  const mentors = await Mentor.aggregate(pipeline);
+
   return {
     mentors,
     pagination: {
@@ -119,31 +173,95 @@ async function getMentors({ page = 1, limit = 10, field, keyword, availability =
     },
   };
 }
-//Lấy chi tiết hồ sơ một mentor, bao gồm dự án đang cố vấn và đã hoàn tất.
+
+/**
+ * Lấy chi tiết hồ sơ một mentor thông qua bảng Mentor.
+ * Tái sử dụng findMentorByUserId và ensureMentorProfile đã có sẵn.
+ */
 async function getMentorById(mentorId) {
-  // Whitelist select: chỉ lấy các trường công khai an toàn của Mentor
-  const mentor = await User.findOne({ _id: mentorId, systemRole: SYSTEM_ROLES.MENTOR })
-    .select('_id email fullName avatarUrl role systemRole status profile createdAt')
-    .lean();
+  // Tái sử dụng hàm findMentorByUserId đã có sẵn
+  let mentor = await findMentorByUserId(mentorId).lean();
   if (!mentor) {
-    throw createError('Không tìm thấy mentor.', 404, 'MENTOR_NOT_FOUND');}
-  const assignments = await MentorAssignment.find({ mentorId })
+    // Dự phòng trường hợp caller truyền Mentor._id thay vì userId
+    mentor = await Mentor.findById(mentorId).lean();
+  }
+
+  // Nếu chưa có trong bảng Mentor, kiểm tra bảng User theo đúng trường role (USER_ROLES.MENTOR)
+  if (!mentor) {
+    const user = await User.findOne({ _id: mentorId, role: USER_ROLES.MENTOR }).lean();
+    if (!user) {
+      throw createError('Không tìm thấy mentor.', 404, 'MENTOR_NOT_FOUND');
+    }
+    // Tái sử dụng ensureMentorProfile đã có sẵn
+    const created = await ensureMentorProfile(user);
+    mentor = created ? (created.toObject ? created.toObject() : created) : null;
+  }
+
+  if (!mentor) {
+    throw createError('Không tìm thấy mentor.', 404, 'MENTOR_NOT_FOUND');
+  }
+
+  // Lấy avatarUrl và role từ User
+  const user = await User.findById(mentor.userId).select('avatarUrl role').lean();
+
+  const assignments = await MentorAssignment.find({ mentorId: mentor.userId })
     .populate('projectId', 'name field status')
     .sort({ assignedAt: -1 })
     .lean();
+
+  // Dự án đang phát triển (UnderMentorship và Assigned)
   const activeProjects = assignments
-    .filter((a) => a.status === ASSIGNMENT_STATUS.ASSIGNED)
-    .map((a) => ({ ...a.projectId, assignmentStatus: a.status, assignedAt: a.assignedAt, startedAt: a.startedAt }));
+    .filter(
+      (a) =>
+        a.status === ASSIGNMENT_STATUS.ASSIGNED &&
+        a.projectId?.status === PROJECT_STATUS.UNDER_MENTORSHIP
+    )
+    .map((a) => ({
+      ...a.projectId,
+      assignmentStatus: a.status,
+      assignedAt: a.assignedAt,
+      startedAt: a.startedAt,
+    }));
+
+  // Dự án đã kết thúc hoặc không còn trong UnderMentorship
   const pastProjects = assignments
-    .filter((a) => a.status !== ASSIGNMENT_STATUS.ASSIGNED)
-    .map((a) => ({ ...a.projectId, assignmentStatus: a.status, assignedAt: a.assignedAt, startedAt: a.startedAt, endedAt: a.endedAt }));
+    .filter(
+      (a) =>
+        a.status !== ASSIGNMENT_STATUS.ASSIGNED ||
+        a.projectId?.status !== PROJECT_STATUS.UNDER_MENTORSHIP
+    )
+    .map((a) => ({
+      ...a.projectId,
+      assignmentStatus: a.status,
+      assignedAt: a.assignedAt,
+      startedAt: a.startedAt,
+      endedAt: a.endedAt,
+    }));
+
   return {
-    ...mentor,
+    _id: mentor.userId,
+    mentorProfileId: mentor._id,
+    userId: mentor.userId,
+    email: mentor.email,
+    fullName: mentor.fullName,
+    avatarUrl: user?.avatarUrl || '',
+    role: user?.role || USER_ROLES.MENTOR,
+    systemRole: user?.systemRole || SYSTEM_ROLES.MENTOR,
+    status: mentor.status,
+    expertise: mentor.expertise || [],
+    fields: mentor.fields || [],
+    bio: mentor.bio || '',
+    profile: {
+      fullName: mentor.fullName,
+      bio: mentor.bio || '',
+      field: mentor.fields?.[0] || '',
+    },
     activeProjectsCount: activeProjects.length,
-    maxProjects: MAX_PROJECTS_PER_MENTOR,
-    canAcceptMore: mentor.status === USER_STATUS.ACTIVE && activeProjects.length < MAX_PROJECTS_PER_MENTOR,
+    maxProjects: MAX_PROJECTS_PER_MENTOR, // Cố định 2 dự án đồng thời
+    canAcceptMore: mentor.status === MENTOR_STATUS.ACTIVE && activeProjects.length < MAX_PROJECTS_PER_MENTOR,
     activeProjects,
     pastProjects,
+    createdAt: mentor.createdAt,
   };
 }
 /** Phân công mentor cho dự án.
@@ -173,7 +291,7 @@ async function assignMentorToProject({ projectId, mentorId, adminId, note }) {
   if (!mentor) {
     throw createError('Mentor không tồn tại.', 404, 'MENTOR_NOT_FOUND');
   }
-  if (mentor.systemRole !== SYSTEM_ROLES.MENTOR) {
+  if (mentor.role !== USER_ROLES.MENTOR && mentor.systemRole !== SYSTEM_ROLES.MENTOR) {
     throw createError('Người dùng không phải mentor.', 400, 'INVALID_MENTOR_ROLE');
   }
   if (mentor.status !== USER_STATUS.ACTIVE) {
@@ -232,7 +350,7 @@ async function assignMentorToProject({ projectId, mentorId, adminId, note }) {
         assignmentId: assignment._id,
         projectId: assignment.projectId,
         mentorId: assignment.mentorId,
-        mentorName: mentor.profile.fullName,
+        mentorName: mentor.fullName || mentor.profile?.fullName || '',
         status: assignment.status,
         assignedAt: assignment.assignedAt,
         startedAt: assignment.startedAt,
@@ -273,7 +391,7 @@ async function reassignMentorToProject({ projectId, newMentorId, adminId, reason
   if (!newMentor) {
     throw createError('Không tìm thấy mentor mới.', 404, 'MENTOR_NOT_FOUND');
   }
-  if (newMentor.systemRole !== SYSTEM_ROLES.MENTOR) {
+  if (newMentor.role !== USER_ROLES.MENTOR && newMentor.systemRole !== SYSTEM_ROLES.MENTOR) {
     throw createError('Người dùng mới được chọn không phải là Mentor.', 400, 'INVALID_MENTOR_ROLE');
   }
   if (newMentor.status !== USER_STATUS.ACTIVE) {
@@ -338,7 +456,7 @@ async function reassignMentorToProject({ projectId, newMentorId, adminId, reason
         newAssignmentId: newAssignment._id,
         projectId,
         newMentorId,
-        newMentorName: newMentor.profile.fullName,
+        newMentorName: newMentor.fullName || newMentor.profile?.fullName || '',
         reassignedAt: now,
         startedAt: newAssignment.startedAt,
       };

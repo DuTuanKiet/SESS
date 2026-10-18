@@ -98,8 +98,8 @@ const MENTOR_STATUS = Object.freeze({
   INACTIVE: 'INACTIVE',
 });
 
-/** Giá trị mặc định khi tự khởi tạo hồ sơ Mentor */
-const MENTOR_DEFAULT_MAX_PROJECTS = 5;
+/** Giá trị mặc định khi tự khởi tạo hồ sơ Mentor (tối đa 2 dự án cố vấn đồng thời) */
+const MENTOR_DEFAULT_MAX_PROJECTS = 2;
 
 /** Trạng thái phân công mentor (FR05-FR08) */
 const ASSIGNMENT_STATUS = Object.freeze({
