@@ -170,9 +170,20 @@ async function activateRubric({ rubricId, adminId }) {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
+      const targetRootId = rubric.rootRubricId || rubric._id;
+
+      // Đảm bảo chính rubric đang được kích hoạt có rootRubricId hợp lệ
+      if (!rubric.rootRubricId) {
+        rubric.rootRubricId = targetRootId;
+      }
+
       await EvaluationRubric.updateMany(
-        { rootRubricId: rubric.rootRubricId, status: RUBRIC_STATUS.ACTIVE, _id: { $ne: rubric._id } },
-        { $set: { status: RUBRIC_STATUS.DEPRECATED } },
+        {
+          $or: [{ rootRubricId: targetRootId }, { _id: targetRootId }],
+          status: RUBRIC_STATUS.ACTIVE,
+          _id: { $ne: rubric._id },
+        },
+        { $set: { status: RUBRIC_STATUS.DEPRECATED, rootRubricId: targetRootId } },
         { session }
       );
       rubric.status = RUBRIC_STATUS.ACTIVE;
@@ -214,7 +225,12 @@ async function getRubricById(rubricId) {
 //Lấy lịch sử phiên bản của một bộ tiêu chí
 async function getRubricVersions(rubricId) {
   const rubric = await _findRubricById(rubricId);
-  return EvaluationRubric.find({ rootRubricId: rubric.rootRubricId || rubric._id }).sort({ version: -1 }).lean();
+  const targetRootId = rubric.rootRubricId || rubric._id;
+  return EvaluationRubric.find({
+    $or: [{ rootRubricId: targetRootId }, { _id: targetRootId }],
+  })
+    .sort({ version: -1 })
+    .lean();
 }
 module.exports = {
   createRubric,

@@ -75,6 +75,7 @@ async function createMilestone({ projectId, mentorId, title, description, startD
     action: AUDIT_ACTIONS.CREATE_MILESTONE,
     targetEntity: AUDIT_ENTITIES.PROJECT_MILESTONES,
     targetId: milestone._id.toString(),
+    oldValues: null,
     newValues: {
       projectId,
       title,
@@ -90,19 +91,49 @@ async function createMilestone({ projectId, mentorId, title, description, startD
   return result;
 }
 
-//Cập nhật milestone. Chỉ cho phép cập nhật khi milestone đang ở Pending.
-//Ghi vết audit log UPDATE_MILESTONE.
+// Cập nhật milestone. Chỉ Mentor phụ trách được phép khi dự án đang UnderMentorship.
+// - Khi Pending: cho phép sửa title, description, startDate, dueDate.
+// - Khi InProgress: cho phép sửa title, description, dueDate; cấm sửa startDate.
+// - Khi đã kết thúc (Completed, Overdue, NotComplete): cấm sửa toàn bộ.
+// Ghi vết audit log UPDATE_MILESTONE.
 async function updateMilestone({ milestoneId, projectId, mentorId, updates }) {
   const milestone = await findMilestoneOrFail(milestoneId, projectId);
 
-  const currentStatus = resolveMilestoneStatus(milestone);
-  if (currentStatus !== MILESTONE_STATUS.PENDING) {
+  // BUG-FR05-03: Kiểm tra trạng thái dự án phải đang UnderMentorship
+  const project = await projectService.getProjectById(projectId);
+  if (project.status !== PROJECT_STATUS.UNDER_MENTORSHIP) {
     throw createError(
-      'Milestone đã bắt đầu hoặc kết thúc.', 400, 'MILESTONE_NOT_EDITABLE'
+      'Dự án không còn trong giai đoạn cố vấn, không thể cập nhật milestone.',
+      400,
+      'PROJECT_NOT_UNDER_MENTORSHIP'
+    );
+  }
+
+  const currentStatus = resolveMilestoneStatus(milestone);
+
+  //Chặn tuyệt đối nếu milestone đã kết thúc
+  if (
+    currentStatus === MILESTONE_STATUS.COMPLETED ||
+    currentStatus === MILESTONE_STATUS.OVERDUE ||
+    currentStatus === MILESTONE_STATUS.NOT_COMPLETE
+  ) {
+    throw createError(
+      'Milestone đã kết thúc, không thể chỉnh sửa.',
+      400,
+      'MILESTONE_NOT_EDITABLE'
     );
   }
 
   await projectService.verifyMentorOfProject(mentorId, projectId);
+
+  //Khi milestone đang InProgress, không được phép sửa startDate
+  if (currentStatus === MILESTONE_STATUS.IN_PROGRESS && updates.startDate !== undefined) {
+    throw createError(
+      'Không được phép chỉnh sửa ngày bắt đầu khi milestone đang diễn ra.',
+      400,
+      'CANNOT_UPDATE_START_DATE'
+    );
+  }
 
   const newStartDate = updates.startDate ? new Date(updates.startDate) : milestone.startDate;
   const newDueDate = updates.dueDate ? new Date(updates.dueDate) : milestone.dueDate;
@@ -122,9 +153,11 @@ async function updateMilestone({ milestoneId, projectId, mentorId, updates }) {
     dueDate: milestone.dueDate,
   };
 
+  if (currentStatus === MILESTONE_STATUS.PENDING) {
+    if (updates.startDate !== undefined) milestone.startDate = newStartDate;
+  }
   if (updates.title !== undefined) milestone.title = updates.title;
   if (updates.description !== undefined) milestone.description = updates.description;
-  if (updates.startDate !== undefined) milestone.startDate = newStartDate;
   if (updates.dueDate !== undefined) milestone.dueDate = newDueDate;
 
   await milestone.save();
@@ -213,6 +246,16 @@ async function getMilestoneById({ milestoneId, projectId, user = null }) {
 async function submitEvidence({ milestoneId, projectId, studentId, url, note = '' }) {
   const milestone = await findMilestoneOrFail(milestoneId, projectId);
 
+  // BUG-FR05-03: Kiểm tra trạng thái dự án phải đang UnderMentorship
+  const project = await projectService.getProjectById(projectId);
+  if (project.status !== PROJECT_STATUS.UNDER_MENTORSHIP) {
+    throw createError(
+      'Dự án không còn trong giai đoạn cố vấn, không thể nộp minh chứng.',
+      400,
+      'PROJECT_NOT_UNDER_MENTORSHIP'
+    );
+  }
+
   await projectService.verifyProjectOwner(studentId, projectId);
 
   const currentStatus = resolveMilestoneStatus(milestone);
@@ -253,6 +296,29 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
   };
 
   await milestone.save();
+
+  // Ghi vết audit log SUBMIT_EVIDENCE
+  await auditService.createAuditLog({
+    userId: studentId,
+    action: AUDIT_ACTIONS.SUBMIT_EVIDENCE,
+    targetEntity: AUDIT_ENTITIES.PROJECT_MILESTONES,
+    targetId: milestone._id.toString(),
+    oldValues: {
+      status: currentStatus,
+      evidence: null,
+    },
+    newValues: {
+      projectId,
+      status: milestone.status,
+      evidence: {
+        submittedBy: studentId,
+        url: milestone.evidence.url,
+        note: milestone.evidence.note,
+        submittedAt: milestone.evidence.submittedAt,
+        isLate: milestone.evidence.isLate,
+      },
+    },
+  });
 
   await milestone.populate([
     { path: 'createdBy', select: 'profile.fullName email' },

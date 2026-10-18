@@ -37,6 +37,14 @@ const evaluationRubricSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Tự động gán rootRubricId bằng chính _id nếu là bản ghi gốc (chưa có rootRubricId)
+evaluationRubricSchema.pre('save', function (next) {
+  if (!this.rootRubricId) {
+    this.rootRubricId = this._id;
+  }
+  if (typeof next === 'function') next();
+});
+
 evaluationRubricSchema.index({ rootRubricId: 1, version: -1 });
 
 module.exports = mongoose.model('EvaluationRubric', evaluationRubricSchema);
