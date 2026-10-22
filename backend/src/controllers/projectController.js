@@ -99,18 +99,22 @@ async function handleGetUnassignedProjects(req, res, next) {
 async function handleUpdateProjectStatus(req, res, next) {
   try {
     const { projectId } = req.params;
-    const { status, note } = req.body;
+    const { status, note, force, forceReason } = req.body;
     const adminId = req.user.id;
 
     const data = await projectService.updateProjectStatus(projectId, status, {
       adminId,
       note,
+      force: Boolean(force),
+      forceReason,
     });
 
     return res.status(200).json({
       success: true,
       code: 'PROJECT_STATUS_UPDATED',
-      message: 'Cập nhật trạng thái dự án thành công.',
+      message: data.forced
+        ? 'Cưỡng chế trạng thái dự án thành công (đã ghi nhận ký kiểm toán).'
+        : 'Cập nhật trạng thái dự án thành công.',
       data,
     });
   } catch (error) {

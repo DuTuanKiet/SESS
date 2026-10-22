@@ -17,6 +17,11 @@ const cloudUploadRouter = require('./cloudUploadRouter');
 const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
 const votingRouter = require('./votingRouter');
+
+// --- Routes vòng đời nâng cao (Enterprise Edition) ---
+const projectCancellationRoutes = require('./projectCancellationRoutes');
+const projectHierarchyRoutes = require('./projectHierarchyRoutes');
+const evaluationRoutes = require('./evaluationRoutes');
 const queueService = require('../services/queueService');
 
 const router = express.Router();
@@ -84,7 +89,13 @@ router.use('/public/votes', votingRouter);
 // /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)
 //   FR05-FR08: GET /unassigned-mentor, PATCH /:projectId/status
 //   FR01-FR04: GET /, POST /, GET /:id, PUT /:id, POST /:id/submit, GET /:id/revisions, các route thành viên (FR04)
+//
+// Vòng đời nâng cao PHẢI được mount TRƯỚC projectRouter vì có path tĩnh
+// (/cancellation-requests) - nếu mount sau sẽ bị route GET /:id bắt mất.
 // ---------------------------------------------------------------------------
+router.use('/projects', projectCancellationRoutes);
+router.use('/projects', projectHierarchyRoutes);
+router.use('/projects', evaluationRoutes);
 router.use('/projects', fr05ProjectRoutes);
 router.use('/projects', projectRouter);
 

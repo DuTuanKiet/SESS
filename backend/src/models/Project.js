@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { PROJECT_STATUS, MILESTONE_STATUS } = require('../utils/constants');
+const { PROJECT_STATUS, MILESTONE_STATUS, PROJECT_LEVEL } = require('../utils/constants');
 
 /** Mốc tiến độ của dự án (dùng cho FR03 và dữ liệu gửi AI ở FR09/FR10) */
 const milestoneSchema = new mongoose.Schema(
@@ -79,6 +79,27 @@ const projectSchema = new mongoose.Schema(
       default: PROJECT_STATUS.DRAFT,
       index: true,
     },
+
+    // --- Thi đấu đa cấp (Enterprise Edition) ---
+    /** Dự án cha (bản gốc ở cấp thấp hơn). null = dự án gốc cấp Khoa. */
+    parentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      default: null,
+      index: true,
+    },
+    /** Cấp thi của dự án */
+    level: {
+      type: String,
+      enum: Object.values(PROJECT_LEVEL),
+      default: PROJECT_LEVEL.FACULTY,
+      index: true,
+    },
+    /** Đánh dấu dự án đang liên kết thi vượt cấp (có dự án cha hoặc có dự án con) */
+    isLinked: { type: Boolean, default: false, index: true },
+
+    /** Tiểu ban giám khảo của dự án (dùng cho vòng chấm Rubric -> trạng thái EVALUATED) */
+    judges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
   },
   {
     timestamps: true,

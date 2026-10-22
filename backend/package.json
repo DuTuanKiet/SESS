@@ -14,6 +14,7 @@
     "seed:whitelist": "node scripts/seed-whitelist.js",
     "cleanup": "node scripts/cleanup.js",
     "test:integration": "node scripts/test-integration.js",
+    "test:mail": "node scripts/test-mail.js",
     "worker": "node src/workers/standalone.js"
   },
   "keywords": [],

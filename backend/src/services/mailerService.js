@@ -11,12 +11,65 @@ let isPreviewMode = false;
 const PRIMARY_TEST_RECIPIENT = GLOBAL_TEST_EMAIL;
 
 /**
- * Safe-guard cho môi trường development:
- * Tránh Gmail trả về thư phản hồi "Mail Delivery Subsystem 550" khi test với các địa chỉ
- * sinh viên mẫu không tồn tại -> các địa chỉ khác chỉ mô phỏng bằng console.
+ * Địa chỉ MẪU dùng cho seed/fixture - KHÔNG tồn tại ngoài đời.
+ * Gửi mail thật tới các địa chỉ này sẽ sinh lỗi SMTP 5.1.1 (recipient does not exist).
+ * Danh sách chặn cứng để chắc chắn không bao giờ gửi nhầm.
  */
-const shouldSimulateMailInDev = (to) =>
-  env.nodeEnv === 'development' && normalizeEmail(to) !== PRIMARY_TEST_RECIPIENT;
+const SAMPLE_ADDRESS_PATTERN =
+  /^(it\.[a-z0-9]+@ctuet\.edu\.vn|11012200\d@student\.ctuet\.edu\.vn|gk\d*@ctuet\.edu\.vn|gv01@ctuet\.edu\.vn|mentor01@ctuet\.edu\.vn|admin@ctuet\.edu\.vn)$/i;
+
+/** Kiểm tra 1 địa chỉ có phải địa chỉ mẫu (seed/fixture) hay không */
+const isSampleAddress = (email) => SAMPLE_ADDRESS_PATTERN.test(normalizeEmail(email));
+
+/**
+ * Quyết định ĐÍCH GỬI THỰC TẾ cho mọi email của hệ thống.
+ *
+ * - Production: gửi đúng người nhận. Địa chỉ mẫu bị bỏ qua (tránh lỗi 5.1.1).
+ * - Dev/Test  : hệ thống LUÔN gửi về GLOBAL_TEST_EMAIL để không gửi nhầm tới địa chỉ
+ *               không tồn tại; người nhận dự kiến được ghi rõ trong nội dung + log.
+ *
+ * @returns {{deliveryTo: string|null, intendedTo: string, redirected: boolean, skipped: boolean, reason: string}}
+ */
+const resolveDeliveryTarget = (to) => {
+  const intendedTo = normalizeEmail(to);
+
+  if (!intendedTo) {
+    return { deliveryTo: null, intendedTo, redirected: false, skipped: true, reason: 'EMPTY_RECIPIENT' };
+  }
+
+  if (env.isProduction) {
+    if (isSampleAddress(intendedTo)) {
+      return {
+        deliveryTo: null,
+        intendedTo,
+        redirected: false,
+        skipped: true,
+        reason: 'SAMPLE_ADDRESS_BLOCKED',
+      };
+    }
+    return { deliveryTo: intendedTo, intendedTo, redirected: false, skipped: false, reason: '' };
+  }
+
+  return {
+    deliveryTo: PRIMARY_TEST_RECIPIENT,
+    intendedTo,
+    redirected: intendedTo !== PRIMARY_TEST_RECIPIENT,
+    skipped: false,
+    reason: '',
+  };
+};
+
+/** Ghi chú "người nhận dự kiến" vào thân email khi bị chuyển hướng về email test */
+const buildDeliveryNotice = (intendedTo) => ({
+  text: `\n\n---------------------------------------\n[DEV/TEST] Email này được chuyển hướng về ${PRIMARY_TEST_RECIPIENT}\nNgười nhận dự kiến: ${intendedTo}\n`,
+  html: `<div style="max-width:600px;margin:0 auto;padding:10px 24px 28px;font-size:12px;color:#8b93a5;line-height:1.6;">[DEV/TEST] Email này được chuyển hướng về <strong>${PRIMARY_TEST_RECIPIENT}</strong><br />Người nhận dự kiến: ${intendedTo}</div>`,
+});
+
+/**
+ * Safe-guard cho môi trường development:
+ * Tránh Gmail trả về thư phản hồi "Mail Delivery Subsystem 550 / 5.1.1" khi gửi tới
+ * các địa chỉ sinh viên mẫu không tồn tại -> mọi email đều hội tụ về email test chính.
+ */
 
 /** Chỉ gửi mail thật khi có đủ host + tài khoản SMTP; thiếu bất kỳ phần nào -> in ra console (chế độ dev) */
 const isSmtpConfigured = () => Boolean(env.mail.host && env.mail.user && env.mail.pass);
@@ -50,35 +103,86 @@ const logMailToConsole = (to, subject, text) => {
   console.log('==============================================\n');
 };
 
+/**
+ * Hàm gửi email DUY NHẤT của hệ thống.
+ * Mọi email (OTP, chào mừng, thông báo đăng nhập, lời mời dự án, biên nhận số)
+ * đều đi qua đây -> đảm bảo định tuyến đúng về GLOBAL_TEST_EMAIL ở dev/test.
+ */
 const sendMail = async ({ to, subject, text, html }) => {
-  // Dev: mô phỏng gửi mail cho mọi địa chỉ trừ email test chính (không gọi SMTP thật)
-  if (shouldSimulateMailInDev(to)) {
-    console.log(`[DEV MAILER SIMULATION] Gửi email đến: ${to} | Tiêu đề: ${subject}`);
-    return;
+  const target = resolveDeliveryTarget(to);
+
+  if (target.skipped) {
+    console.warn(
+      `[Mail] BỎ QUA gửi email tới "${target.intendedTo}" (${target.reason}). ` +
+        'Địa chỉ mẫu không tồn tại ngoài đời -> tránh lỗi SMTP 5.1.1.',
+    );
+    return { sent: false, skipped: true, deliveryTo: null, intendedTo: target.intendedTo };
+  }
+
+  let finalText = text ?? '';
+  let finalHtml = html;
+
+  if (target.redirected) {
+    const notice = buildDeliveryNotice(target.intendedTo);
+    finalText = `${finalText}${notice.text}`;
+    if (finalHtml) finalHtml = finalHtml.replace('</body>', `${notice.html}</body>`);
+    console.log(
+      `[Mail] Chuyển hướng email "${subject}": ${target.intendedTo} -> ${target.deliveryTo}`,
+    );
   }
 
   let info;
   try {
-    info = await getTransporter().sendMail({ from: env.mail.from, to, subject, text, html });
+    info = await getTransporter().sendMail({
+      from: env.mail.from,
+      to: target.deliveryTo,
+      subject,
+      text: finalText,
+      html: finalHtml,
+      headers: { 'X-Intended-Recipient': target.intendedTo },
+    });
   } catch (error) {
-    console.error(`[Mail] Gửi email tới ${to} thất bại: ${error.message}`);
+    console.error(`[Mail] Gửi email tới ${target.deliveryTo} thất bại: ${error.message}`);
 
     // Production: báo lỗi 503 cho client. Dev: in mail ra console để không chặn luồng test.
     if (env.isProduction) {
       throw ApiError.serviceUnavailable('Không gửi được email, vui lòng thử lại sau', 'MAIL_SEND_FAILED');
     }
-    logMailToConsole(to, subject, text);
-    return;
+    logMailToConsole(target.deliveryTo, subject, finalText);
+    return {
+      sent: false,
+      skipped: false,
+      deliveryTo: target.deliveryTo,
+      intendedTo: target.intendedTo,
+      error: error.message,
+    };
   }
 
   if (isPreviewMode) {
-    logMailToConsole(to, subject, text);
-    return;
+    logMailToConsole(target.deliveryTo, subject, finalText);
+    return {
+      sent: false,
+      skipped: false,
+      preview: true,
+      deliveryTo: target.deliveryTo,
+      intendedTo: target.intendedTo,
+    };
   }
 
   console.log(
-    `[Mail] Đã gửi "${subject}" tới ${to} | messageId: ${info.messageId} | accepted: ${(info.accepted ?? []).join(', ')} | text: ${text.length} ký tự | html: ${html ? `${html.length} ký tự` : 'không có'}`,
+    `[Mail] Đã gửi "${subject}" tới ${target.deliveryTo}` +
+      `${target.redirected ? ` (người nhận dự kiến: ${target.intendedTo})` : ''}` +
+      ` | messageId: ${info.messageId} | accepted: ${(info.accepted ?? []).join(', ')}` +
+      ` | text: ${finalText.length} ký tự | html: ${finalHtml ? `${finalHtml.length} ký tự` : 'không có'}`,
   );
+
+  return {
+    sent: true,
+    skipped: false,
+    deliveryTo: target.deliveryTo,
+    intendedTo: target.intendedTo,
+    messageId: info.messageId,
+  };
 };
 
 /** Nhận diện thương hiệu dùng chung cho mọi email */
@@ -452,18 +556,20 @@ const sendDigitalReceiptEmail = async (to, {
   ].join('\n');
 
   const recipients = [to, ...memberEmails].filter(Boolean);
-  await Promise.all(recipients.map((recipient) =>
-    sendMail({
-      to: recipient,
-      subject: `SESS - CTUT: Biên nhận số nộp bài ${projectCode || ''}`.trim(),
-      text,
-      html: renderEmailLayout({
-        heading: 'Biên nhận số nộp bài',
-        preheader: `Mã hash biên nhận: ${receiptHash || ''}`,
-        contentHtml,
+  return Promise.all(
+    recipients.map((recipient) =>
+      sendMail({
+        to: recipient,
+        subject: `SESS - CTUT: Biên nhận số nộp bài ${projectCode || ''}`.trim(),
+        text,
+        html: renderEmailLayout({
+          heading: 'Biên nhận số nộp bài',
+          preheader: `Mã hash biên nhận: ${receiptHash || ''}`,
+          contentHtml,
+        }),
       }),
-    })
-  ));
+    ),
+  );
 };
 
 module.exports = {
@@ -476,4 +582,7 @@ module.exports = {
   renderOtpEmail,
   renderWelcomeEmail,
   renderLoginNotificationEmail,
+  resolveDeliveryTarget,
+  isSampleAddress,
+  PRIMARY_TEST_RECIPIENT,
 };

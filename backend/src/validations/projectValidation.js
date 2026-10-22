@@ -34,14 +34,22 @@ const updateProjectStatusParamsSchema = z.object({
 });
 
 // Schema body cập nhật trạng thái dự án
-const updateProjectStatusBodySchema = z.object({
-  status: z.nativeEnum(PROJECT_STATUS, {
-    errorMap: () => ({
-      message: `Trạng thái không hợp lệ. Cho phép: ${Object.values(PROJECT_STATUS).join(', ')}`,
+const updateProjectStatusBodySchema = z
+  .object({
+    status: z.nativeEnum(PROJECT_STATUS, {
+      errorMap: () => ({
+        message: `Trạng thái không hợp lệ. Cho phép: ${Object.values(PROJECT_STATUS).join(', ')}`,
+      }),
     }),
-  }),
-  note: z.string().trim().max(500, { message: 'Ghi chú không được vượt quá 500 ký tự.' }).optional(),
-});
+    note: z.string().trim().max(500, { message: 'Ghi chú không được vượt quá 500 ký tự.' }).optional(),
+    // Admin có thể cưỡng chế (FORCE_OVERRIDE) trạng thái kết thúc, bắt buộc có lý do kiểm toán
+    force: z.boolean().optional().default(false),
+    forceReason: z.string().trim().max(500, { message: 'Lý do không được vượt quá 500 ký tự.' }).optional(),
+  })
+  .refine((data) => !data.force || (data.forceReason ?? '').length >= 10, {
+    message: 'Khi force = true, "forceReason" bắt buộc có ít nhất 10 ký tự.',
+    path: ['forceReason'],
+  });
 
 module.exports = {
   getUnassignedProjectsQuerySchema,

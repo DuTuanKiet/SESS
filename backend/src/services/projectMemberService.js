@@ -49,9 +49,12 @@ const assertNoActiveProject = async (userId) => {
   const memberships = await ProjectMember.find({ userId, status: ACCEPTED }).select('projectId').lean();
   if (!memberships.length) return;
 
+  // Dự án con do thi vượt cấp (có parentId) là BẢN SAO của dự án gốc ở cấp cao hơn
+  // -> không tính là "dự án active" để không chặn nhóm đang có dự án riêng.
   const activeProject = await Project.findOne({
-    _id: { $in: memberships.map((membership) => membership.projectId) },
+    _id: { $in: memberships.map((m) => m.projectId) },
     status: { $nin: FINISHED_PROJECT_STATUSES },
+    parentId: null,
   })
     .select('code title status')
     .lean();

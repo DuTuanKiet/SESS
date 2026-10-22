@@ -80,6 +80,32 @@ const LOCKED_PROJECT_STATUSES = Object.freeze([
 const FINISHED_PROJECT_STATUSES = Object.freeze([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED]);
 
 /**
+ * Cấp thi của dự án (thi đấu đa cấp - Master Blueprint Enterprise Edition).
+ * Thứ tự là thứ tự quyền lực: cấp sau chỉ được xét khi dự án đã đạt cấp trước đó.
+ */
+const PROJECT_LEVEL = Object.freeze({
+  FACULTY: 'FACULTY',
+  UNIVERSITY: 'UNIVERSITY',
+  REGIONAL: 'REGIONAL',
+  NATIONAL: 'NATIONAL',
+});
+
+/** Thứ tự cấp thi (số càng lớn càng cao) */
+const PROJECT_LEVEL_ORDER = Object.freeze([
+  PROJECT_LEVEL.FACULTY,
+  PROJECT_LEVEL.UNIVERSITY,
+  PROJECT_LEVEL.REGIONAL,
+  PROJECT_LEVEL.NATIONAL,
+]);
+
+/** Trạng thái yêu cầu hủy dự án (có bằng chứng) */
+const PROJECT_CANCELLATION_STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+});
+
+/**
  * Trạng thái milestone - hợp nhất 2 nhánh:
  * FR05-FR08 dùng Pending/InProgress/Completed/Overdue/NotComplete (ProjectMilestone),
  * FR01-FR04 dùng PLANNED/IN_PROGRESS/DONE cho mốc tiến độ nhúng trong Project.milestones.
@@ -148,6 +174,13 @@ const AUDIT_ACTIONS = Object.freeze({
   COMPLETE_EMERGENCY_REASSIGNMENT: 'COMPLETE_EMERGENCY_REASSIGNMENT',
   REVOKE_EMERGENCY_REASSIGNMENT: 'REVOKE_EMERGENCY_REASSIGNMENT',
   CAST_PUBLIC_VOTE: 'CAST_PUBLIC_VOTE',
+  // Vòng đời nâng cao (Enterprise)
+  REQUEST_PROJECT_CANCELLATION: 'REQUEST_PROJECT_CANCELLATION',
+  APPROVE_PROJECT_CANCELLATION: 'APPROVE_PROJECT_CANCELLATION',
+  REJECT_PROJECT_CANCELLATION: 'REJECT_PROJECT_CANCELLATION',
+  PROMOTE_PROJECT_LEVEL: 'PROMOTE_PROJECT_LEVEL',
+  ASSIGN_PROJECT_JUDGE: 'ASSIGN_PROJECT_JUDGE',
+  SUBMIT_EVALUATION_SCORE: 'SUBMIT_EVALUATION_SCORE',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR05-FR08 */
@@ -162,6 +195,9 @@ const AUDIT_ENTITIES = Object.freeze({
   SCORE_OVERRIDES: 'ScoreOverrides',
   EMERGENCY_JUDGE_REASSIGNMENTS: 'EmergencyJudgeReassignments',
   PROJECT_VOTES: 'ProjectVotes',
+  // Vòng đời nâng cao (Enterprise)
+  PROJECT_CANCELLATION_REQUESTS: 'ProjectCancellationRequests',
+  EVALUATION_SUBMISSIONS: 'EvaluationSubmissions',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR01-FR04 */
@@ -282,6 +318,11 @@ module.exports = {
   MENTOR_DEFAULT_MAX_PROJECTS,
   ASSIGNMENT_STATUS,
   RUBRIC_STATUS,
+
+  // Vòng đời nâng cao (Enterprise)
+  PROJECT_LEVEL,
+  PROJECT_LEVEL_ORDER,
+  PROJECT_CANCELLATION_STATUS,
 
   // Audit log (FR14)
   AUDIT_ACTIONS,

@@ -31,6 +31,21 @@ const {
   assertOptionalUrl,
   assertEnum,
 } = require('../utils/validation');
+const projectStateMachine = require('../utils/projectStateMachine');
+
+/**
+ * MongoDB standalone (bản cài local/dev) KHÔNG hỗ trợ transaction:
+ * lỗi code 20 (IllegalOperation) hoặc thông báo liên quan tới retryable writes/replica set.
+ */
+const isTransactionUnsupportedError = (error) => {
+  const message = String(error?.message ?? '');
+  return (
+    error?.code === 20 ||
+    /does not support retryable writes/i.test(message) ||
+    /transaction numbers are only allowed/i.test(message) ||
+    /transactions? (are|is) not supported/i.test(message)
+  );
+};
 
 /**
  * Lấy danh sách các dự án đủ điều kiện cần mentor nhưng hiện chưa được phân công.
@@ -94,13 +109,25 @@ async function getProjectById(projectId, projection = null) {
   return project;
 }
 //Cập nhật trạng thái của dự án
-async function updateProjectStatus(projectId, status, { session: externalSession, adminId, note } = {}) {
+async function updateProjectStatus(
+  projectId,
+  status,
+  {
+    session: externalSession,
+    adminId,
+    note,
+    force = false,
+    forceReason = '',
+    extraAllowedTargets = [],
+    transitionContext = '',
+  } = {},
+) {
   if (!Object.values(PROJECT_STATUS).includes(status)) {
     throw createError('Trạng thái dự án không hợp lệ.', 400, 'INVALID_PROJECT_STATUS');
   }
 
   const executeStatusUpdate = async (session) => {
-    const project = await Project.findById(projectId).session(session);
+    const project = await Project.findById(projectId).session(session || null);
     if (!project) {
       throw createError('Không tìm thấy dự án để cập nhật trạng thái.', 404, 'PROJECT_NOT_FOUND');
     }
@@ -109,9 +136,20 @@ async function updateProjectStatus(projectId, status, { session: externalSession
       throw createError('Dự án đã ở trạng thái này.', 400, 'PROJECT_STATUS_UNCHANGED');
     }
 
+    // State Machine: chỉ cho phép chuyển trạng thái theo ma trận nghiêm ngặt.
+    // Admin có thể cưỡng chế (FORCE_OVERRIDE) trạng thái kết thúc nếu có lý do kiểm toán.
+    const transition = projectStateMachine.assertValidTransition({
+      currentStatus: project.status,
+      targetStatus: status,
+      force,
+      forceReason,
+      extraAllowedTargets,
+      context: transitionContext,
+    });
+
     const oldStatus = project.status;
     project.status = status;
-    await project.save({ session });
+    await project.save({ session: session || undefined });
 
     let completedAssignment = null;
 
@@ -120,13 +158,13 @@ async function updateProjectStatus(projectId, status, { session: externalSession
       const activeAssignment = await MentorAssignment.findOne({
         projectId,
         status: ASSIGNMENT_STATUS.ASSIGNED,
-      }).session(session);
+      }).session(session || null);
 
       if (activeAssignment) {
         const now = new Date();
         activeAssignment.status = ASSIGNMENT_STATUS.COMPLETED;
         activeAssignment.endedAt = now;
-        await activeAssignment.save({ session });
+        await activeAssignment.save({ session: session || undefined });
 
         completedAssignment = {
           assignmentId: activeAssignment._id,
@@ -148,6 +186,8 @@ async function updateProjectStatus(projectId, status, { session: externalSession
         newValues: {
           status,
           note: note || '',
+          forced: transition.forced,
+          forceReason: transition.forced ? forceReason : '',
           completedAssignment: completedAssignment
             ? {
                 assignmentId: completedAssignment.assignmentId,
@@ -155,13 +195,15 @@ async function updateProjectStatus(projectId, status, { session: externalSession
               }
             : null,
         },
-        session,
+        session: session || undefined,
       });
     }
 
     return {
       project: project.toObject(),
       completedAssignment,
+      forced: transition.forced,
+      allowedTransitions: projectStateMachine.getAllowedTransitions(project.status),
     };
   };
 
@@ -170,14 +212,24 @@ async function updateProjectStatus(projectId, status, { session: externalSession
     return executeStatusUpdate(externalSession);
   }
 
-  // Nếu chưa có session, tự mở Mongoose Transaction để bảo đảm ACID khi cập nhật đa collection
+  // Nếu chưa có session, tự mở Mongoose Transaction để bảo đảm ACID khi cập nhật đa collection.
+  // MongoDB standalone (môi trường dev) KHÔNG hỗ trợ transaction -> tự động fallback
+  // sang chế độ không transaction để luồng nghiệp vụ vẫn hoạt động.
   const session = await mongoose.startSession();
   try {
     let result;
-    await session.withTransaction(async () => {
-      result = await executeStatusUpdate(session);
-    });
-    return result;
+    try {
+      await session.withTransaction(async () => {
+        result = await executeStatusUpdate(session);
+      });
+      return result;
+    } catch (error) {
+      if (!isTransactionUnsupportedError(error)) throw error;
+      console.warn(
+        '[Project] MongoDB không hỗ trợ transaction (standalone) -> cập nhật trạng thái không transaction.',
+      );
+      return await executeStatusUpdate(null);
+    }
   } finally {
     await session.endSession();
   }
@@ -641,4 +693,6 @@ module.exports = {
   verifyProjectOwner,
   verifyMentorOfProject,
   verifyProjectAccess,
+  // Dùng lại cho luồng thi vượt cấp (tạo dự án con có mã tự sinh)
+  createProjectWithGeneratedCode: createWithGeneratedCode,
 };
