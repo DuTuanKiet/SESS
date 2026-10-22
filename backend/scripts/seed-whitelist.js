@@ -15,12 +15,13 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
+const { GLOBAL_TEST_EMAIL, GLOBAL_TEST_STUDENT_ID } = require('../src/utils/constants');
 
 /** Dữ liệu sinh viên mẫu (bao gồm email thật + thông tin CVHT của lớp) */
 const SAMPLE_STUDENTS = [
   {
-    email: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    studentId: 'KTPM2311025',
+    email: GLOBAL_TEST_EMAIL,
+    studentId: GLOBAL_TEST_STUDENT_ID,
     fullName: 'Dư Tuấn Kiệt',
     className: 'KTPM2311',
     phone: '0900000001',

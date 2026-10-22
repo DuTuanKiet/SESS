@@ -146,7 +146,7 @@ const updateProject = async (req, res) => {
 
 /** POST /projects/:id/submit - nộp dự án, tạo snapshot revision và tăng version */
 const submitProject = async (req, res) => {
-  const { project, revision } = await projectService.submitProject({
+  const { project, revision, digitalReceipt } = await projectService.submitProject({
     projectId: req.params.id,
     actor: req.user,
     req,
@@ -155,7 +155,7 @@ const submitProject = async (req, res) => {
   res.status(200).json({
     success: true,
     message: `Nộp dự án thành công (phiên bản v${revision.versionNumber}). Dự án đang chờ phản hồi từ Giảng viên/Mentor.`,
-    data: { project, revision },
+    data: { project, revision, digitalReceipt },
   });
 };
 

@@ -31,7 +31,7 @@ cd backend
 npm install
 cp .env.example .env        # rồi điền JWT secret, GOOGLE_CLIENT_ID, SMTP... nếu cần
 npm run seed:admin          # admin@ctuet.edu.vn / Admin@12345
-npm run seed:student        # 110122001@student.ctuet.edu.vn / Student@12345 (chưa xác thực)
+npm run seed:student        # dtkietktpm2311025@student.ctuet.edu.vn / Student@12345 (chưa xác thực)
 npm run dev                 # nodemon server.js -> http://localhost:5000/api/v1
 
 # 2. Frontend
@@ -68,6 +68,13 @@ node scripts/seed-user.js --role=student --email=110122002@student.ctuet.edu.vn 
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | `15m` / `7d` | |
 | `OTP_LENGTH`, `OTP_EXPIRES_MINUTES`, `OTP_MAX_ATTEMPTS` | `6`, `5`, `5` | |
 | `EXPOSE_OTP_IN_DEV` | `true` | **CHỈ DEV**: trả OTP trong response để test nhanh; production luôn tắt |
+| `STUDENT_EMAIL` / `STUDENT_ID` | `dtkietktpm2311025@student.ctuet.edu.vn` / `KTPM2311025` | Tài khoản test/seed toàn cục (hằng `GLOBAL_TEST_EMAIL` trong `src/utils/constants.js`) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_URL` | `127.0.0.1` / `6379` / (trống) | **Không có Redis ⇒ tự chuyển sang inline-fallback**, app không sập |
+| `REDIS_QUEUE_ENABLED` | `true` | `false` ⇒ mọi job BullMQ chạy inline, không cần Redis |
+| `RECAPTCHA_ENABLED` | `true` | `false` ⇒ bỏ qua kiểm tra reCAPTCHA |
+| `RECAPTCHA_SECRET_KEY` | (trống) | Dev chưa có ⇒ bỏ qua; **production chưa có ⇒ trả 503** |
+| `RECAPTCHA_SCORE_THRESHOLD` | `0.5` | Điểm reCAPTCHA v3 tối thiểu để coi là người thật |
+| `VOTE_HASH_SALT` | (dev fallback) | Salt hash voterKey/IP của bình chọn công khai — **bắt buộc đổi ở production** |
 | `GOOGLE_CLIENT_ID` | (trống) | Web client ID để verify `idToken` |
 | `SMTP_*`, `MAIL_FROM` | (trống) | Để trống ⇒ email được in ra console (chế độ dev) |
 

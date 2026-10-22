@@ -2,12 +2,13 @@ const nodemailer = require('nodemailer');
 const env = require('../config/env');
 const ApiError = require('../utils/apiError');
 const { normalizeEmail } = require('../utils/validation');
+const { GLOBAL_TEST_EMAIL } = require('../utils/constants');
 
 let transporter;
 let isPreviewMode = false;
 
 /** Email test chính - ở môi trường dev CHỈ gửi mail thật tới địa chỉ này */
-const PRIMARY_TEST_RECIPIENT = 'dtkietktpm2311025@student.ctuet.edu.vn';
+const PRIMARY_TEST_RECIPIENT = GLOBAL_TEST_EMAIL;
 
 /**
  * Safe-guard cho môi trường development:
@@ -382,12 +383,96 @@ const sendProjectInvitationEmail = async (to, { projectTitle, projectCode, invit
   });
 };
 
+/** Gửi email biên nhận số (Digital Receipt) khi nộp bài thành công */
+const sendDigitalReceiptEmail = async (to, {
+  projectCode, projectTitle, version, receiptHash, receiptTimestamp, memberEmails = [],
+} = {}) => {
+  const formattedTime = new Date(receiptTimestamp).toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const detailRow = (label, value) => `
+      <tr>
+        <td style="padding:6px 0;font-size:14px;color:#5a6472;width:180px;">${label}</td>
+        <td style="padding:6px 0;font-size:14px;font-weight:600;color:#1f2430;">${value}</td>
+      </tr>`;
+
+  const contentHtml = `
+    <p style="margin:0 0 16px;font-size:16px;font-weight:600;color:#1f2430;">Xin chào,</p>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3d4657;">
+      Nhóm của bạn đã nộp bài thành công trên <strong>${BRAND.name}</strong>. Dưới đây là biên nhận số xác nhận.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f6;border-radius:10px;">
+      <tr>
+        <td style="padding:18px 22px;">
+          <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.6px;color:${BRAND.primary};text-transform:uppercase;">Thông tin biên nhận</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            ${detailRow('Mã dự án', projectCode || '')}
+            ${detailRow('Tên dự án', projectTitle || '')}
+            ${detailRow('Phiên bản', `v${version || 1}`)}
+            ${detailRow('Mã hash biên nhận', receiptHash || '')}
+            ${detailRow('Thời điểm nộp', formattedTime)}
+          </table>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;background-color:#fff8e6;border-left:4px solid #f0a500;border-radius:6px;">
+      <tr>
+        <td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#6b5200;">
+          <strong>Lưu ý bảo mật:</strong> Mã hash biên nhận là bằng chứng duy nhất xác nhận nộp bài.
+          Vui lòng giữ mã này và không chia sẻ cho bất kỳ ai.
+        </td>
+      </tr>
+    </table>`;
+
+  const text = [
+    'Xin chào,',
+    '',
+    `Nhóm của bạn đã nộp bài thành công trên ${BRAND.name}.`,
+    '',
+    '--- Thông tin biên nhận ---',
+    `Mã dự án: ${projectCode || ''}`,
+    `Tên dự án: ${projectTitle || ''}`,
+    `Phiên bản: v${version || 1}`,
+    `Mã hash biên nhận: ${receiptHash || ''}`,
+    `Thời điểm nộp: ${formattedTime}`,
+    '',
+    'Lưu ý bảo mật: Mã hash biên nhận là bằng chứng duy nhất xác nhận nộp bài.',
+    'Vui lòng giữ mã này và không chia sẻ cho bất kỳ ai.',
+    '',
+    'Trân trọng,',
+    `Nhóm phát triển ${BRAND.name}`,
+    BRAND.university,
+  ].join('\n');
+
+  const recipients = [to, ...memberEmails].filter(Boolean);
+  await Promise.all(recipients.map((recipient) =>
+    sendMail({
+      to: recipient,
+      subject: `SESS - CTUT: Biên nhận số nộp bài ${projectCode || ''}`.trim(),
+      text,
+      html: renderEmailLayout({
+        heading: 'Biên nhận số nộp bài',
+        preheader: `Mã hash biên nhận: ${receiptHash || ''}`,
+        contentHtml,
+      }),
+    })
+  ));
+};
+
 module.exports = {
   sendMail,
   sendOtpEmail,
   sendWelcomeEmail,
   sendLoginNotificationEmail,
   sendProjectInvitationEmail,
+  sendDigitalReceiptEmail,
   renderOtpEmail,
   renderWelcomeEmail,
   renderLoginNotificationEmail,

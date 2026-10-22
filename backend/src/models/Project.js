@@ -19,7 +19,8 @@ const milestoneSchema = new mongoose.Schema(
  * - FR05-FR08: name/field/description + members[] (projectRole Owner/Member) + currentVersion;
  *   dùng cho phân công mentor và chuyển trạng thái của Admin.
  * Các cặp trường tương ứng được đồng bộ tự động trong pre('validate') nên cả 2 luồng cùng chạy được.
- * Vòng đời trạng thái: DRAFT -> SUBMITTED -> (NEED_REVISION -> SUBMITTED) -> UNDER_MENTORSHIP -> COMPLETED.
+ * Vòng đời trạng thái: DRAFT -> SUBMITTED -> IN_REVIEW -> (NEED_REVISION -> SUBMITTED) ->
+ *   UNDER_MENTORSHIP -> EVALUATED -> COMPLETED.
  */
 const projectSchema = new mongoose.Schema(
   {
@@ -38,6 +39,14 @@ const projectSchema = new mongoose.Schema(
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
     version: { type: Number, default: 1, min: 1 },
     lastSubmittedAt: { type: Date, default: null },
+
+    // --- Biên nhận số (Digital Receipt) - Enterprise Edition ---
+    /** Mã hash biên nhận nộp bài (SHA-256 của projectCode + version + timestamp + random) */
+    digitalReceiptHash: { type: String, trim: true, default: '' },
+    /** Thời điểm sinh biên nhận (mili-giây) */
+    digitalReceiptTimestamp: { type: Date, default: null },
+    /** File đính kèm kèm theo biên nhận (URL cloud storage) */
+    digitalReceiptFileUrl: { type: String, trim: true, default: '' },
 
     // --- Nhánh FR05-FR08 ---
     name: { type: String, trim: true },

@@ -2,6 +2,7 @@ const User = require('../models/User');
 const UserProfile = require('../models/UserProfile');
 const tokenService = require('./tokenService');
 const whitelistService = require('./whitelistService');
+const judgeWhitelistService = require('./judgeWhitelistService');
 const mentorService = require('./mentorService');
 const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
@@ -230,10 +231,44 @@ const updateMyProfileDetail = async (user, payload = {}) => {
   return { profile };
 };
 
+/** Chấp nhận Cam kết Bảo mật Thông tin (Digital NDA) cho tài khoản BGK */
+const acceptNda = async (user, version = '') => {
+  const targetUser = await User.findById(user._id);
+  if (!targetUser) {
+    throw ApiError.notFound('Không tìm thấy tài khoản', 'USER_NOT_FOUND');
+  }
+
+  // Chỉ tài khoản có vai trò JUDGE mới được phép chấp nhận NDA
+  if (targetUser.role !== USER_ROLES.JUDGE && targetUser.systemRole !== USER_ROLES.JUDGE) {
+    throw ApiError.forbidden('Chỉ tài khoản Ban Giám khảo (JUDGE) mới được chấp nhận Cam kết Bảo mật Thông tin', 'ONLY_JUDGE_CAN_ACCEPT_NDA');
+  }
+
+  // Kiểm tra email có trong JudgeWhitelist
+  await judgeWhitelistService.assertJudgeInWhitelist(targetUser.email);
+
+  targetUser.ndaAccepted = true;
+  targetUser.ndaAcceptedAt = new Date();
+  targetUser.ndaVersion = String(version ?? '').trim() || 'v1.0';
+  await targetUser.save();
+
+  await logAuditAction({
+    actor: targetUser,
+    action: AUDIT_ACTIONS.CHANGE_USER_ROLE, // Tái tạo mã action gần nhất phù hợp; có thể thêm ACCEPT_NDA sau
+    targetEntity: AUDIT_TARGETS.USER,
+    targetId: targetUser._id,
+    oldValues: { ndaAccepted: false },
+    newValues: { ndaAccepted: true, ndaVersion: targetUser.ndaVersion, ndaAcceptedAt: targetUser.ndaAcceptedAt },
+    req: undefined,
+  });
+
+  return targetUser;
+};
+
 module.exports = {
   updateStatus,
   updateRole,
   createUser,
   getMyProfileDetail,
   updateMyProfileDetail,
+  acceptNda,
 };

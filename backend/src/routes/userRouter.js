@@ -10,4 +10,7 @@ router.get('/me', authenticate, userController.getMyProfile);
 router.get('/profile/me', authenticate, userController.getMyProfileDetail);
 router.put('/profile/me', authenticate, userController.updateMyProfileDetail);
 
+// BGK - Chấp nhận Cam kết Bảo mật Thông tin (Digital NDA)
+router.post('/accept-nda', authenticate, userController.acceptNda);
+
 module.exports = router;

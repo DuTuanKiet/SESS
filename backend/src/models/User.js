@@ -97,6 +97,14 @@ const userSchema = new mongoose.Schema(
       bio: { type: String, default: '' },
       field: { type: String, default: '' },
     },
+
+    // --- Phân hệ Ban Giám khảo (BGK) - Enterprise Edition ---
+    /** Tài khoản đã được duyệt làm Ban Giám khảo (khớp Whitelist BGK) */
+    isJudgeApproved: { type: Boolean, default: false, index: true },
+    /** Đã đồng ý Cam kết Bảo mật Thông tin (Digital NDA) khi nhận phân công chấm lần đầu */
+    ndaAccepted: { type: Boolean, default: false },
+    ndaAcceptedAt: { type: Date, default: null },
+    ndaVersion: { type: String, trim: true, default: '' },
   },
   {
     timestamps: true,

@@ -125,6 +125,25 @@ const assertEnum = (value, allowedValues, fieldName, code = 'INVALID_VALUE') => 
   return value;
 };
 
+/**
+ * Kiểm tra giá trị có phải ObjectId hợp lệ hay không.
+ * Chấp nhận CẢ string (24 ký tự hex) LẪN ObjectId instance của Mongoose,
+ * vì service thường được gọi với `doc._id` (ObjectId) từ controller.
+ */
+const isValidObjectIdLike = (value) => {
+  if (!value) return false;
+  if (typeof value === 'string') return /^[0-9a-fA-F]{24}$/.test(value.trim());
+  return typeof value === 'object' && typeof value.toHexString === 'function';
+};
+
+/** Bắt buộc có giá trị và phải là ObjectId hợp lệ */
+const assertObjectId = (value, fieldName) => {
+  if (!isValidObjectIdLike(value)) {
+    throw ApiError.badRequest(`"${fieldName}" không hợp lệ`, 'INVALID_ID');
+  }
+  return value;
+};
+
 module.exports = {
   EMAIL_REGEX,
   STUDENT_EMAIL_REGEX,
@@ -132,6 +151,8 @@ module.exports = {
   normalizeEmail,
   isStudentEmail,
   extractStudentIdFromEmail,
+  isValidObjectIdLike,
+  assertObjectId,
   assertRequired,
   assertEmail,
   assertStudentEmail,

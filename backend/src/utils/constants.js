@@ -16,14 +16,16 @@ const USER_ROLES = Object.freeze({
   MENTOR: 'mentor',
   TEACHER: 'teacher',
   ADMIN: 'admin',
+  JUDGE: 'judge',
 });
 
-/** Alias của USER_ROLES để tương thích code FR05-FR08 (SYSTEM_ROLES.ADMIN, .MENTOR, .STUDENT) */
+/** Alias của USER_ROLES để tương thích code FR05-FR08 (SYSTEM_ROLES.ADMIN, .MENTOR, .STUDENT, .JUDGE) */
 const SYSTEM_ROLES = Object.freeze({
   ADMIN: USER_ROLES.ADMIN,
   STUDENT: USER_ROLES.STUDENT,
   MENTOR: USER_ROLES.MENTOR,
   TEACHER: USER_ROLES.TEACHER,
+  JUDGE: USER_ROLES.JUDGE,
 });
 
 /** Trạng thái tài khoản - SUSPEND là alias của SUSPENDED (FR05-FR08) */
@@ -135,6 +137,17 @@ const AUDIT_ACTIONS = Object.freeze({
   CREATE_USER: 'CREATE_USER',
   INVITE_PROJECT_MEMBER: 'INVITE_PROJECT_MEMBER',
   REMOVE_PROJECT_MEMBER: 'REMOVE_PROJECT_MEMBER',
+  ACCEPT_NDA: 'ACCEPT_NDA',
+  REQUEST_MEMBER_CHANGE: 'REQUEST_MEMBER_CHANGE',
+  RESPOND_MEMBER_CHANGE: 'RESPOND_MEMBER_CHANGE',
+  EMERGENCY_TRANSFER_OWNERSHIP: 'EMERGENCY_TRANSFER_OWNERSHIP',
+  // Enterprise Edition
+  CREATE_SCORE_OVERRIDE: 'CREATE_SCORE_OVERRIDE',
+  REVOKE_SCORE_OVERRIDE: 'REVOKE_SCORE_OVERRIDE',
+  EMERGENCY_REASSIGN_JUDGE: 'EMERGENCY_REASSIGN_JUDGE',
+  COMPLETE_EMERGENCY_REASSIGNMENT: 'COMPLETE_EMERGENCY_REASSIGNMENT',
+  REVOKE_EMERGENCY_REASSIGNMENT: 'REVOKE_EMERGENCY_REASSIGNMENT',
+  CAST_PUBLIC_VOTE: 'CAST_PUBLIC_VOTE',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR05-FR08 */
@@ -145,6 +158,10 @@ const AUDIT_ENTITIES = Object.freeze({
   EVALUATION_RUBRICS: 'EvaluationRubrics',
   KNOWLEDGE_DOCUMENTS: 'KnowledgeDocuments',
   PROJECT_MILESTONES: 'ProjectMilestones',
+  // Enterprise Edition
+  SCORE_OVERRIDES: 'ScoreOverrides',
+  EMERGENCY_JUDGE_REASSIGNMENTS: 'EmergencyJudgeReassignments',
+  PROJECT_VOTES: 'ProjectVotes',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR01-FR04 */
@@ -187,6 +204,28 @@ const LATE_SUBMISSION_DAYS = 3;
 // Số ngày mentor được phép góp ý kể từ ngày kết thúc milestone (dueDate) (FR07)
 const COMMENT_DEADLINE_DAYS = 5;
 
+/** Cloud Upload - Enterprise Edition */
+const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.mp4', '.png', '.jpg', '.jpeg']);
+const MAX_FILE_SIZE_VIDEO = 500 * 1024 * 1024; // 500MB
+const MAX_FILE_SIZE_POSTER = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_DOCUMENT = 50 * 1024 * 1024; // 50MB
+
+/** Map loại file -> giới hạn kích thước */
+const UPLOAD_SIZE_LIMITS = Object.freeze({
+  video: MAX_FILE_SIZE_VIDEO,
+  poster: MAX_FILE_SIZE_POSTER,
+  document: MAX_FILE_SIZE_DOCUMENT,
+});
+
+/** Cloud storage provider: 's3' | 'r2' | 'minio' | 'dev' */
+const STORAGE_PROVIDER = process.env.STORAGE_PROVIDER || 'dev';
+const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT || '';
+const STORAGE_BUCKET = process.env.STORAGE_BUCKET || 'sess-uploads';
+const STORAGE_REGION = process.env.STORAGE_REGION || 'auto';
+const STORAGE_ACCESS_KEY = process.env.STORAGE_ACCESS_KEY || '';
+const STORAGE_SECRET_KEY = process.env.STORAGE_SECRET_KEY || '';
+const STORAGE_PUBLIC_DOMAIN = process.env.STORAGE_PUBLIC_DOMAIN || '';
+
 /** Ràng buộc nghiệp vụ: Trưởng nhóm phải chuyển quyền trước khi rời dự án (FR04) */
 const OWNER_MUST_TRANSFER_MESSAGE =
   'Bạn là Trưởng nhóm. Vui lòng chuyển quyền Trưởng nhóm cho thành viên khác trước khi rời dự án.';
@@ -195,9 +234,34 @@ const OWNER_MUST_TRANSFER_MESSAGE =
 const USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE =
   'Bạn đang tham gia một dự án khác đang hoạt động, không thể tạo hoặc tham gia dự án mới.';
 
+/** Trạng thái yêu cầu thay đổi thành viên (PENDING -> APPROVED/REJECTED) */
+const MEMBER_CHANGE_REQUEST_STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+});
+
+/** Loại yêu cầu thay đổi thành viên */
+const MEMBER_CHANGE_REQUEST_TYPE = Object.freeze({
+  ADD: 'ADD',
+  REMOVE: 'REMOVE',
+});
+
 /** Ràng buộc: dự án đã nộp/đang xét duyệt thì không được chỉnh sửa (FR03) */
 const PROJECT_LOCKED_MESSAGE =
   'Dự án đã được nộp hoặc đang trong quá trình xét duyệt, không thể chỉnh sửa.';
+
+/**
+ * Email test/seed dùng chung toàn hệ thống (dev/test).
+ * - Tài khoản sinh viên chính (scripts/seed-user.js, npm run seed:student)
+ * - Email nhận thư thật trong môi trường development (services/mailerService.js)
+ * - Bản ghi trong danh sách sinh viên của trường (scripts/seed-whitelist.js)
+ * Production: đổi qua biến môi trường STUDENT_EMAIL.
+ */
+const GLOBAL_TEST_EMAIL = 'dtkietktpm2311025@student.ctuet.edu.vn';
+
+/** MSSV tương ứng với GLOBAL_TEST_EMAIL */
+const GLOBAL_TEST_STUDENT_ID = 'KTPM2311025';
 
 module.exports = {
   // Vai trò & trạng thái người dùng
@@ -233,8 +297,25 @@ module.exports = {
   // Thành viên dự án (FR04)
   PROJECT_MEMBER_ROLES,
   PROJECT_MEMBER_STATUS,
+  MEMBER_CHANGE_REQUEST_STATUS,
+  MEMBER_CHANGE_REQUEST_TYPE,
   PROJECT_CODE_PREFIX,
   OWNER_MUST_TRANSFER_MESSAGE,
   USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE,
   PROJECT_LOCKED_MESSAGE,
+
+  // Tài khoản test/seed dùng chung
+  GLOBAL_TEST_EMAIL,
+  GLOBAL_TEST_STUDENT_ID,
+
+  // Cloud Upload (Enterprise)
+  ALLOWED_UPLOAD_EXTENSIONS,
+  UPLOAD_SIZE_LIMITS,
+  STORAGE_PROVIDER,
+  STORAGE_ENDPOINT,
+  STORAGE_BUCKET,
+  STORAGE_REGION,
+  STORAGE_ACCESS_KEY,
+  STORAGE_SECRET_KEY,
+  STORAGE_PUBLIC_DOMAIN,
 };

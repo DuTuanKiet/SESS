@@ -5,6 +5,7 @@ const Otp = require('../models/Otp');
 const tokenService = require('./tokenService');
 const mailerService = require('./mailerService');
 const whitelistService = require('./whitelistService');
+const judgeWhitelistService = require('./judgeWhitelistService');
 const ApiError = require('../utils/apiError');
 const { USER_ROLES, USER_STATUS, AUTH_PROVIDERS } = require('../utils/constants');
 const { sha256, generateNumericCode, safeEqual } = require('../utils/security');
@@ -19,6 +20,16 @@ const {
 } = require('../utils/validation');
 
 let googleClient;
+
+/**
+ * Kiểm tra nếu user có vai trò JUDGE thì email phải có trong JudgeWhitelist.
+ * Nếu không có trong danh sách trắng BGK -> từ chối đăng nhập (403).
+ */
+const assertJudgeEligible = async (user) => {
+  if (user.role === USER_ROLES.JUDGE || user.systemRole === USER_ROLES.JUDGE) {
+    await judgeWhitelistService.assertJudgeInWhitelist(user.email);
+  }
+};
 
 const getGoogleClient = () => {
   if (!env.google.clientId) {
@@ -162,6 +173,9 @@ const verifyOtp = async ({ email, otp, sessionMeta } = {}) => {
   await user.save();
   await record.deleteOne();
 
+  // Nếu tài khoản có vai trò JUDGE, bắt buộc phải có trong danh sách trắng BGK
+  await assertJudgeEligible(user);
+
   // Email thông báo "xác thực & đăng nhập thành công" (kèm thông tin phiên đăng nhập)
   await sendLoginNotification(user);
 
@@ -208,6 +222,9 @@ const login = async ({ email, password, sessionMeta } = {}) => {
       details,
     );
   }
+
+  // Nếu tài khoản có vai trò JUDGE, bắt buộc phải có trong danh sách trắng BGK
+  await assertJudgeEligible(user);
 
   user.lastLoginAt = new Date();
   await user.save();
@@ -285,6 +302,9 @@ const loginWithGoogle = async ({ idToken, sessionMeta } = {}) => {
 
   user.lastLoginAt = new Date();
   await user.save();
+
+  // Nếu tài khoản có vai trò JUDGE, bắt buộc phải có trong danh sách trắng BGK
+  await assertJudgeEligible(user);
 
   // Tài khoản sinh viên mới -> gửi email thông báo chào mừng qua Gmail trường
   if (isNewUser) {

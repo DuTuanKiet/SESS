@@ -12,6 +12,12 @@ const authRouter = require('./authRouter');
 const userRouter = require('./userRouter');
 const adminRouter = require('./adminRouter');
 const projectRouter = require('./projectRouter');
+const judgeWhitelistRouter = require('./judgeWhitelistRouter');
+const cloudUploadRouter = require('./cloudUploadRouter');
+const scoreOverrideRoutes = require('./scoreOverrideRoutes');
+const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
+const votingRouter = require('./votingRouter');
+const queueService = require('../services/queueService');
 
 const router = express.Router();
 
@@ -24,22 +30,32 @@ router.get('/health', (_req, res) => {
   });
 });
 
-/** Readiness check - kiểm tra MongoDB kết nối */
+/** Readiness check - kiểm tra MongoDB + trạng thái hạ tầng queue/Redis */
 router.get('/ready', async (_req, res) => {
   const dbState = mongoose.connection.readyState;
+  const queueStatus = await queueService.getQueueStatus();
   // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
   if (dbState === 1) {
     res.status(200).json({
       success: true,
       message: 'Sẵn sàng phục vụ request',
-      data: { mongodb: 'connected', uptime: process.uptime() },
+      data: {
+        mongodb: 'connected',
+        uptime: process.uptime(),
+        redis: queueStatus.redisAvailable ? 'connected' : 'unavailable',
+        queue: queueStatus.mode,
+      },
     });
   } else {
     res.status(503).json({
       success: false,
       message: 'Chưa sẵn sàng - MongoDB chưa kết nối',
       code: 'SERVICE_UNAVAILABLE',
-      data: { mongodb: ['disconnected', 'connecting', 'disconnecting'][dbState] || 'unknown' },
+      data: {
+        mongodb: ['disconnected', 'connecting', 'disconnecting'][dbState] || 'unknown',
+        redis: queueStatus.redisAvailable ? 'connected' : 'unavailable',
+        queue: queueStatus.mode,
+      },
     });
   }
 });
@@ -58,6 +74,11 @@ router.use('/projects/:projectId/milestones', milestoneRoutes);
 router.use('/auth', authRouter);
 router.use('/users', userRouter);
 router.use('/admin', adminRouter);
+router.use('/admin/judge-whitelist', judgeWhitelistRouter);
+router.use('/cloud-upload', cloudUploadRouter);
+router.use('/score-overrides', scoreOverrideRoutes);
+router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
+router.use('/public/votes', votingRouter);
 
 // ---------------------------------------------------------------------------
 // /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)

@@ -25,7 +25,14 @@ const UserProfile = require('../src/models/UserProfile');
 const AuditLog = require('../src/models/AuditLog');
 const Mentor = require('../src/models/Mentor');
 
-/** Các script seed con, chạy tuần tự */
+/**
+ * Các script seed con, chạy tuần tự.
+ * - Tài khoản sinh viên CHÍNH (global test email) được tạo ở bước `--role=student`
+ *   (CHƯA xác thực -> dùng để test luồng OTP). Email lấy từ biến môi trường
+ *   STUDENT_EMAIL, mặc định dtkietktpm2311025@student.ctuet.edu.vn.
+ * - Các bước còn lại tạo sinh viên PHỤ (đã xác thực) phục vụ test FR03/FR04
+ *   (nhiều thành viên trong 1 dự án). Email này phải có trong StudentWhitelist.
+ */
 const SEED_STEPS = [
   { file: 'scripts/seed-whitelist.js', args: [] },
   { file: 'scripts/seed-user.js', args: ['--role=admin'] },

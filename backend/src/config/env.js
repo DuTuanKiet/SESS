@@ -55,12 +55,43 @@ const env = {
     authMax: toInt(process.env.RATE_LIMIT_AUTH_MAX, 100),
   },
 
+  // Redis (BullMQ + Rate Limiting). Thiếu REDIS_URL -> dùng host/port mặc định.
+  // Ở development, nếu Redis không chạy thì hệ thống tự fallback sang chế độ không Redis.
+  redis: {
+    url: process.env.REDIS_URL || '',
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: toInt(process.env.REDIS_PORT, 6379),
+    db: toInt(process.env.REDIS_DB, 0),
+    password: process.env.REDIS_PASSWORD || '',
+    // Bật/tắt hạ tầng queue (bullmq). false -> job chạy inline, không cần Redis.
+    queueEnabled: toBool(process.env.REDIS_QUEUE_ENABLED, true),
+    // Số job gửi email tối đa chạy song song
+    emailConcurrency: toInt(process.env.QUEUE_EMAIL_CONCURRENCY, 5),
+    uploadConcurrency: toInt(process.env.QUEUE_UPLOAD_CONCURRENCY, 3),
+    auditConcurrency: toInt(process.env.QUEUE_AUDIT_CONCURRENCY, 5),
+  },
+
+  // Google reCAPTCHA v3. Thiếu secret -> middleware bỏ qua kiểm tra (dev) và ghi cảnh báo.
+  recaptcha: {
+    secret: process.env.RECAPTCHA_SECRET_KEY || '',
+    scoreThreshold: Number.parseFloat(process.env.RECAPTCHA_SCORE_THRESHOLD || '0.5'),
+    // Bật kiểm tra reCAPTCHA cho endpoint nhạy cảm (login, import whitelist, voting)
+    enabled: toBool(process.env.RECAPTCHA_ENABLED, true),
+    // Bỏ qua kiểm tra trong môi trường dev khi chưa cấu hình secret
+    skipWhenUnconfigured: !isProduction,
+    verifyTimeoutMs: toInt(process.env.RECAPTCHA_VERIFY_TIMEOUT_MS, 5000),
+  },
+
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     // Chỉ cần khi exchange authorization code lấy token (luồng server-side);
     // verify idToken chỉ cần clientId.
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   },
+
+  // Salt để hash voterKey/IP của bình chọn công khai (không bao giờ lưu IP thô).
+  // BẮT BUỘC đặt giá trị riêng ở production, nếu không mọi bình chọn sẽ dùng chung salt mặc định.
+  voteHashSalt: process.env.VOTE_HASH_SALT || 'sess-vote-salt-dev',
 
   mail: {
     host: process.env.SMTP_HOST || '',

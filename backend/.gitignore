@@ -29,5 +29,6 @@ test/
 .idea/
 *.sw?
 
-# Scripts
-scripts/
+# Script local (không commit). Các script dùng chung (seed*, cleanup,
+# test-integration) vẫn được commit bình thường.
+scripts/smoke-test.js

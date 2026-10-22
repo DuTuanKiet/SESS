@@ -2,9 +2,12 @@ const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const ProjectRevision = require('../models/ProjectRevision');
 const ProjectMember = require('../models/ProjectMember');
+const User = require('../models/User');
 const MentorAssignment = require('../models/MentorAssignment');
 const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
+const digitalReceiptService = require('./digitalReceiptService');
+const queueService = require('./queueService');
 const { createError } = require('../middlewares/errorHandler');
 const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
@@ -510,10 +513,53 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
   const previousStatus = project.status;
   const previousVersion = project.version;
 
+  // Sinh biên nhận số (Digital Receipt)
+  const receipt = digitalReceiptService.createDigitalReceipt({
+    projectCode: project.code,
+    version: project.version,
+  });
+
   project.status = PROJECT_STATUS.SUBMITTED;
   project.version += 1;
   project.lastSubmittedAt = revision.submittedAt;
+  project.digitalReceiptHash = receipt.hash;
+  project.digitalReceiptTimestamp = receipt.timestamp;
   await project.save();
+
+  // Lấy email Owner để gửi biên nhận số
+  const ownerUser = project.ownerId ? await User.findById(project.ownerId).select('email').lean() : null;
+  const ownerEmail = ownerUser?.email ?? '';
+
+  // Lấy danh sách email thành viên dự án để gửi biên nhận
+  const memberships = await ProjectMember.find({
+    projectId: project._id,
+    status: PROJECT_MEMBER_STATUS.ACCEPTED,
+  }).select('userId').lean();
+
+  const memberEmails = [];
+  for (const m of memberships) {
+    const user = await User.findById(m.userId).select('email').lean();
+    if (user?.email) memberEmails.push(user.email);
+  }
+
+  // Gửi email biên nhận số qua BullMQ (fallback inline khi không có Redis).
+  // Tác vụ nền: không chặn request nộp bài, không làm nghẽn MongoDB.
+  try {
+    await queueService.enqueueDigitalReceiptEmail({
+      to: ownerEmail,
+      payload: {
+        projectCode: project.code,
+        projectTitle: project.title,
+        version: receipt.version ? receipt.version : project.version - 1,
+        receiptHash: receipt.hash,
+        receiptTimestamp: receipt.timestamp,
+        submittedAt: revision.submittedAt,
+        memberEmails,
+      },
+    });
+  } catch (emailError) {
+    console.error('[DigitalReceipt] Gửi email biên nhận thất bại:', emailError.message);
+  }
 
   await logAuditAction({
     actor,
@@ -521,11 +567,17 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
     targetEntity: AUDIT_TARGETS.PROJECT,
     targetId: project._id,
     oldValues: { status: previousStatus, version: previousVersion },
-    newValues: { status: project.status, version: project.version, revisionId: revision._id },
+    newValues: {
+      status: project.status,
+      version: project.version,
+      revisionId: revision._id,
+      digitalReceiptHash: receipt.hash,
+      digitalReceiptTimestamp: receipt.timestamp,
+    },
     req,
   });
 
-  return { project, revision };
+  return { project, revision, digitalReceipt: receipt };
 };
 
 /** Lịch sử các phiên bản đã nộp của dự án (mới nhất trước) */

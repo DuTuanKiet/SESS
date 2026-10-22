@@ -4,6 +4,8 @@ const env = require('./src/config/env');
 const { connectDatabase, disconnectDatabase } = require('./src/config/database');
 // Nhánh FR05-FR08 dùng src/config/db.js (đọc MONGODB_URI) - giữ lại để không mất logic cũ
 const connectLegacyDB = require('./src/config/db');
+const { startAllWorkers, stopAllWorkers } = require('./src/workers');
+const { closeRedis } = require('./src/config/redis');
 
 const PORT = env.port;
 
@@ -28,11 +30,18 @@ const startServer = async () => {
     console.log(`Backend Server running on port ${PORT}`);
   });
 
-  // Tắt server an toàn: đóng kết nối HTTP rồi mới ngắt MongoDB
+  // Khởi động BullMQ Worker (nếu có Redis). Không có Redis -> chạy inline fallback.
+  startAllWorkers().catch((error) => {
+    console.warn(`[Server] Không khởi động được worker (không ảnh hưởng server): ${error.message}`);
+  });
+
+  // Tắt server an toàn: đóng kết nối HTTP rồi mới ngắt MongoDB/Redis/Worker
   const shutdown = (signal) => {
     console.log(`\n[Server] Nhận tín hiệu ${signal}, đang tắt...`);
     server.close(async () => {
       if (!useLegacyConnection) await disconnectDatabase();
+      await stopAllWorkers();
+      await closeRedis();
       console.log('[Server] Đã tắt.');
       process.exit(0);
     });

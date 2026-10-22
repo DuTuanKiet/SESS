@@ -3,7 +3,7 @@
  *
  * Ví dụ:
  *   npm run seed:admin     -> admin@ctuet.edu.vn / Admin@12345 (đã xác thực)
- *   npm run seed:student   -> 110122001@student.ctuet.edu.vn / Student@12345 (CHƯA xác thực -> cần OTP)
+ *   npm run seed:student   -> dtkietktpm2311025@student.ctuet.edu.vn / Student@12345 (CHƯA xác thực -> cần OTP)
  *   node scripts/seed-user.js --role=teacher --email=gv01@ctuet.edu.vn --password=Teacher@123
  *   node scripts/seed-user.js --role=student --email=110122002@student.ctuet.edu.vn --student-id=110122002 --verified
  */
@@ -14,7 +14,13 @@ const mongoose = require('mongoose');
 const env = require('../src/config/env');
 const User = require('../src/models/User');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
-const { USER_ROLES, USER_STATUS, AUTH_PROVIDERS } = require('../src/utils/constants');
+const {
+  USER_ROLES,
+  USER_STATUS,
+  AUTH_PROVIDERS,
+  GLOBAL_TEST_EMAIL,
+  GLOBAL_TEST_STUDENT_ID,
+} = require('../src/utils/constants');
 const { extractStudentIdFromEmail } = require('../src/utils/validation');
 
 const DEFAULT_ACCOUNTS = {
@@ -37,11 +43,11 @@ const DEFAULT_ACCOUNTS = {
     studentId: null,
   },
   [USER_ROLES.STUDENT]: {
-    email: process.env.STUDENT_EMAIL || '110122001@student.ctuet.edu.vn',
+    email: process.env.STUDENT_EMAIL || GLOBAL_TEST_EMAIL,
     password: process.env.STUDENT_PASSWORD || 'Student@12345',
     // Tài khoản do nhà trường cấp sẵn -> cần xác thực OTP ở lần đăng nhập đầu tiên
     isEmailVerified: false,
-    studentId: process.env.STUDENT_ID || '110122001',
+    studentId: process.env.STUDENT_ID || GLOBAL_TEST_STUDENT_ID,
   },
 };
 

@@ -64,6 +64,17 @@ const updateMyProfileDetail = async (req, res) => {
   res.status(200).json({ success: true, message: 'Cập nhật hồ sơ cá nhân thành công.', data });
 };
 
+/** POST /users/accept-nda - chấp nhận Cam kết Bảo mật Thông tin (Digital NDA) cho tài khoản BGK */
+const acceptNda = async (req, res) => {
+  const { version } = req.body || {};
+  const user = await userService.acceptNda(req.user, version);
+  res.status(200).json({
+    success: true,
+    message: 'Bạn đã đồng ý Cam kết Bảo mật Thông tin (NDA).',
+    data: { ndaAccepted: user.ndaAccepted, ndaAcceptedAt: user.ndaAcceptedAt, ndaVersion: user.ndaVersion },
+  });
+};
+
 /** GET /users/profile/me - hồ sơ cá nhân đầy đủ (FR02) */
 const getMyProfileDetail = async (req, res) => {
   const data = await userService.getMyProfileDetail(req.user);
@@ -77,4 +88,5 @@ module.exports = {
   updateUserRole,
   getMyProfileDetail,
   updateMyProfileDetail,
+  acceptNda,
 };
