@@ -22,5 +22,9 @@
   "homepage": "https://github.com/DuTuanKiet/SESS#readme",
   "devDependencies": {
     "concurrently": "^10.0.5"
+  },
+  "dependencies": {
+    "lucide-vue-next": "^0.577.0",
+    "motion-v": "^2.8.0"
   }
 }
