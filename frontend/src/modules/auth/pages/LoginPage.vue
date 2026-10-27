@@ -20,9 +20,11 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import { authApi } from '@/services/api/authApi';
-import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import { loginApi } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
 
+const router = useRouter();
 const authStore = useAuthStore();
 const form = reactive({ email: '', password: '' });
 const loading = ref(false);
@@ -32,17 +34,35 @@ const onSubmit = async () => {
   error.value = '';
   loading.value = true;
   try {
-    const res = await authApi.login(form);
+    const res = await loginApi({
+      email: form.email,
+      password: form.password,
+      portalType: 'user',
+    });
+
     const data = res.data?.data || res.data;
-    if (data?.accessToken) {
-      authStore.setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+    if (data?.user && data?.tokens) {
+      authStore.setSession({
+        user: data.user,
+        tokens: data.tokens,
+        portal: 'user',
+      });
+
+      // Chuyển hướng theo vai trò
+      const role = data.user.role || data.user.systemRole;
+      const roleToPath = {
+        student: '/student',
+        mentor: '/advisor',
+        teacher: '/advisor',
+        judge: '/judge',
+        admin: '/admin',
+      };
+      router.push(roleToPath[role] || '/');
+    } else {
+      error.value = 'Phản hồi đăng nhập không hợp lệ.';
     }
-    if (data?.user) {
-      authStore.user = data.user;
-    }
-    // Không tự động chuyển hướng theo vai trò nếu chưa rõ; giữ trạng thái
   } catch (e) {
-    const msg = e.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
+    const msg = e.response?.data?.message || e.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
     error.value = msg;
   } finally {
     loading.value = false;
