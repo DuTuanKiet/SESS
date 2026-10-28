@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 import PublicLayout from '@/layouts/PublicLayout.vue';
@@ -11,6 +11,7 @@ import AdminLayout from '@/layouts/AdminLayout.vue';
 import HomePage from '@/modules/public-site/pages/HomePage.vue';
 import AboutPage from '@/modules/public-site/pages/AboutPage.vue';
 import CompetitionPage from '@/modules/public-site/pages/CompetitionPage.vue';
+import CompetitionsView from '@/modules/competitions/pages/CompetitionsView.vue';
 import RulesPage from '@/modules/public-site/pages/RulesPage.vue';
 import CriteriaPage from '@/modules/public-site/pages/CriteriaPage.vue';
 import NewsListPage from '@/modules/public-site/pages/NewsListPage.vue';
@@ -45,12 +46,17 @@ const routes = [
     children: [
       { path: '', name: 'home', component: HomePage },
       { path: 'about', name: 'about', component: AboutPage },
-      { path: 'competitions', name: 'competitions', component: CompetitionPage },
+      { path: 'competitions', name: 'competitions', component: CompetitionsView },
       { path: 'rules', name: 'rules', component: RulesPage },
       { path: 'criteria', name: 'criteria', component: CriteriaPage },
       { path: 'news', name: 'news', component: NewsListPage },
       { path: 'news/:id', name: 'news-detail', component: NewsDetailPage },
       { path: 'contact', name: 'contact', component: ContactPage },
+      { path: 'support', name: 'support', component: NotFoundPage },
+      { path: 'resources', name: 'resources', component: NotFoundPage },
+      { path: 'competitions/:id', name: 'competition-detail', component: CompetitionsView },
+      { path: 'competitions/:id/submit', name: 'competition-submit', component: CompetitionsView },
+      { path: 'competitions/:id/results', name: 'competition-results', component: CompetitionsView },
     ],
   },
   {
@@ -103,6 +109,11 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// Bắt lỗi navigation để tránh ứng dụng đứng hình lặng lẽ
+router.onError((error) => {
+  console.error('[Vue Router] Navigation error:', error);
 });
 
 router.addRoute({
