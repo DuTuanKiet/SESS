@@ -19,8 +19,8 @@ import NewsDetailPage from '@/modules/public-site/pages/NewsDetailPage.vue';
 import ContactPage from '@/modules/public-site/pages/ContactPage.vue';
 import NotFoundPage from '@/modules/public-site/pages/NotFoundPage.vue';
 
-import LoginView from '@/views/LoginView.vue';
-import AdminLoginView from '@/views/AdminLoginView.vue';
+import LoginView from '@/modules/auth/pages/LoginView.vue';
+import AdminLoginView from '@/modules/auth/pages/AdminLoginView.vue';
 
 const ROUTE_PATHS = {
   LOGIN: '/auth/login',
