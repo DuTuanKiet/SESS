@@ -127,10 +127,13 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = authStore.isAuthenticated;
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
   const isAuthPage = to.path === ROUTE_PATHS.LOGIN || to.path.startsWith('/auth') || to.path === '/admin/login';
+  
+  // Trích xuất role chuẩn từ Pinia store (hỗ trợ cả unwrapped object và ref)
+  const currentRole = authStore.user?.role || authStore.user?.value?.role;
 
   // Nếu đã đăng nhập và đang truy cập trang auth/login -> chuyển hướng về dashboard theo vai trò
   if (isAuthenticated && isAuthPage) {
-    const targetPath = roleToPath[authStore.user.value?.role] || ROUTE_PATHS.HOME;
+    const targetPath = roleToPath[currentRole] || ROUTE_PATHS.HOME;
     next(targetPath);
     return;
   }
@@ -142,8 +145,9 @@ router.beforeEach((to, from, next) => {
   }
 
   // Nếu đã đăng nhập và truy cập trang có phân quyền vai trò -> kiểm tra vai trò
-  if (isAuthenticated && to.meta.roles && !to.meta.roles.includes(authStore.user.value?.role)) {
-    const targetPath = roleToPath[authStore.user.value?.role] || ROUTE_PATHS.HOME;
+  const matchedRoles = to.matched.flatMap((record) => record.meta.roles || []);
+  if (isAuthenticated && matchedRoles.length > 0 && !matchedRoles.includes(currentRole)) {
+    const targetPath = roleToPath[currentRole] || ROUTE_PATHS.HOME;
     next(targetPath);
     return;
   }

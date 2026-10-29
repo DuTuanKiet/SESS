@@ -4,13 +4,15 @@ import { ref, computed } from 'vue';
 const REMEMBERED_EMAIL_KEY = 'sess_remembered_email';
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
+const USER_KEY = 'sess_user';
+const PORTAL_KEY = 'sess_portal';
 
 export const useAuthStore = defineStore('auth', () => {
   // State: lưu trong RAM + localStorage persistence
-  const user = ref(null);
+  const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'));
   const accessToken = ref(localStorage.getItem(ACCESS_TOKEN_KEY) || null);
   const refreshToken = ref(localStorage.getItem(REFRESH_TOKEN_KEY) || null);
-  const portalType = ref('user'); // 'user' | 'admin'
+  const portalType = ref(localStorage.getItem(PORTAL_KEY) || 'user'); // 'user' | 'admin'
 
   // Getters
   const isAuthenticated = computed(() => Boolean(user.value && accessToken.value));
@@ -22,6 +24,9 @@ export const useAuthStore = defineStore('auth', () => {
   // Actions
   function setSession({ user: userData, tokens, portal = 'user' }) {
     user.value = userData;
+    if (userData) {
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    }
     if (tokens?.accessToken) {
       accessToken.value = tokens.accessToken;
       localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
@@ -31,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
     }
     portalType.value = portal;
+    localStorage.setItem(PORTAL_KEY, portal);
   }
 
   function logout() {
@@ -38,8 +44,10 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null;
     refreshToken.value = null;
     portalType.value = 'user';
+    localStorage.removeItem(USER_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(PORTAL_KEY);
   }
 
   // Quản lý Remember Me an toàn: TUYỆT ĐỐI KHÔNG lưu token, CHỈ lưu chuỗi email
