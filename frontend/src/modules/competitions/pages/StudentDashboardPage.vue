@@ -87,6 +87,33 @@
       </div>
     </section>
 
+    <!-- Banner Lời Mời Tham Gia Đề Tài Mới (Xuất hiện ngay khi vừa đăng nhập) -->
+    <div
+      v-if="pendingInvitations.length > 0"
+      class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs animate-fade-in"
+    >
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-2xl bg-[#1E56D9] text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+          <Mail class="w-5 h-5" />
+        </div>
+        <div class="min-w-0">
+          <h4 class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
+            Bạn có {{ pendingInvitations.length }} lời mời tham gia đề tài khởi nghiệp
+          </h4>
+          <p class="text-[11px] text-slate-500 truncate">
+            Đề tài: <strong>{{ pendingInvitations[0]?.projectTitle }}</strong> (Người mời: {{ pendingInvitations[0]?.inviterName }})
+          </p>
+        </div>
+      </div>
+      <router-link
+        to="/student/projects"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] transition-colors shrink-0 self-end sm:self-auto cursor-pointer shadow-xs active:scale-95"
+      >
+        <span>Xem và phản hồi lời mời</span>
+        <ArrowRight class="w-3.5 h-3.5" />
+      </router-link>
+    </div>
+
     <!-- 2. Bảng Thống Kê Hoạt Động (Student Metric Badges) -->
     <section>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
@@ -231,14 +258,14 @@
         <div>
           <span class="text-[10px] font-bold text-[#1E56D9] uppercase tracking-wider">Tiến trình đề tài hiện tại</span>
           <h3 class="text-base sm:text-lg font-bold text-[#0B1F4B]">
-            Hệ Thống Số Hoá Quản Lý Nông Sản Đồng Bằng Sông Cửu Long (EcoFarm SESS)
+            Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long (SESS-2026-004)
           </h3>
         </div>
         <router-link
           to="/student/projects"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors shrink-0"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors shrink-0 cursor-pointer"
         >
-          <span>Quản lý dự án chi tiết</span>
+          <span>Vào không gian làm việc đề tài</span>
           <ArrowRight class="w-3.5 h-3.5" />
         </router-link>
       </div>
@@ -374,13 +401,16 @@ import {
   Newspaper,
   HelpCircle,
   KeyRound,
+  Mail,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { competitionsService } from '@/modules/competitions/services/competitionsService';
+import projectService from '@/services/projectService';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 
 const authStore = useAuthStore();
 const isChangePasswordOpen = ref(false);
+const pendingInvitations = ref([]);
 
 const userInitial = computed(() => {
   const name = authStore.user?.fullName || 'S';
@@ -422,6 +452,14 @@ const activeCompetitions = ref([...defaultActiveCompetitions]);
 const isLoadingCompetitions = ref(false);
 
 onMounted(async () => {
+  try {
+    const invRes = await projectService.getMyInvitations();
+    if (invRes?.success && invRes.data?.invitations) {
+      pendingInvitations.value = invRes.data.invitations;
+    }
+  } catch {
+    // Fail-safe
+  }
   isLoadingCompetitions.value = true;
   try {
     const res = await competitionsService.list({ status: 'ongoing' });

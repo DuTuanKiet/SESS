@@ -107,8 +107,60 @@ export async function loginApi({ email, password, portalType = 'user' }) {
       // Đăng nhập thành công: Phân định vai trò dựa trên email trường
       const isTeacher =
         normalizedEmail.includes('gv') ||
-        (normalizedEmail.endsWith('@ctut.edu.vn') || normalizedEmail.endsWith('@ctuet.edu.vn')) &&
-          !normalizedEmail.includes('student');
+        ((normalizedEmail.endsWith('@ctut.edu.vn') || normalizedEmail.endsWith('@ctuet.edu.vn')) &&
+          !normalizedEmail.includes('student'));
+
+      const MOCK_STUDENTS_MAP = {
+        'dtkietktpm2311025@student.ctuet.edu.vn': {
+          id: '671f0000user0001',
+          fullName: 'Đặng Tấn Kiệt',
+          studentId: 'KTPM2311025',
+          className: 'KTPM0123',
+        },
+        'student@student.ctuet.edu.vn': {
+          id: '671f0000user0001',
+          fullName: 'Đặng Tấn Kiệt',
+          studentId: 'KTPM2311025',
+          className: 'KTPM0123',
+        },
+        'student@ctuet.edu.vn': {
+          id: '671f0000user0001',
+          fullName: 'Đặng Tấn Kiệt',
+          studentId: 'KTPM2311025',
+          className: 'KTPM0123',
+        },
+        'tvnamktpm2311026@student.ctuet.edu.vn': {
+          id: '671f0000user0002',
+          fullName: 'Trần Văn Nam',
+          studentId: 'KTPM2311026',
+          className: 'KTPM0123',
+        },
+        'ntmai2311040@student.ctuet.edu.vn': {
+          id: '671f0000user0004',
+          fullName: 'Nguyễn Tuyết Mai',
+          studentId: 'KTPM2311040',
+          className: 'KTPM0123',
+        },
+        'vthung2311041@student.ctuet.edu.vn': {
+          id: '671f0000user0005',
+          fullName: 'Vũ Tiến Hùng',
+          studentId: 'KTPM2311041',
+          className: 'KTPM0123',
+        },
+        'lhphuc2311030@student.ctuet.edu.vn': {
+          id: '671f0000user0006',
+          fullName: 'Lê Hoàng Phúc',
+          studentId: 'KTPM2311030',
+          className: 'KTPM0123',
+        },
+      };
+
+      const matchedStudent = MOCK_STUDENTS_MAP[normalizedEmail] || {
+        id: `mock_student_${normalizedEmail.split('@')[0]}`,
+        fullName: 'Đặng Tấn Kiệt',
+        studentId: 'KTPM2311025',
+        className: 'KTPM0123',
+      };
 
       const mockUser = isTeacher
         ? {
@@ -120,11 +172,11 @@ export async function loginApi({ email, password, portalType = 'user' }) {
             department: 'Khoa Công nghệ Thông tin',
           }
         : {
-            id: 'mock_student_id_01',
+            id: matchedStudent.id,
             email: normalizedEmail,
-            fullName: 'Đặng Tấn Kiệt',
-            studentId: 'CNTT2311025',
-            className: 'CNTT0123',
+            fullName: matchedStudent.fullName,
+            studentId: matchedStudent.studentId,
+            className: matchedStudent.className,
             role: 'student',
             systemRole: 'student',
           };

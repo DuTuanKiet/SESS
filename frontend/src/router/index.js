@@ -78,6 +78,8 @@ const routes = [
     meta: { roles: ['student'], requiresAuth: true },
     children: [
       { path: '', name: 'student-dashboard', component: () => import('@/modules/competitions/pages/StudentDashboardPage.vue') },
+      { path: 'projects', name: 'student-projects', component: () => import('@/modules/competitions/pages/StudentProjectsPage.vue') },
+      { path: 'projects/:id', name: 'student-project-detail', component: () => import('@/modules/competitions/pages/StudentProjectDetailPage.vue') },
     ],
   },
   {

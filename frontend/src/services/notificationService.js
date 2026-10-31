@@ -100,5 +100,23 @@ export const notificationService = {
     const res = await httpClient.patch('/notifications/read-all');
     return res.data;
   },
+
+  /**
+   * Thêm thông báo mới vào danh sách (dùng cho mock và thông báo tức thì)
+   */
+  addNotification({ title, message, type = 'system', targetUrl = '/student/projects' }) {
+    const newNotif = {
+      id: `notif_${Date.now()}`,
+      title,
+      message,
+      type,
+      targetUrl,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    };
+    MOCK_NOTIFICATIONS.unshift(newNotif);
+    return newNotif;
+  },
 };
 
+export default notificationService;

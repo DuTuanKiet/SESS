@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="min-h-screen bg-slate-50 flex text-slate-800 font-sans">
     
     <!-- 1. Backdrop làm mờ khi mở Mobile Drawer (< 1024px) -->
@@ -42,13 +42,17 @@
             :key="item.path"
             :to="item.path"
             @click="isMobileDrawerOpen = false"
-            class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-[#0B1F4B] hover:bg-slate-50 transition-all duration-150 group"
-            active-class="bg-[#F1F7FF] text-[#1E56D9] font-semibold border-l-3 border-[#1E56D9] shadow-2xs"
+            class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 group"
+            :class="[
+              isItemActive(item)
+                ? 'bg-[#F1F7FF] text-[#1E56D9] font-semibold border-l-3 border-[#1E56D9] shadow-2xs'
+                : 'text-slate-600 hover:text-[#0B1F4B] hover:bg-slate-50'
+            ]"
           >
             <component
               :is="item.icon"
               class="w-4 h-4 text-slate-400 group-hover:text-[#1E56D9] transition-colors"
-              :class="{ 'text-[#1E56D9]': $route.path === item.path }"
+              :class="isItemActive(item) ? 'text-[#1E56D9]' : 'text-slate-400 group-hover:text-[#1E56D9]'"
             />
             <span>{{ item.label }}</span>
             <span
@@ -192,7 +196,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   Menu,
   X,
@@ -209,6 +213,7 @@ import NotificationDropdown from '@/components/common/NotificationDropdown.vue';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 const isMobileDrawerOpen = ref(false);
@@ -222,11 +227,24 @@ const userInitial = computed(() => {
 });
 
 const navItems = [
-  { label: 'Tổng quan', path: '/student' },
-  { label: 'Cuộc thi', path: '/competitions'},
-  { label: 'Dự án của tôi', path: '/student/projects'},
-  { label: 'Nhóm của tôi', path: '/student/teams'},
+  { label: 'Tổng quan', path: '/student', icon: LayoutDashboard, exact: true },
+  { label: 'Cuộc thi', path: '/competitions', icon: Trophy, exact: false },
+  { label: 'Dự án của tôi', path: '/student/projects', icon: FolderKanban, exact: false },
+
 ];
+
+/**
+ * Kiểm tra menu item có đang active hay không
+ * - Mục Tổng quan (exact = true): CHỈ active khi URL đúng bằng '/student'
+ * - Mục Dự án của tôi: active khi URL bằng '/student/projects' hoặc bắt đầu bằng '/student/projects/'
+ * - Mục Cuộc thi: active khi URL bắt đầu bằng '/competitions'
+ */
+function isItemActive(item) {
+  if (item.exact) {
+    return route.path === item.path;
+  }
+  return route.path === item.path || route.path.startsWith(item.path + '/');
+}
 
 function handleLogout() {
   isProfileOpen.value = false;
