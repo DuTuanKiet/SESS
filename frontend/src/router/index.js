@@ -78,6 +78,7 @@ const routes = [
     meta: { roles: ['student'], requiresAuth: true },
     children: [
       { path: '', name: 'student-dashboard', component: () => import('@/modules/competitions/pages/StudentDashboardPage.vue') },
+      { path: 'profile', name: 'student-profile', component: () => import('@/modules/competitions/pages/StudentProfilePage.vue') },
       { path: 'projects', name: 'student-projects', component: () => import('@/modules/competitions/pages/StudentProjectsPage.vue') },
       { path: 'projects/:id', name: 'student-project-detail', component: () => import('@/modules/competitions/pages/StudentProjectDetailPage.vue') },
     ],
@@ -129,7 +130,7 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = authStore.isAuthenticated;
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
   const isAuthPage = to.path === ROUTE_PATHS.LOGIN || to.path.startsWith('/auth') || to.path === '/admin/login';
-  
+
   // Trích xuất role chuẩn từ Pinia store (hỗ trợ cả unwrapped object và ref)
   const currentRole = authStore.user?.role || authStore.user?.value?.role;
 

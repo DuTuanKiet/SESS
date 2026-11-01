@@ -1,10 +1,10 @@
-﻿<template>
+<template>
   <header class="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)]">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         
         <!-- 1. Logo & Brand Identity -->
-        <router-link to="/" class="flex items-center gap-3 group select-none">
+        <router-link :to="homePath" class="flex items-center gap-3 group select-none">
           <img src="@/assets/logo-CTUT.png" alt="Logo CTUT" class="w-12 h-12 object-contain" />
           <div class="flex flex-col leading-tight">
             <span class="text-sm font-bold tracking-tight text-[#0B1F4B]">SESS</span>
@@ -15,11 +15,11 @@
         <!-- 2. Navigation Menu -->
         <nav class="hidden lg:flex items-center gap-1 text-sm font-medium">
           
-          <!-- Trang chủ -->
+          <!-- Trang chủ (Trỏ về /student khi sinh viên đăng nhập) -->
           <router-link 
-            to="/" 
+            :to="homePath" 
             class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors"
-            active-class="text-[#0B1F4B] font-semibold bg-slate-50"
+            exact-active-class="text-[#0B1F4B] font-semibold bg-slate-50"
           >
             Trang chủ
           </router-link>
@@ -49,9 +49,23 @@
             </div>
           </div>
 
-          <!-- Các liên kết đơn -->
-          <router-link to="/support" class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors" active-class="text-[#0B1F4B] font-semibold bg-slate-50">Hỗ trợ</router-link>
-          <router-link to="/about" class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors" active-class="text-[#0B1F4B] font-semibold bg-slate-50">Về chúng tôi</router-link>
+          <!-- Khi Sinh viên đăng nhập: Hiển thị mục "Dự án của tôi" -->
+          <router-link
+            v-if="authStore.isAuthenticated && authStore.isStudent"
+            to="/student/projects"
+            class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors"
+            active-class="text-[#0B1F4B] font-semibold bg-slate-50"
+          >
+            Dự án của tôi
+          </router-link>
+
+          <!-- Khi Khách vãng lai / Người dùng chưa đăng nhập: Hiển thị Hỗ trợ & Về chúng tôi -->
+          <template v-else>
+            <router-link to="/support" class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors" active-class="text-[#0B1F4B] font-semibold bg-slate-50">Hỗ trợ</router-link>
+            <router-link to="/about" class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors" active-class="text-[#0B1F4B] font-semibold bg-slate-50">Về chúng tôi</router-link>
+          </template>
+
+          <!-- Tài nguyên -->
           <router-link to="/resources" class="px-4 py-2 rounded-lg text-slate-700 hover:text-[#0B1F4B] hover:bg-slate-50 transition-colors" active-class="text-[#0B1F4B] font-semibold bg-slate-50">Tài nguyên</router-link>
         </nav>
 
@@ -111,6 +125,16 @@
 
                 <router-link
                   v-if="authStore.isStudent"
+                  to="/student/profile"
+                  @click="isUserMenuOpen = false"
+                  class="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors"
+                >
+                  <User class="w-3.5 h-3.5 text-slate-400" />
+                  <span>Hồ sơ cá nhân</span>
+                </router-link>
+
+                <router-link
+                  v-if="authStore.isStudent"
                   to="/student/projects"
                   @click="isUserMenuOpen = false"
                   class="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors"
@@ -118,6 +142,16 @@
                   <FolderKanban class="w-3.5 h-3.5 text-slate-400" />
                   <span>Dự án của tôi</span>
                 </router-link>
+
+                <!-- Mở modal đổi mật khẩu trực tiếp từ menu người dùng -->
+                <button
+                  type="button"
+                  @click="isUserMenuOpen = false; isChangePasswordOpen = true"
+                  class="w-full flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors text-left cursor-pointer"
+                >
+                  <KeyRound class="w-3.5 h-3.5 text-slate-400" />
+                  <span>Đổi mật khẩu</span>
+                </button>
 
                 <div class="border-t border-slate-100 my-1"></div>
 
@@ -147,6 +181,9 @@
 
       </div>
     </div>
+
+    <!-- Modal Đổi Mật Khẩu dùng chung -->
+    <ChangePasswordModal v-model:isOpen="isChangePasswordOpen" />
   </header>
 </template>
 
@@ -159,20 +196,28 @@ import {
   User,
   LayoutDashboard,
   FolderKanban,
+  KeyRound,
   LogOut,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import NotificationDropdown from '@/components/common/NotificationDropdown.vue';
+import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
 
 const isUserMenuOpen = ref(false);
+const isChangePasswordOpen = ref(false);
 const userMenuRef = ref(null);
 
 const userInitial = computed(() => {
   const name = authStore.user?.fullName || 'U';
   return name.trim().charAt(0).toUpperCase();
+});
+
+const homePath = computed(() => {
+  if (authStore.isAuthenticated && authStore.isStudent) return '/student';
+  return '/';
 });
 
 const dashboardPath = computed(() => {

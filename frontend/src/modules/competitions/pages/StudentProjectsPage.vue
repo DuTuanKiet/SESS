@@ -1,468 +1,419 @@
 <template>
-  <div class="space-y-6 font-sans">
+  <div class="font-sans bg-white min-h-[70vh]">
     
-    <!-- 1. Breadcrumbs & Header Tinh gọn (Clean Workspace - 100% Không Banner) -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
-      <div>
-        <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
-          <router-link to="/student" class="hover:text-slate-600 transition-colors">Cổng Sinh Viên</router-link>
-          <span>/</span>
-          <span class="text-slate-600 font-medium">Dự án &amp; Lịch sử Đề tài</span>
-        </nav>
-        <h1 class="text-xl sm:text-2xl font-bold text-[#0B1F4B] tracking-tight">
-          Dự Án Khởi Nghiệp Sinh Viên
-        </h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Theo dõi tiến độ đề tài năm nay và tra cứu hồ sơ các dự án đã hoàn thành qua các năm thi.
-        </p>
-      </div>
-
-      <!-- Góc Phải: Duy nhất 1 Nút Hành Động Chính (Kiểm soát nghiêm ngặt bởi Quota Active 1/1) -->
-      <div class="relative group self-start sm:self-auto shrink-0">
-        <!-- Nút khi bị khóa do đang có đề tài active -->
-        <button
-          v-if="!eligibility.canRegister"
-          type="button"
-          disabled
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed select-none shadow-2xs"
-          title="Bạn đang có đề tài đang hoạt động"
-        >
-          <Lock class="w-4 h-4 text-slate-400" />
-          <span>Đang thực hiện 1 đề tài</span>
-        </button>
-
-        <!-- Nút khi ĐỦ ĐIỀU KIỆN (Không có đề tài active hoặc tất cả đề tài cũ đã hoàn thành) -->
-        <button
-          v-else
-          type="button"
-          @click="isCreateModalOpen = true"
-          :disabled="isSubmitting"
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs bg-[#1E56D9] hover:bg-[#1d4ed8] text-white shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-        >
-          <Plus class="w-4 h-4" />
-          <span>Đăng ký đề tài mới</span>
-        </button>
-
-        <!-- Tooltip giải thích nghiệp vụ khi nút bị khóa -->
-        <div
-          v-if="!eligibility.canRegister"
-          class="absolute right-0 top-full mt-2 w-72 p-3 bg-slate-900/95 text-white text-[11px] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed"
-        >
-          <p class="font-bold text-amber-400 mb-1 flex items-center gap-1.5">
-            <AlertCircle class="w-3.5 h-3.5" />
-            <span>Quy chế SESS: Quota 1 đề tài active</span>
+    <!-- 1. HEADER TRANG ĐỀ TÀI (Phong cách Website Giáo dục đồng bộ với AboutPage & RulesPage) -->
+    <section class="bg-[#F1F7FF] border-b border-[#E4ECF7] py-10 lg:py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white text-[#1E56D9] border border-[#C7D7F5] text-xs font-semibold uppercase tracking-wider">
+            Không gian Đề tài Sinh viên
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-[#0B1F4B] tracking-tight">
+            Đề tài Khởi nghiệp của Bạn
+          </h1>
+          <p class="text-sm text-[#4B5B7A] leading-relaxed">
+            Đăng ký ý tưởng mới, kết nối bạn học cùng nhóm và theo dõi kết quả đề tài qua các năm học.
           </p>
-          <p>{{ eligibility.reason }}</p>
         </div>
-      </div>
-    </div>
 
-    <!-- Cảnh báo Cooldown Chống Spam (Bắt lỗi 429 TOO_MANY_REQUESTS) -->
-    <div
-      v-if="cooldownSeconds > 0"
-      class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-3 animate-fade-in"
-    >
-      <Clock class="w-5 h-5 text-amber-600 shrink-0" />
-      <div>
-        <span class="font-bold">Thao tác quá nhanh!</span>
-        <p class="mt-0.5 text-amber-700">
-          Hệ thống đang tạm khóa các thao tác của bạn để bảo vệ dữ liệu. Vui lòng thử lại sau
-          <span class="font-extrabold text-amber-900">{{ cooldownSeconds }}</span> giây.
-        </p>
-      </div>
-    </div>
+        <!-- Duy nhất 1 nút hành động chính ở góc phải -->
+        <div class="relative group self-start md:self-auto shrink-0">
+          <button
+            v-if="!eligibility.canRegister"
+            type="button"
+            disabled
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-xs sm:text-sm bg-white text-[#4B5B7A] border border-[#C7D7F5] cursor-not-allowed select-none"
+            title="Bạn đang tham gia 1 đề tài trong kỳ này"
+          >
+            <Lock class="w-4 h-4 text-[#1E56D9]" />
+            <span>Đang tham gia 01 đề tài trong kỳ</span>
+          </button>
 
-    <!-- 2. Thanh Điều Hướng Tab Tích Hợp Counter (DRY UI - Zero Redundancy) -->
-    <div class="flex items-center gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-px">
-      <button
-        type="button"
-        @click="handleTabChange('ACTIVE')"
-        class="flex items-center gap-2 py-3 px-3.5 text-xs font-semibold transition-all relative shrink-0 cursor-pointer"
-        :class="currentTab === 'ACTIVE'
-          ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
-          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'"
-      >
-        <FolderKanban class="w-4 h-4" />
-        <span>Đang thực hiện</span>
-        <span
-          class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-          :class="currentTab === 'ACTIVE' ? 'bg-blue-100 text-[#1E56D9]' : 'bg-slate-100 text-slate-600'"
-        >
-          {{ counts.active }}
-        </span>
-      </button>
+          <button
+            v-else
+            type="button"
+            @click="isCreateModalOpen = true"
+            :disabled="isSubmitting"
+            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm bg-[#1E56D9] hover:bg-[#1d4ed8] text-white shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+          >
+            <Plus class="w-4 h-4" />
+            <span>Đăng ký đề tài mới</span>
+          </button>
 
-      <button
-        type="button"
-        @click="handleTabChange('COMPLETED')"
-        class="flex items-center gap-2 py-3 px-3.5 text-xs font-semibold transition-all relative shrink-0 cursor-pointer"
-        :class="currentTab === 'COMPLETED'
-          ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
-          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'"
-      >
-        <Archive class="w-4 h-4" />
-        <span>Lịch sử &amp; Đã hoàn thành</span>
-        <span
-          class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-          :class="currentTab === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'"
-        >
-          {{ counts.completed }}
-        </span>
-      </button>
-
-      <button
-        type="button"
-        @click="handleTabChange('ALL')"
-        class="flex items-center gap-2 py-3 px-3.5 text-xs font-semibold transition-all relative shrink-0 cursor-pointer"
-        :class="currentTab === 'ALL'
-          ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
-          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'"
-      >
-        <Layers class="w-4 h-4" />
-        <span>Tất cả đề tài</span>
-        <span
-          class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-          :class="currentTab === 'ALL' ? 'bg-slate-200 text-slate-800' : 'bg-slate-100 text-slate-600'"
-        >
-          {{ counts.total }}
-        </span>
-      </button>
-    </div>
-
-    <!-- 3. Thanh Lọc & Tìm Kiếm Tinh Gọn (Inline Filter với Debounce 350ms) -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-      
-      <!-- Ô Tìm kiếm Từ khóa (Tên hoặc Mã Đề tài) -->
-      <div class="relative flex-1 min-w-0">
-        <Search class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        <input
-          v-model="searchInput"
-          type="text"
-          placeholder="Tìm theo tên đề tài hoặc mã (SESS-2025...)"
-          class="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#1E56D9]/20 focus:border-[#1E56D9] transition-all"
-        />
-        <button
-          v-if="searchInput"
-          type="button"
-          @click="searchInput = ''"
-          class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-        >
-          <X class="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      <!-- Bộ lọc Năm & Trạng thái -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- Lọc Năm (Chỉ hiện khi ở Tab Lịch sử hoặc Tất cả) -->
-        <select
-          v-if="currentTab !== 'ACTIVE'"
-          v-model="selectedYear"
-          class="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 focus:outline-hidden focus:border-[#1E56D9] cursor-pointer"
-        >
-          <option value="">Tất cả các năm</option>
-          <option value="2026">Năm 2026</option>
-          <option value="2025">Năm 2025</option>
-          <option value="2024">Năm 2024</option>
-        </select>
-
-        <!-- Nút Reset Lọc -->
-        <button
-          v-if="hasActiveFilters"
-          type="button"
-          @click="handleResetFilters"
-          class="px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          Đặt lại
-        </button>
-      </div>
-
-    </div>
-
-    <!-- Khối Banner Lời Mời Tham Gia Đề Tài (Xuất hiện nổi bật khi sinh viên nhận được lời mời) -->
-    <div
-      v-if="pendingInvitations.length > 0"
-      class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 animate-fade-in"
-    >
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-[#1E56D9] text-white flex items-center justify-center font-bold shadow-xs">
-            <Mail class="w-5 h-5" />
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-[#0B1F4B]">Lời mời tham gia đề tài khởi nghiệp</h3>
-            <p class="text-xs text-slate-500">Bạn được mời gia nhập nhóm nghiên cứu để cùng tham gia cuộc thi SESS</p>
+          <!-- Chú thích quy định nhẹ nhàng khi di chuột -->
+          <div
+            v-if="!eligibility.canRegister"
+            class="absolute right-0 top-full mt-2 w-72 p-3.5 bg-[#0B1F4B] text-white text-xs rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed"
+          >
+            <p class="font-semibold text-blue-200 mb-1">Quy định tham gia đề tài</p>
+            <p class="text-white/90 text-[11px]">{{ eligibility.reason }}</p>
           </div>
         </div>
-        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-[#1E56D9]">
-          {{ pendingInvitations.length }} lời mời mới
-        </span>
+      </div>
+    </section>
+
+    <!-- KHU VỰC NỘI DUNG CHÍNH -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6">
+
+      <!-- Cảnh báo thao tác quá nhanh (HTTP 429) -->
+      <div
+        v-if="cooldownSeconds > 0"
+        class="p-4 rounded-xl bg-[#F1F7FF] border border-[#C7D7F5] text-[#0B1F4B] text-xs flex items-center gap-3"
+      >
+        <Clock class="w-4 h-4 text-[#1E56D9] shrink-0" />
+        <div>
+          <span class="font-bold">Vui lòng chờ giây lát:</span>
+          <span class="ml-1 text-[#4B5B7A]">
+            Hệ thống đang xử lý yêu cầu trước đó. Bạn có thể thao tác lại sau
+            <strong class="text-[#1E56D9]">{{ cooldownSeconds }}</strong> giây.
+          </span>
+        </div>
       </div>
 
-      <!-- Danh sách từng thẻ lời mời -->
-      <div class="space-y-3">
-        <div
-          v-for="inv in pendingInvitations"
-          :key="inv._id"
-          class="bg-white rounded-2xl p-4 border border-blue-100 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-        >
-          <div class="space-y-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[10px] font-bold">
-                {{ inv.projectCode }}
-              </span>
-              <span class="text-xs text-slate-400">•</span>
-              <span class="text-xs text-slate-500">{{ inv.category || 'Chưa phân loại' }}</span>
+      <!-- 2. KHỐI LỜI MỜI THAM GIA NHÓM ĐỀ TÀI (Chỉ hiện khi có bạn học mời) -->
+      <div
+        v-if="pendingInvitations.length > 0"
+        class="bg-[#F1F7FF] border border-[#C7D7F5] rounded-2xl p-5 sm:p-6 space-y-4"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-[#1E56D9] text-white flex items-center justify-center shrink-0">
+              <Mail class="w-4 h-4" />
             </div>
-            <h4 class="text-sm font-bold text-[#0B1F4B] truncate">{{ inv.projectTitle }}</h4>
-            <p class="text-xs text-slate-500">
-              Người mời: <strong class="text-slate-700">{{ inv.inviterName }}</strong> ({{ inv.inviterEmail }}) với vai trò <strong>Thành viên</strong>
-            </p>
-          </div>
-
-          <!-- 2 Nút Hành Động Đồng Ý / Từ Chối -->
-          <div class="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-            <button
-              type="button"
-              @click="handleRejectInvitation(inv)"
-              :disabled="isRespondingInvitation"
-              class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              Từ chối
-            </button>
-            <button
-              type="button"
-              @click="handleAcceptInvitation(inv)"
-              :disabled="isRespondingInvitation"
-              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              <Check class="w-3.5 h-3.5" />
-              <span>Đồng ý tham gia</span>
-            </button>
+            <div>
+              <h3 class="text-sm font-bold text-[#0B1F4B]">Lời mời tham gia nhóm đề tài</h3>
+              <p class="text-xs text-[#4B5B7A]">Bạn nhận được {{ pendingInvitations.length }} lời mời cùng thực hiện đề tài</p>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 4. Lưới Thẻ Đề Tài (Clean Project Grid - 1 Thẻ, 1 Nút Hành Động Duy Nhất) -->
-    <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-      <!-- Skeleton Loading Cards -->
-      <div v-for="i in 3" :key="i" class="bg-white p-5 rounded-2xl border border-slate-200 animate-pulse space-y-4">
-        <div class="h-4 bg-slate-200 rounded-md w-1/3"></div>
-        <div class="h-6 bg-slate-200 rounded-md w-3/4"></div>
-        <div class="h-12 bg-slate-100 rounded-md w-full"></div>
-        <div class="h-8 bg-slate-200 rounded-xl w-full mt-4"></div>
-      </div>
-    </div>
-
-    <!-- Danh sách Đề tài Thật -->
-    <div
-      v-else-if="projects.length > 0"
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
-    >
-      <article
-        v-for="project in projects"
-        :key="project._id"
-        class="bg-white rounded-2xl border border-slate-200/90 hover:border-blue-300 p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
-      >
         <div class="space-y-3">
-          
-          <!-- Dòng 1: Mã Đề tài • Cấp thi • Badge Trạng thái -->
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="text-xs font-bold text-[#0B1F4B] tracking-tight truncate">
-                {{ project.code }}
-              </span>
-              <span class="text-[10px] text-slate-400">•</span>
-              <span class="text-[10px] font-semibold text-slate-500 uppercase">
-                {{ project.level === 'UNIVERSITY' ? 'Cấp Trường' : 'Cấp Khoa' }}
-              </span>
+          <div
+            v-for="inv in pendingInvitations"
+            :key="inv._id"
+            class="bg-white rounded-xl p-4 border border-[#E4ECF7] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div class="space-y-1 min-w-0">
+              <div class="flex items-center gap-2 text-xs text-[#4B5B7A]">
+                <span class="font-bold text-[#1E56D9]">{{ inv.projectCode }}</span>
+                <span>•</span>
+                <span>{{ inv.category || 'Chưa phân loại' }}</span>
+              </div>
+              <h4 class="text-sm font-bold text-[#0B1F4B] truncate">{{ inv.projectTitle }}</h4>
+              <p class="text-xs text-[#4B5B7A]">
+                Người mời: <strong class="text-[#0B1F4B]">{{ inv.inviterName }}</strong> ({{ inv.inviterEmail }})
+              </p>
             </div>
 
-            <!-- Huy hiệu Trạng thái duy nhất -->
-            <span
-              class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0"
-              :class="getStatusBadgeClass(project.status)"
+            <div class="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                @click="handleRejectInvitation(inv)"
+                :disabled="isRespondingInvitation"
+                class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Từ chối
+              </button>
+              <button
+                type="button"
+                @click="handleAcceptInvitation(inv)"
+                :disabled="isRespondingInvitation"
+                class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Check class="w-3.5 h-3.5" />
+                <span>Đồng ý tham gia</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. THANH ĐIỀU HƯỚNG MỤC & TÌM KIẾM GỌN GÀNG -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E4ECF7] pb-3">
+        <!-- Cụm Tab gạch chân trang nhã -->
+        <div class="flex items-center gap-6 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            @click="handleTabChange('ACTIVE')"
+            class="flex items-center gap-2 py-2 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+            :class="currentTab === 'ACTIVE'
+              ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
+              : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
+          >
+            <span>Đang tham gia</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-[#F1F7FF] text-[#1E56D9]">
+              {{ counts.active }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click="handleTabChange('COMPLETED')"
+            class="flex items-center gap-2 py-2 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+            :class="currentTab === 'COMPLETED'
+              ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
+              : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
+          >
+            <span>Đã hoàn thành</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-[#F1F7FF] text-[#1E56D9]">
+              {{ counts.completed }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click="handleTabChange('ALL')"
+            class="flex items-center gap-2 py-2 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+            :class="currentTab === 'ALL'
+              ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
+              : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
+          >
+            <span>Tất cả đề tài</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-[#F1F7FF] text-[#1E56D9]">
+              {{ counts.total }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Ô Tìm kiếm & Lọc năm -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 lg:w-96">
+          <div class="relative flex-1 min-w-0">
+            <Search class="w-4 h-4 text-[#4B5B7A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              v-model="searchInput"
+              type="text"
+              placeholder="Tìm theo tên hoặc mã đề tài..."
+              class="w-full pl-9 pr-8 py-2 text-xs rounded-full bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] transition-colors"
+            />
+            <button
+              v-if="searchInput"
+              type="button"
+              @click="searchInput = ''"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
-              {{ getStatusLabel(project.status) }}
-            </span>
+              <X class="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <!-- Dòng 2: Tên đề tài (tối đa 2 dòng) -->
-          <h2 class="text-sm font-bold text-[#0B1F4B] group-hover:text-[#1E56D9] transition-colors line-clamp-2 leading-snug min-h-[2.5rem]">
-            {{ project.title }}
-          </h2>
-
-          <!-- Dòng 3: Lĩnh vực & Vai trò thành viên -->
-          <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
-            <span class="truncate max-w-[170px]" :title="project.category">
-              {{ project.category || 'Chưa phân loại' }}
-            </span>
-            <span class="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[10px]">
-              {{ project.userRole === 'OWNER' ? 'Trưởng nhóm' : 'Thành viên' }}
-            </span>
-          </div>
-
-          <!-- Dòng 4: Đặc thù Đề tài Hoàn thành (Hiển thị Mã Biên nhận số SHA-256) -->
-          <div
-            v-if="project.status === 'COMPLETED'"
-            class="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-emerald-800 text-[11px] space-y-1"
+          <select
+            v-if="currentTab !== 'ACTIVE'"
+            v-model="selectedYear"
+            class="px-3.5 py-2 text-xs rounded-full bg-[#F8FBFF] border border-[#E4ECF7] text-[#0B1F4B] focus:outline-hidden focus:border-[#1E56D9] cursor-pointer"
           >
-            <div class="flex items-center justify-between">
-              <span class="font-bold flex items-center gap-1">
-                <CheckCircle2 class="w-3.5 h-3.5 text-emerald-600" />
-                <span>Đã thẩm định hoàn tất</span>
+            <option value="">Tất cả năm</option>
+            <option value="2026">Năm 2026</option>
+            <option value="2025">Năm 2025</option>
+            <option value="2024">Năm 2024</option>
+          </select>
+
+          <button
+            v-if="hasActiveFilters"
+            type="button"
+            @click="handleResetFilters"
+            class="px-3 py-2 text-xs font-medium text-[#1E56D9] hover:underline cursor-pointer shrink-0"
+          >
+            Đặt lại
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. DANH SÁCH THẺ ĐỀ TÀI (Thiết kế đồng bộ với HomePage, không viền sặc sỡ) -->
+      <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-for="i in 3" :key="i" class="bg-white p-6 rounded-2xl border border-[#E4ECF7] animate-pulse space-y-4">
+          <div class="h-4 bg-slate-100 rounded w-1/3"></div>
+          <div class="h-6 bg-slate-100 rounded w-3/4"></div>
+          <div class="h-12 bg-slate-50 rounded w-full"></div>
+          <div class="h-8 bg-slate-100 rounded-full w-1/2 mt-4"></div>
+        </div>
+      </div>
+
+      <div
+        v-else-if="projects.length > 0"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+      >
+        <article
+          v-for="project in projects"
+          :key="project._id"
+          class="bg-white rounded-2xl border border-[#E4ECF7] hover:border-[#C7D7F5] p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+        >
+          <div class="space-y-3.5">
+            <!-- Dòng 1: Cấp thi & Trạng thái -->
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F1F7FF] text-[#1E56D9]">
+                {{ project.code }} • {{ project.level === 'UNIVERSITY' ? 'Cấp Trường' : 'Cấp Khoa' }}
               </span>
-              <span class="text-[10px] text-emerald-600 font-medium">v{{ project.version }}</span>
+
+              <span
+                class="px-2.5 py-0.5 rounded-full text-[11px] font-medium shrink-0"
+                :class="getStatusBadgeClass(project.status)"
+              >
+                {{ getStatusLabel(project.status) }}
+              </span>
             </div>
-            <div class="text-[10px] text-emerald-700 font-mono truncate" :title="project.digitalReceiptHash">
-              Biên nhận: #{{ project.digitalReceiptHash?.slice(0, 16) }}...
+
+            <!-- Dòng 2: Tên đề tài -->
+            <h2 class="text-base font-bold text-[#0B1F4B] group-hover:text-[#1E56D9] transition-colors line-clamp-2 leading-snug min-h-[2.75rem]">
+              {{ project.title }}
+            </h2>
+
+            <!-- Dòng 3: Lĩnh vực & Vai trò -->
+            <div class="p-3 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] flex items-center justify-between text-xs text-[#4B5B7A]">
+              <span class="truncate max-w-[170px]" :title="project.category">
+                {{ project.category || 'Chưa phân loại' }}
+              </span>
+              <span class="font-semibold text-[#0B1F4B]">
+                {{ project.userRole === 'OWNER' ? 'Trưởng nhóm' : 'Thành viên' }}
+              </span>
+            </div>
+
+            <!-- Thông tin xác nhận hoàn thành (nếu có) -->
+            <div
+              v-if="project.status === 'COMPLETED'"
+              class="p-3 rounded-xl bg-[#F1F7FF] border border-[#C7D7F5] text-[#0B1F4B] text-xs space-y-1"
+            >
+              <div class="flex items-center justify-between">
+                <span class="font-semibold flex items-center gap-1.5 text-[#1E56D9]">
+                  <CheckCircle2 class="w-3.5 h-3.5" />
+                  <span>Đã nghiệm thu hoàn thành</span>
+                </span>
+                <span class="text-[11px] text-[#4B5B7A]">Lần nộp {{ project.version }}</span>
+              </div>
+            </div>
+
+            <div
+              v-if="project.parentId"
+              class="text-xs text-[#1E56D9] bg-[#F1F7FF] px-3 py-1.5 rounded-lg font-medium"
+            >
+              Đề tài thi Cấp Trường phát triển từ vòng Sơ khảo
             </div>
           </div>
 
-          <!-- Đề tài có liên kết thi vượt cấp -->
-          <div
-            v-if="project.parentId"
-            class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded-md font-medium"
-          >
-            Đề tài thi Cấp Trường kế thừa từ bản sơ khảo
+          <!-- Liên kết mở trang chi tiết đề tài -->
+          <div class="pt-4 mt-5 border-t border-[#E4ECF7] flex items-center justify-between">
+            <router-link
+              :to="{ name: 'student-project-detail', params: { id: project._id } }"
+              class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1E56D9] hover:text-[#0B1F4B] transition-colors"
+            >
+              <span>{{ project.status === 'DRAFT' || project.status === 'NEED_REVISION' ? 'Chỉnh sửa & Nộp hồ sơ' : 'Xem chi tiết đề tài' }}</span>
+              <ArrowRight class="w-4 h-4" />
+            </router-link>
           </div>
+        </article>
+      </div>
 
+      <!-- 5. TRẠNG THÁI RỖNG THANH LỊCH -->
+      <div
+        v-else
+        class="bg-[#F8FBFF] rounded-2xl border border-[#E4ECF7] p-10 text-center max-w-xl mx-auto"
+      >
+        <div class="w-12 h-12 rounded-xl bg-[#F1F7FF] text-[#1E56D9] flex items-center justify-center mx-auto mb-4">
+          <FolderOpen class="w-6 h-6" />
         </div>
 
-        <!-- Dòng 5: Chân thẻ - DUY NHẤT 1 NÚT HÀNH ĐỘNG DẪN VÀO WORKSPACE -->
-        <div class="pt-4 mt-4 border-t border-slate-100 flex items-center">
-          <router-link
-            :to="{ name: 'student-project-detail', params: { id: project._id } }"
-            class="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-semibold text-xs transition-all cursor-pointer"
-            :class="project.status === 'DRAFT' || project.status === 'NEED_REVISION'
-              ? 'bg-blue-50 text-[#1E56D9] hover:bg-[#1E56D9] hover:text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
+        <template v-if="hasActiveFilters">
+          <h3 class="text-base font-bold text-[#0B1F4B]">Không tìm thấy đề tài phù hợp</h3>
+          <p class="text-xs text-[#4B5B7A] mt-1">
+            Không có đề tài nào khớp với từ khóa tìm kiếm hoặc năm học bạn đã chọn.
+          </p>
+          <button
+            type="button"
+            @click="handleResetFilters"
+            class="mt-4 inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-semibold bg-white border border-[#C7D7F5] text-[#1E56D9] hover:bg-[#F1F7FF] transition-colors cursor-pointer"
           >
-            <span>{{ project.status === 'DRAFT' || project.status === 'NEED_REVISION' ? 'Tiếp tục chỉnh sửa' : 'Xem chi tiết hồ sơ' }}</span>
-            <ArrowRight class="w-3.5 h-3.5" />
-          </router-link>
+            Xem tất cả đề tài
+          </button>
+        </template>
+
+        <template v-else-if="currentTab === 'ACTIVE'">
+          <h3 class="text-base font-bold text-[#0B1F4B]">Bạn chưa có đề tài nào đang tham gia</h3>
+          <p class="text-xs text-[#4B5B7A] mt-1 leading-relaxed">
+            Hãy đăng ký ý tưởng khởi nghiệp mới để nhận sự đồng hành từ Giảng viên Cố vấn và tham gia các cuộc thi của trường.
+          </p>
+          <button
+            v-if="eligibility.canRegister"
+            type="button"
+            @click="isCreateModalOpen = true"
+            class="mt-4 inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] cursor-pointer"
+          >
+            <Plus class="w-4 h-4" />
+            <span>Đăng ký đề tài mới</span>
+          </button>
+        </template>
+
+        <template v-else-if="currentTab === 'COMPLETED'">
+          <h3 class="text-base font-bold text-[#0B1F4B]">Chưa có đề tài hoàn thành</h3>
+          <p class="text-xs text-[#4B5B7A] mt-1">
+            Các đề tài sau khi kết thúc mùa thi sẽ được lưu trữ tại đây.
+          </p>
+        </template>
+
+        <template v-else>
+          <h3 class="text-base font-bold text-[#0B1F4B]">Chưa có đề tài nào trong danh sách</h3>
+          <p class="text-xs text-[#4B5B7A] mt-1">
+            Hãy khởi tạo ý tưởng đầu tiên của bạn tại hệ thống SESS.
+          </p>
+        </template>
+      </div>
+
+      <!-- 6. PHÂN TRANG -->
+      <div
+        v-if="pagination.totalPages > 1"
+        class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#E4ECF7] text-xs text-[#4B5B7A]"
+      >
+        <div>
+          Hiển thị <span class="font-semibold text-[#0B1F4B]">{{ (pagination.page - 1) * pagination.limit + 1 }}</span>
+          -
+          <span class="font-semibold text-[#0B1F4B]">{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</span>
+          trên tổng số <span class="font-semibold text-[#0B1F4B]">{{ pagination.total }}</span> đề tài
         </div>
 
-      </article>
-    </div>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            :disabled="pagination.page <= 1"
+            @click="handlePageChange(pagination.page - 1)"
+            class="p-2 rounded-full border border-[#E4ECF7] hover:bg-[#F1F7FF] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="Trang trước"
+          >
+            <ChevronLeft class="w-4 h-4" />
+          </button>
 
-    <!-- 5. Xử lý Trạng thái Rỗng (Empty States) -->
-    <div
-      v-else
-      class="bg-white rounded-3xl border border-slate-200/90 p-8 sm:p-12 text-center max-w-xl mx-auto shadow-2xs"
-    >
-      <div class="w-14 h-14 rounded-2xl bg-blue-50 text-[#1E56D9] flex items-center justify-center mx-auto mb-4">
-        <FolderOpen class="w-7 h-7" />
+          <button
+            v-for="(p, idx) in visiblePages"
+            :key="idx"
+            type="button"
+            :disabled="p === '...'"
+            @click="typeof p === 'number' && handlePageChange(p)"
+            class="min-w-[32px] h-8 px-2 rounded-full font-semibold text-xs transition-colors cursor-pointer"
+            :class="p === pagination.page
+              ? 'bg-[#1E56D9] text-white'
+              : p === '...' ? 'cursor-default text-slate-400' : 'border border-[#E4ECF7] hover:bg-[#F1F7FF] text-[#0B1F4B]'"
+          >
+            {{ p }}
+          </button>
+
+          <button
+            type="button"
+            :disabled="pagination.page >= pagination.totalPages"
+            @click="handlePageChange(pagination.page + 1)"
+            class="p-2 rounded-full border border-[#E4ECF7] hover:bg-[#F1F7FF] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="Trang sau"
+          >
+            <ChevronRight class="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      <template v-if="hasActiveFilters">
-        <h3 class="text-base font-bold text-[#0B1F4B]">Không tìm thấy đề tài phù hợp</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          Không có đề tài nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại của bạn.
-        </p>
-        <button
-          type="button"
-          @click="handleResetFilters"
-          class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-        >
-          Xóa toàn bộ bộ lọc
-        </button>
-      </template>
-
-      <template v-else-if="currentTab === 'ACTIVE'">
-        <h3 class="text-base font-bold text-[#0B1F4B]">Bạn chưa có đề tài nào đang thực hiện</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          Đăng ký đề tài khởi nghiệp mới cho năm nay để nhận được sự cố vấn từ Giảng viên và tham gia các vòng thi.
-        </p>
-        <button
-          v-if="eligibility.canRegister"
-          type="button"
-          @click="isCreateModalOpen = true"
-          class="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] shadow-xs cursor-pointer"
-        >
-          <Plus class="w-4 h-4" />
-          <span>Bắt đầu tạo đề tài mới</span>
-        </button>
-      </template>
-
-      <template v-else-if="currentTab === 'COMPLETED'">
-        <h3 class="text-base font-bold text-[#0B1F4B]">Chưa có hồ sơ đề tài hoàn thành</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          Các dự án sau khi hoàn thành chu kỳ thi và đánh giá sẽ được tự động lưu trữ tại đây.
-        </p>
-      </template>
-
-      <template v-else>
-        <h3 class="text-base font-bold text-[#0B1F4B]">Chưa có đề tài nào trong danh sách</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          Hãy khởi tạo đề tài nghiên cứu đầu tiên của bạn tại SESS.
-        </p>
-      </template>
     </div>
 
-    <!-- 6. Thanh Phân Trang Chuẩn Mực (Pagination Engine) -->
-    <div
-      v-if="pagination.totalPages > 1"
-      class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/80 text-xs text-slate-600"
-    >
-      <div>
-        Hiển thị <span class="font-bold text-[#0B1F4B]">{{ (pagination.page - 1) * pagination.limit + 1 }}</span>
-        -
-        <span class="font-bold text-[#0B1F4B]">{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</span>
-        trên tổng số <span class="font-bold text-[#0B1F4B]">{{ pagination.total }}</span> đề tài
-      </div>
-
-      <!-- Cụm nút Phân trang -->
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          :disabled="pagination.page <= 1"
-          @click="handlePageChange(pagination.page - 1)"
-          class="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="Trang trước"
-        >
-          <ChevronLeft class="w-4 h-4" />
-        </button>
-
-        <button
-          v-for="(p, idx) in visiblePages"
-          :key="idx"
-          type="button"
-          :disabled="p === '...'"
-          @click="typeof p === 'number' && handlePageChange(p)"
-          class="min-w-[32px] h-8 px-2 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
-          :class="p === pagination.page
-            ? 'bg-[#1E56D9] text-white shadow-xs'
-            : p === '...' ? 'cursor-default text-slate-400' : 'border border-slate-200 hover:bg-slate-100 text-slate-700'"
-        >
-          {{ p }}
-        </button>
-
-        <button
-          type="button"
-          :disabled="pagination.page >= pagination.totalPages"
-          @click="handlePageChange(pagination.page + 1)"
-          class="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="Trang sau"
-        >
-          <ChevronRight class="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-
-    <!-- 7. Modal Đăng Ký Đề Tài Mới (FR03) -->
+    <!-- 7. MODAL ĐĂNG KÝ ĐỀ TÀI MỚI -->
     <div
       v-if="isCreateModalOpen"
       class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-scale-in">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-blue-50 text-[#1E56D9] flex items-center justify-center font-bold">
-              <Plus class="w-4 h-4" />
-            </div>
-            <h3 class="text-base font-bold text-[#0B1F4B]">Khởi tạo Đề tài Khởi nghiệp mới</h3>
-          </div>
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
+          <h3 class="text-base font-bold text-[#0B1F4B]">Đăng ký Đề tài Khởi nghiệp mới</h3>
           <button
             type="button"
             @click="isCreateModalOpen = false"
@@ -474,27 +425,27 @@
 
         <form @submit.prevent="handleCreateProject" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">
-              Tên đề tài khởi nghiệp <span class="text-rose-500">*</span>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
+              Tên đề tài / Ý tưởng khởi nghiệp <span class="text-rose-500">*</span>
             </label>
             <input
               v-model="newProjectForm.title"
               type="text"
               required
               maxlength="200"
-              placeholder="VD: Hệ thống AI cảnh báo sâu bệnh lúa..."
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+              placeholder="Ví dụ: Giải pháp chế biến nông sản sạch vùng Đồng bằng sông Cửu Long..."
+              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">
-              Lĩnh vực nghiên cứu <span class="text-rose-500">*</span>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
+              Lĩnh vực dự thi <span class="text-rose-500">*</span>
             </label>
             <select
               v-model="newProjectForm.category"
               required
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-hidden focus:border-[#1E56D9] cursor-pointer"
+              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] cursor-pointer"
             >
               <option value="">Chọn lĩnh vực phù hợp</option>
               <option value="Công nghệ thông tin">Công nghệ thông tin &amp; AI</option>
@@ -506,34 +457,34 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">
-              Tóm tắt ý tưởng &amp; Mục tiêu <span class="text-rose-500">*</span>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
+              Tóm tắt ý tưởng &amp; mục tiêu <span class="text-rose-500">*</span>
             </label>
             <textarea
               v-model="newProjectForm.abstract"
               rows="3"
               required
               maxlength="2000"
-              placeholder="Mô tả tóm tắt ý tưởng, vấn đề giải quyết và giải pháp đề xuất..."
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+              placeholder="Mô tả ngắn gọn vấn đề thực tế và giải pháp mà đề tài của bạn hướng tới..."
+              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             ></textarea>
           </div>
 
-          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-end gap-2.5">
             <button
               type="button"
               @click="isCreateModalOpen = false"
-              class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold bg-[#1E56D9] hover:bg-[#1d4ed8] text-white shadow-xs cursor-pointer disabled:opacity-50"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] hover:bg-[#1d4ed8] text-white cursor-pointer disabled:opacity-50"
             >
               <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-              <span>{{ isSubmitting ? 'Đang khởi tạo...' : 'Tạo bản nháp' }}</span>
+              <span>{{ isSubmitting ? 'Đang khởi tạo...' : 'Tạo đề tài' }}</span>
             </button>
           </div>
         </form>
@@ -547,9 +498,6 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  FolderKanban,
-  Archive,
-  Layers,
   Search,
   Plus,
   Lock,
@@ -561,7 +509,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  AlertCircle,
   Mail,
   Check,
 } from 'lucide-vue-next';
@@ -780,13 +727,13 @@ function getStatusBadgeClass(status) {
     case 'COMPLETED':
       return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
     case 'UNDER_MENTORSHIP':
-      return 'bg-purple-50 text-purple-700 border border-purple-200';
+      return 'bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]';
     case 'IN_REVIEW':
       return 'bg-amber-50 text-amber-700 border border-amber-200';
     case 'SUBMITTED':
-      return 'bg-blue-50 text-blue-700 border border-blue-200';
+      return 'bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]';
     case 'NEED_REVISION':
-      return 'bg-orange-50 text-orange-700 border border-orange-200';
+      return 'bg-amber-50 text-amber-700 border border-amber-200';
     case 'REJECTED':
       return 'bg-rose-50 text-rose-700 border border-rose-200';
     default:
@@ -875,4 +822,3 @@ onMounted(() => {
   fetchPendingInvitations();
 });
 </script>
-

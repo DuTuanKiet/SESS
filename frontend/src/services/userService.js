@@ -6,6 +6,7 @@ import httpClient from './http/httpClient';
  */
 
 const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
+const PROFILE_STORAGE_PREFIX = 'sess_student_profile_';
 
 /**
  * Gửi yêu cầu đổi mật khẩu tài khoản sinh viên
@@ -58,24 +59,103 @@ export async function changePasswordApi({ currentPassword, newPassword }) {
   }
 }
 
+function getDefaultSupplementProfile(user) {
+  const email = (user?.email || '').toLowerCase();
+  if (email.includes('dtkiet') || email.includes('student@')) {
+    return {
+      bio: 'Sinh viên ngành Kỹ thuật Phần mềm đam mê nghiên cứu ứng dụng Trí tuệ nhân tạo (Computer Vision) và IoT vào nông nghiệp thông minh vùng Đồng bằng sông Cửu Long.',
+      skills: ['AI / Computer Vision', 'Vue.js & Node.js', 'IoT Nông nghiệp', 'Thuyết trình dự án'],
+      phone: '0939123456',
+      socialLinks: {
+        github: 'https://github.com/dtkiet-ctut',
+        linkedin: 'https://linkedin.com/in/dtkiet-ctut',
+        facebook: '',
+        website: '',
+      },
+    };
+  }
+  return {
+    bio: '',
+    skills: [],
+    phone: '',
+    socialLinks: { github: '', linkedin: '', facebook: '', website: '' },
+  };
+}
+
 /**
- * Lấy thông tin hồ sơ sinh viên chính quy (Read-only)
- * @returns {Promise<{ success: boolean, data: Object }>}
+ * Lấy thông tin hồ sơ sinh viên chính quy (Read-only) + thông tin bổ trợ (FR02)
+ * @returns {Promise<{ success: boolean, data: { profile: Object } }>}
  */
 export async function getMyProfileDetailApi() {
   try {
     const response = await httpClient.get('/users/profile/me');
     return response.data;
+  } catch {
+    await delay(250);
+    const user = JSON.parse(localStorage.getItem('sess_user') || 'null') || {};
+    const storageKey = `${PROFILE_STORAGE_PREFIX}${user.email || 'default'}`;
+    const savedSupplement =
+      JSON.parse(localStorage.getItem(storageKey) || 'null') || getDefaultSupplementProfile(user);
+
+    return {
+      success: true,
+      data: {
+        profile: {
+          email: user.email || 'student@student.ctuet.edu.vn',
+          fullName: user.fullName || 'Sinh viên CTUT',
+          studentId: user.studentId || 'KTPM2311025',
+          className: user.className || 'KTPM0123',
+          faculty: user.faculty || 'Khoa Công nghệ Thông tin',
+          ...savedSupplement,
+        },
+      },
+    };
+  }
+}
+
+/**
+ * Cập nhật thông tin bổ trợ của hồ sơ sinh viên (FR02 - bio, skills, phone, socialLinks)
+ * Tuyệt đối không gửi các trường do nhà trường quản lý (SCHOOL_MANAGED_FIELDS)
+ * @param {Object} payload
+ * @returns {Promise<{ success: boolean, message: string, data: { profile: Object } }>}
+ */
+export async function updateMyProfileDetailApi(payload = {}) {
+  const allowedPayload = {
+    bio: String(payload.bio ?? '').trim(),
+    skills: Array.isArray(payload.skills) ? payload.skills : [],
+    phone: String(payload.phone ?? '').trim(),
+    socialLinks: {
+      github: String(payload.socialLinks?.github ?? '').trim(),
+      linkedin: String(payload.socialLinks?.linkedin ?? '').trim(),
+      facebook: String(payload.socialLinks?.facebook ?? '').trim(),
+      website: String(payload.socialLinks?.website ?? '').trim(),
+    },
+  };
+
+  try {
+    const response = await httpClient.put('/users/profile/me', allowedPayload);
+    return response.data;
   } catch (error) {
-    // Fail-safe: Nếu gặp lỗi mạng, trả về null để caller dùng authStore.user làm fallback
-    return null;
+    if (error.response && error.response.status !== 404) {
+      throw new Error(error.response.data?.message || 'Không thể cập nhật hồ sơ cá nhân.');
+    }
+    await delay(350);
+    const user = JSON.parse(localStorage.getItem('sess_user') || 'null') || {};
+    const storageKey = `${PROFILE_STORAGE_PREFIX}${user.email || 'default'}`;
+    localStorage.setItem(storageKey, JSON.stringify(allowedPayload));
+    const current = await getMyProfileDetailApi();
+    return {
+      success: true,
+      message: 'Cập nhật hồ sơ năng lực cá nhân thành công.',
+      data: current.data,
+    };
   }
 }
 
 export const userService = {
   changePassword: changePasswordApi,
   getMyProfileDetail: getMyProfileDetailApi,
+  updateMyProfileDetail: updateMyProfileDetailApi,
 };
 
 export default userService;
-
