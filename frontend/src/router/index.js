@@ -33,10 +33,15 @@ const ROUTE_PATHS = {
 
 const roleToPath = {
   student: ROUTE_PATHS.STUDENT,
+  STUDENT: ROUTE_PATHS.STUDENT,
   mentor: ROUTE_PATHS.ADVISOR,
+  MENTOR: ROUTE_PATHS.ADVISOR,
   teacher: ROUTE_PATHS.ADVISOR,
+  TEACHER: ROUTE_PATHS.ADVISOR,
   judge: ROUTE_PATHS.JUDGE,
+  JUDGE: ROUTE_PATHS.JUDGE,
   admin: ROUTE_PATHS.ADMIN,
+  ADMIN: ROUTE_PATHS.ADMIN,
 };
 
 const routes = [
@@ -75,7 +80,7 @@ const routes = [
   {
     path: '/student',
     component: StudentLayout,
-    meta: { roles: ['student'], requiresAuth: true },
+    meta: { roles: ['student', 'STUDENT'], requiresAuth: true },
     children: [
       { path: '', name: 'student-dashboard', component: () => import('@/modules/competitions/pages/StudentDashboardPage.vue') },
     ],
@@ -83,15 +88,26 @@ const routes = [
   {
     path: '/advisor',
     component: AdvisorLayout,
-    meta: { roles: ['mentor', 'teacher'], requiresAuth: true },
+    meta: { roles: ['mentor', 'MENTOR', 'teacher', 'TEACHER'], requiresAuth: true },
     children: [
-      { path: '', name: 'advisor-dashboard', component: () => import('@/modules/mentoring/pages/AdvisorDashboardPage.vue') },
+      { path: '', name: 'advisor-dashboard', component: () => import('@/modules/mentoring/pages/MentorDashboardPage.vue') },
+      { path: 'projects', name: 'advisor-projects', component: () => import('@/modules/mentoring/pages/AssignedProjectsPage.vue') },
+      { path: 'timeline', name: 'advisor-timeline-global', component: () => import('@/modules/mentoring/pages/TimelineMilestonesPage.vue') },
+      { path: 'projects/:id/timeline', name: 'advisor-project-timeline', component: () => import('@/modules/mentoring/pages/TimelineMilestonesPage.vue') },
+      { path: 'mentoring', name: 'advisor-mentoring-global', component: () => import('@/modules/mentoring/pages/MentoringEvaluationPage.vue') },
+      { path: 'projects/:id/mentoring', name: 'advisor-project-mentoring', component: () => import('@/modules/mentoring/pages/MentoringEvaluationPage.vue') },
+      { path: 'notifications', name: 'advisor-notifications', component: () => import('@/modules/mentoring/pages/NotificationsPage.vue') },
+      { path: 'notifications/send-email', name: 'advisor-send-email', component: () => import('@/modules/mentoring/pages/SendEmailPage.vue') },
+      { path: 'profile', name: 'advisor-profile', component: () => import('@/modules/mentoring/pages/MentorProfilePage.vue') },
+      { path: 'guidelines', name: 'advisor-guidelines', component: () => import('@/modules/mentoring/pages/GuidelinesPage.vue') },
+      { path: 'criteria', name: 'advisor-criteria', component: () => import('@/modules/mentoring/pages/CriteriaPage.vue') },
+      { path: 'account', name: 'advisor-account', component: () => import('@/modules/mentoring/pages/MentorProfilePage.vue') },
     ],
   },
   {
     path: '/judge',
     component: JudgeLayout,
-    meta: { roles: ['judge'], requiresAuth: true },
+    meta: { roles: ['judge', 'JUDGE'], requiresAuth: true },
     children: [
       { path: '', name: 'judge-dashboard', component: () => import('@/modules/judging/pages/JudgeDashboardPage.vue') },
     ],
@@ -99,7 +115,7 @@ const routes = [
   {
     path: '/admin',
     component: AdminLayout,
-    meta: { roles: ['admin'], requiresAuth: true },
+    meta: { roles: ['admin', 'ADMIN'], requiresAuth: true },
     children: [
       { path: '', name: 'admin-dashboard', component: () => import('@/modules/administration/pages/AdminDashboardPage.vue') },
     ],
@@ -109,9 +125,11 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior() {
+    return { top: 0 };
+  },
 });
 
-// Bắt lỗi navigation để tránh ứng dụng đứng hình lặng lẽ
 router.onError((error) => {
   console.error('[Vue Router] Navigation error:', error);
 });
@@ -122,33 +140,54 @@ router.addRoute({
   component: NotFoundPage,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const authStore = useAuthStore();
-  const isAuthenticated = authStore.isAuthenticated;
-  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+
+  try {
+    authStore.initAuth();
+  } catch (e) {
+    // ignore
+  }
+
+  const currentUser = authStore.user;
+  const userRole = (currentUser?.role || currentUser?.systemRole || '').toLowerCase();
+
+  const isAuthenticated = !!(authStore.isAuthenticated && currentUser && authStore.accessToken);
+
+  const requiresAuth = to.matched.some((record) => record.meta && record.meta.requiresAuth);
   const isAuthPage = to.path === ROUTE_PATHS.LOGIN || to.path.startsWith('/auth') || to.path === '/admin/login';
 
-  // Nếu đã đăng nhập và đang truy cập trang auth/login -> chuyển hướng về dashboard theo vai trò
+  // If somehow stale/invalid auth state
+  if (authStore.accessToken && !currentUser) {
+    try {
+      authStore.clearAuth();
+    } catch (e) {}
+    if (requiresAuth) {
+      return ROUTE_PATHS.LOGIN;
+    }
+  }
+
+  // Authenticated user on login page -> redirect to their dashboard
   if (isAuthenticated && isAuthPage) {
-    const targetPath = roleToPath[authStore.user.value?.role] || ROUTE_PATHS.HOME;
-    next(targetPath);
-    return;
+    const targetPath = roleToPath[userRole] || ROUTE_PATHS.HOME;
+    return targetPath;
   }
 
-  // Nếu chưa đăng nhập và truy cập trang yêu cầu auth -> chuyển hướng về login
+  // Protected route without auth -> redirect to login
   if (requiresAuth && !isAuthenticated) {
-    next(ROUTE_PATHS.LOGIN);
-    return;
+    return { path: ROUTE_PATHS.LOGIN, query: { redirect: to.fullPath } };
   }
 
-  // Nếu đã đăng nhập và truy cập trang có phân quyền vai trò -> kiểm tra vai trò
-  if (isAuthenticated && to.meta.roles && !to.meta.roles.includes(authStore.user.value?.role)) {
-    const targetPath = roleToPath[authStore.user.value?.role] || ROUTE_PATHS.HOME;
-    next(targetPath);
-    return;
+  // Role mismatch -> redirect to appropriate dashboard/home
+  if (isAuthenticated && to.meta && to.meta.roles) {
+    const allowedRoles = to.meta.roles.map((r) => String(r).toLowerCase());
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      const targetPath = roleToPath[userRole] || ROUTE_PATHS.HOME;
+      return targetPath;
+    }
   }
 
-  next();
+  return true;
 });
 
 export default router;

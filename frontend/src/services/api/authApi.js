@@ -1,4 +1,4 @@
-﻿import httpClient from '../http/httpClient';
+import httpClient from '../http/httpClient';
 
 export const authApi = {
   login: (data) => httpClient.post('/auth/login', data),
@@ -6,5 +6,6 @@ export const authApi = {
   loginWithGoogle: (data) => httpClient.post('/auth/google', data),
   refreshToken: (data) => httpClient.post('/auth/refresh-token', data),
   logout: (data) => httpClient.post('/auth/logout', data),
-  getMe: () => httpClient.get('/users/me'),
 };
+
+export default authApi;

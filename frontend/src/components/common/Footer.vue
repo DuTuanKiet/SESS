@@ -34,12 +34,19 @@
     <!-- 4. Khối nội dung chân trang chuẩn mực doanh nghiệp -->
     <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 relative z-10 pt-6 pb-5">
       
-      <!-- Institutional Header (Tên trường & Slogan) -->
+      <!-- Institutional Header (Tên trường & Slogan kèm Logo) -->
       <div class="text-center pb-4 mb-5 border-b border-white/10">
-        <h2 class="text-base sm:text-lg font-bold tracking-widest text-white uppercase">
-          Trường Đại học Kỹ thuật - Công nghệ Cần Thơ
-        </h2>
-        <div class="w-24 h-[1px] bg-blue-400/50 mx-auto my-1.5"></div>
+        <div class="flex items-center justify-center gap-3">
+          <img 
+            :src="logoCtut" 
+            alt="Logo CTUT" 
+            class="w-10 h-10 sm:w-11 sm:h-11 object-contain bg-white rounded-full p-0.5 shadow-sm" 
+          />
+          <h2 class="text-base sm:text-lg font-bold tracking-widest text-white uppercase">
+            Trường Đại học Kỹ thuật - Công nghệ Cần Thơ
+          </h2>
+        </div>
+        <div class="w-24 h-[1px] bg-blue-400/50 mx-auto my-2"></div>
         <p class="text-xs sm:text-sm text-blue-200/90 font-light tracking-wider">
           Kiến tạo tri thức <span class="mx-1.5 text-blue-400">•</span> Kết nối cộng đồng <span class="mx-1.5 text-blue-400">•</span> <span class="font-normal text-white">Phát triển bền vững</span>
         </p>
@@ -102,7 +109,10 @@
       <!-- Bottom Bar -->
       <div class="pt-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-white/50 tracking-wider">
         <p>© 2026 SESS-CTUT. All rights reserved.</p>
-        <p class="mt-1 sm:mt-0 font-light">Trường Đại học Kỹ thuật - Công nghệ Cần Thơ</p>
+        <div class="mt-1 sm:mt-0 flex items-center gap-2 font-light">
+          <img :src="logoCtut" alt="CTUT Logo mini" class="w-4 h-4 object-contain rounded-full bg-white p-0.5" />
+          <span>Trường Đại học Kỹ thuật - Công nghệ Cần Thơ</span>
+        </div>
       </div>
 
     </div>
@@ -111,4 +121,5 @@
 
 <script setup>
 import campusImg from '@/assets/ctut-campus-lineart.png'
+import logoCtut from '@/assets/logo-CTUT.png'
 </script>
