@@ -33,8 +33,7 @@
             v-else
             type="button"
             @click="isCreateModalOpen = true"
-            :disabled="isSubmitting"
-            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm bg-[#1E56D9] hover:bg-[#1d4ed8] text-white shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm bg-[#1E56D9] hover:bg-[#1d4ed8] text-white shadow-sm transition-all active:scale-95 cursor-pointer"
           >
             <Plus class="w-4 h-4" />
             <span>Đăng ký đề tài mới</span>
@@ -406,90 +405,12 @@
 
     </div>
 
-    <!-- 7. MODAL ĐĂNG KÝ ĐỀ TÀI MỚI -->
-    <div
-      v-if="isCreateModalOpen"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
-          <h3 class="text-base font-bold text-[#0B1F4B]">Đăng ký Đề tài Khởi nghiệp mới</h3>
-          <button
-            type="button"
-            @click="isCreateModalOpen = false"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <form @submit.prevent="handleCreateProject" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              Tên đề tài / Ý tưởng khởi nghiệp <span class="text-rose-500">*</span>
-            </label>
-            <input
-              v-model="newProjectForm.title"
-              type="text"
-              required
-              maxlength="200"
-              placeholder="Ví dụ: Giải pháp chế biến nông sản sạch vùng Đồng bằng sông Cửu Long..."
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              Lĩnh vực dự thi <span class="text-rose-500">*</span>
-            </label>
-            <select
-              v-model="newProjectForm.category"
-              required
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] cursor-pointer"
-            >
-              <option value="">Chọn lĩnh vực phù hợp</option>
-              <option value="Công nghệ thông tin">Công nghệ thông tin &amp; AI</option>
-              <option value="Nông nghiệp công nghệ cao">Nông nghiệp công nghệ cao</option>
-              <option value="Tự động hóa & IoT">Tự động hóa &amp; IoT</option>
-              <option value="Năng lượng & Môi trường">Năng lượng &amp; Môi trường</option>
-              <option value="Y tế & Đời sống">Y tế &amp; Chăm sóc sức khỏe</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              Tóm tắt ý tưởng &amp; mục tiêu <span class="text-rose-500">*</span>
-            </label>
-            <textarea
-              v-model="newProjectForm.abstract"
-              rows="3"
-              required
-              maxlength="2000"
-              placeholder="Mô tả ngắn gọn vấn đề thực tế và giải pháp mà đề tài của bạn hướng tới..."
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-            ></textarea>
-          </div>
-
-          <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              @click="isCreateModalOpen = false"
-              class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] hover:bg-[#1d4ed8] text-white cursor-pointer disabled:opacity-50"
-            >
-              <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-              <span>{{ isSubmitting ? 'Đang khởi tạo...' : 'Tạo đề tài' }}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <!-- 7. MODAL ĐĂNG KÝ ĐỀ TÀI MỚI (Component riêng) -->
+    <CreateProjectModal
+      v-model:isOpen="isCreateModalOpen"
+      :eligibility="eligibility"
+      @created="handleProjectCreated"
+    />
 
   </div>
 </template>
@@ -508,12 +429,12 @@ import {
   FolderOpen,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   Mail,
   Check,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import CreateProjectModal from '@/modules/student/components/CreateProjectModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -524,7 +445,6 @@ const currentTab = ref('ACTIVE'); // 'ACTIVE' | 'COMPLETED' | 'ALL'
 const projects = ref([]);
 const allProjectsCache = ref([]); // Dùng tính toán counts và eligibility
 const isLoading = ref(false);
-const isSubmitting = ref(false);
 const isCreateModalOpen = ref(false);
 
 // Chống spam: Cooldown countdown (khi nhận lỗi 429)
@@ -543,13 +463,6 @@ const pagination = ref({
   limit: 6,
   total: 0,
   totalPages: 1,
-});
-
-// Form tạo mới
-const newProjectForm = ref({
-  title: '',
-  category: '',
-  abstract: '',
 });
 
 // --- Debounce tìm kiếm 350ms chống spam request ---
@@ -689,35 +602,15 @@ function triggerAntiSpamCooldown(seconds = 15) {
   }, 1000);
 }
 
-// Tạo mới đề tài
-async function handleCreateProject() {
-  if (!eligibility.value.canRegister) {
-    toastStore.add({ message: eligibility.value.reason, type: 'warning' });
-    return;
-  }
+// Xử lý sau khi tạo đề tài mới thành công từ Modal
+async function handleProjectCreated(createdProject) {
+  await fetchAllForCounts();
+  currentTab.value = 'ACTIVE';
+  await fetchProjects();
 
-  isSubmitting.value = true;
-  try {
-    const res = await projectService.createProject(newProjectForm.value);
-    if (res?.success) {
-      toastStore.add({ message: 'Tạo bản nháp đề tài thành công!', type: 'success' });
-      isCreateModalOpen.value = false;
-      newProjectForm.value = { title: '', category: '', abstract: '' };
-      await fetchAllForCounts();
-      currentTab.value = 'ACTIVE';
-      await fetchProjects();
-      
-      // Chuyển hướng vào ngay trang chỉnh sửa của đề tài vừa tạo
-      if (res.data?.project?._id) {
-        router.push({ name: 'student-project-detail', params: { id: res.data.project._id } });
-      }
-    }
-  } catch (error) {
-    toastStore.add({ message: error.message || 'Không thể tạo đề tài', type: 'error' });
-  } finally {
-    setTimeout(() => {
-      isSubmitting.value = false;
-    }, 1200);
+  // Chuyển hướng vào ngay trang chỉnh sửa của đề tài vừa tạo
+  if (createdProject?._id) {
+    router.push({ name: 'student-project-detail', params: { id: createdProject._id } });
   }
 }
 
