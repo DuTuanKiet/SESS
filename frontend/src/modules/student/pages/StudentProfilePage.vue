@@ -2,11 +2,11 @@
   <div class="font-sans bg-[#F8FAFC] min-h-[75vh]">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <!-- BỐ CỤC 2 CỘT CHÍNH: HỒ SƠ CÁ NHÂN (5/12) & THÀNH TÍCH/LỊCH SỬ ĐỀ TÀI (7/12) -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         
         <!-- CỘT TRÁI (5/12): THẺ HỒ SƠ SINH VIÊN (Đặt ở vị trí cao nhất, không bị khối khác đè) -->
-        <div class="lg:col-span-5">
-          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-5 sm:p-6 shadow-xs space-y-5">
+        <div class="lg:col-span-5 flex flex-col">
+          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-5 sm:p-6 shadow-xs flex flex-col h-full space-y-4">
             
             <!-- 1. KHỐI ĐỊNH DANH HỌC VỤ LIỀN MẠCH -->
             <div class="space-y-4 pb-5 border-b border-slate-100">
@@ -69,13 +69,13 @@
                 </span>
                 <p
                   v-if="profileData.bio"
-                  class="text-[#0B1F4B] leading-relaxed bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7] max-h-[3.5rem] overflow-y-auto"
+                  class="w-full min-h-[7.5rem] text-[#0B1F4B] text-xs leading-relaxed whitespace-pre-line break-words bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7]"
                 >
                   {{ profileData.bio }}
                 </p>
                 <p
                   v-else
-                  class="text-[#4B5B7A] italic bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7] max-h-[3.5rem] overflow-y-auto"
+                  class="w-full min-h-[7.5rem] text-[#4B5B7A] italic text-xs leading-relaxed bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7] flex items-center"
                 >
                   Bạn chưa cập nhật lời giới thiệu bản thân. Hãy bổ sung để các nhóm đề tài hiểu rõ hơn về thế mạnh của bạn.
                 </p>
@@ -103,17 +103,31 @@
                   <span class="text-[#4B5B7A]">Số điện thoại:</span>
                   <span class="font-semibold text-[#0B1F4B]">{{ profileData.phone || 'Chưa cập nhật' }}</span>
                 </div>
-                <div v-if="profileData.socialLinks?.github" class="flex items-center justify-between gap-2 py-0.5">
+                <div class="flex items-center justify-between gap-2 py-0.5">
                   <span class="text-[#4B5B7A] shrink-0">GitHub:</span>
-                  <a :href="profileData.socialLinks.github" target="_blank" rel="noopener noreferrer" class="text-[#1E56D9] hover:underline truncate font-medium">
+                  <a
+                    v-if="profileData.socialLinks?.github"
+                    :href="profileData.socialLinks.github"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-[#1E56D9] hover:underline truncate font-medium max-w-[200px]"
+                  >
                     {{ profileData.socialLinks.github }}
                   </a>
+                  <span v-else class="text-[#4B5B7A] italic">Chưa cập nhật</span>
                 </div>
-                <div v-if="profileData.socialLinks?.linkedin" class="flex items-center justify-between gap-2 py-0.5">
+                <div class="flex items-center justify-between gap-2 py-0.5">
                   <span class="text-[#4B5B7A] shrink-0">LinkedIn:</span>
-                  <a :href="profileData.socialLinks.linkedin" target="_blank" rel="noopener noreferrer" class="text-[#1E56D9] hover:underline truncate font-medium">
+                  <a
+                    v-if="profileData.socialLinks?.linkedin"
+                    :href="profileData.socialLinks.linkedin"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-[#1E56D9] hover:underline truncate font-medium max-w-[200px]"
+                  >
                     {{ profileData.socialLinks.linkedin }}
                   </a>
+                  <span v-else class="text-[#4B5B7A] italic">Chưa cập nhật</span>
                 </div>
               </div>
             </div>
@@ -123,15 +137,22 @@
               <!-- Các trường được phép sửa -->
               <div class="space-y-3">
                 <div>
-                  <label class="block font-semibold text-[#0B1F4B] mb-1">
-                    Giới thiệu bản thân &amp; Định hướng
-                  </label>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-[#0B1F4B]">
+                      Giới thiệu bản thân &amp; Định hướng
+                    </label>
+                    <span class="text-[11px] text-slate-400 font-medium">
+                      {{ currentBioLinesCount }}/5 dòng
+                    </span>
+                  </div>
                   <textarea
                     v-model="editForm.bio"
-                    rows="2"
-                    maxlength="1000"
-                    placeholder="Chia sẻ thế mạnh, đam mê hoặc mong muốn tham gia đề tài..."
-                    class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] resize-none overflow-y-auto leading-relaxed"
+                    rows="5"
+                    maxlength="500"
+                    placeholder="Nhập tối đa 5 dòng chia sẻ về thế mạnh, định hướng khởi nghiệp..."
+                    @keydown="handleBioKeydown"
+                    @input="handleBioInput"
+                    class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] resize-none leading-relaxed whitespace-pre-line break-words"
                   ></textarea>
                 </div>
 
@@ -215,10 +236,10 @@
         </div>
 
         <!-- CỘT PHẢI (7/12): LỊCH SỬ CÁC DỰ ÁN ĐÃ THAM GIA -->
-        <div class="lg:col-span-7 space-y-6">
+        <div class="lg:col-span-7 flex flex-col">
           <!-- KHUNG LỊCH SỬ DỰ ÁN -->
-          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-6 sm:p-7 shadow-xs space-y-6">
-            <div class="flex items-center justify-between gap-4 pb-4 border-b border-[#E4ECF7]">
+          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-6 sm:p-7 shadow-xs flex flex-col h-full space-y-5">
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-[#E4ECF7] shrink-0">
               <div>
                 <h2 class="text-lg font-bold text-[#0B1F4B]">Lịch sử Đề tài Khởi nghiệp</h2>
                 <p class="text-xs text-[#4B5B7A] mt-0.5">
@@ -232,7 +253,7 @@
             </div>
 
             <!-- Trạng thái đang tải -->
-            <div v-if="isLoadingProjects" class="space-y-4">
+            <div v-if="isLoadingProjects" class="space-y-4 flex-1">
               <div v-for="i in 2" :key="i" class="p-5 rounded-2xl border border-[#E4ECF7] animate-pulse space-y-3">
                 <div class="h-4 bg-slate-100 rounded w-1/3"></div>
                 <div class="h-5 bg-slate-100 rounded w-3/4"></div>
@@ -240,12 +261,15 @@
               </div>
             </div>
 
-            <!-- Danh sách đề tài -->
-            <div v-else-if="allProjects.length > 0" class="space-y-4">
+            <!-- Danh sách đề tài: Giới hạn 2 dự án, Cuộn ẩn thanh cuộn -->
+            <div
+              v-else-if="allProjects.length > 0"
+              class="flex-1 max-h-[485px] overflow-y-auto no-scrollbar space-y-3.5 pr-0.5"
+            >
               <article
                 v-for="project in allProjects"
                 :key="project._id"
-                class="bg-[#F8FBFF] hover:bg-white rounded-2xl border border-[#DCE7F9] hover:border-[#1E56D9]/40 p-5 transition-all shadow-2xs"
+                class="bg-[#F8FBFF] hover:bg-white rounded-2xl border border-[#DCE7F9] hover:border-[#1E56D9]/40 p-4 sm:p-4.5 transition-all shadow-2xs"
               >
                 <div class="space-y-3">
                   <div class="flex flex-wrap items-center justify-between gap-2">
@@ -419,6 +443,31 @@ const skillsDisplayText = computed(() => {
   return profileData.value.skills.join(', ');
 });
 
+// Đếm số dòng hiện tại của trường bio
+const currentBioLinesCount = computed(() => {
+  if (!editForm.value.bio) return 0;
+  return editForm.value.bio.split('\n').length;
+});
+
+// Chặn phím Enter khi đã đạt tối đa 5 dòng
+function handleBioKeydown(event) {
+  if (event.key === 'Enter') {
+    const currentLines = (editForm.value.bio || '').split('\n').length;
+    if (currentLines >= 5) {
+      event.preventDefault(); // Chặn xuống dòng thứ 6
+    }
+  }
+}
+
+// Chuẩn hóa và cắt còn tối đa 5 dòng nếu dán văn bản
+function handleBioInput(event) {
+  const text = event.target.value || '';
+  const lines = text.split('\n');
+  if (lines.length > 5) {
+    editForm.value.bio = lines.slice(0, 5).join('\n');
+  }
+}
+
 function handleToggleEditProfile() {
   if (!isEditingProfile.value) {
     editForm.value = {
@@ -566,3 +615,14 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+/* Ẩn thanh cuộn nhưng vẫn cuộn chuột / touchpad mượt mà */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE và Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+</style>
