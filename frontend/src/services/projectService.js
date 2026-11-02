@@ -162,6 +162,15 @@ const MOCK_PROJECTS = [
     businessModel: 'Phí dịch vụ tem số hóa trên mỗi lô hàng của doanh nghiệp xuất khẩu.',
     attachmentUrl: 'https://docs.google.com/document/d/sess-2025-012-blockchain/edit',
     status: 'COMPLETED',
+    award: {
+      prize: 'FIRST_PRIZE',
+      title: 'Giải Nhất',
+      competitionName: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2025',
+      round: 'Vòng Chung kết',
+      stage: 'FINAL',
+      prizeMoney: '15.000.000 VNĐ',
+      awardedAt: '2025-12-20',
+    },
     version: 2,
     currentVersion: 2,
     level: 'UNIVERSITY',
@@ -515,11 +524,24 @@ export async function getProjectsApi({ page = 1, limit = 6, status, keyword, yea
   const skip = (page - 1) * limit;
   const paginated = filtered.slice(skip, skip + limit);
 
+  // Đính kèm thông tin kê khai nhận thưởng nếu đã được lưu trong localStorage
+  const projectsWithClaims = paginated.map((p) => {
+    try {
+      const claimStr = localStorage.getItem(`sess_reward_claim_${p._id}`);
+      if (claimStr) {
+        return { ...p, rewardClaim: JSON.parse(claimStr) };
+      }
+    } catch {
+      // Bỏ qua lỗi parse
+    }
+    return p;
+  });
+
   return {
     success: true,
     message: 'Lấy danh sách đề tài thành công.',
     data: {
-      projects: paginated,
+      projects: projectsWithClaims,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -1302,6 +1324,66 @@ export function evaluateProjectEligibility(projects = []) {
   };
 }
 
+/**
+ * Kê khai và lưu thông tin nhận giải thưởng cho đề tài đạt giải chung kết
+ */
+export async function saveRewardClaimApi(projectId, claimData) {
+  if (!USE_MOCK_DATA) {
+    const response = await httpClient.post(`/projects/${projectId}/reward-claim`, claimData);
+    return response.data;
+  }
+
+  await delay(250);
+  const claimRecord = {
+    ...claimData,
+    submittedAt: new Date().toISOString(),
+    status: 'PENDING',
+  };
+
+  try {
+    localStorage.setItem(`sess_reward_claim_${projectId}`, JSON.stringify(claimRecord));
+  } catch (err) {
+    console.error('Không thể lưu thông tin nhận thưởng vào localStorage:', err);
+  }
+
+  return {
+    success: true,
+    message: 'Kê khai thông tin nhận giải thưởng thành công!',
+    data: {
+      rewardClaim: claimRecord,
+    },
+  };
+}
+
+/**
+ * Lấy thông tin kê khai nhận thưởng của đề tài
+ */
+export async function getRewardClaimApi(projectId) {
+  if (!USE_MOCK_DATA) {
+    const response = await httpClient.get(`/projects/${projectId}/reward-claim`);
+    return response.data;
+  }
+
+  await delay(100);
+  try {
+    const claimStr = localStorage.getItem(`sess_reward_claim_${projectId}`);
+    const claim = claimStr ? JSON.parse(claimStr) : null;
+    return {
+      success: true,
+      data: {
+        rewardClaim: claim,
+      },
+    };
+  } catch {
+    return {
+      success: true,
+      data: {
+        rewardClaim: null,
+      },
+    };
+  }
+}
+
 export const projectService = {
   getProjects: getProjectsApi,
   getProjectById: getProjectByIdApi,
@@ -1324,6 +1406,8 @@ export const projectService = {
   evaluateProjectEligibility,
   calculateProjectProgress,
   getProjectProgress: calculateProjectProgress,
+  saveRewardClaim: saveRewardClaimApi,
+  getRewardClaim: getRewardClaimApi,
 };
 
 export default projectService;

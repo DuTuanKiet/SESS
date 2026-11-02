@@ -16,9 +16,8 @@
             <span>/</span>
             <span class="font-semibold text-[#0B1F4B]">{{ project.code }}</span>
             <span>({{ project.level === 'UNIVERSITY' ? 'Cấp Trường' : 'Cấp Khoa' }})</span>
-            <span>•</span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-white text-[#1E56D9] border border-[#C7D7F5]">
-              <Trophy class="w-3.5 h-3.5" />
+            <span>/</span>
+            <span class="font-semibold text-[#0B1F4B]">
               <span>{{ projectCompetition.competitionTitle }}</span>
             </span>
           </div>
@@ -40,23 +39,10 @@
         <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pt-1">
           <div class="space-y-2 max-w-3xl">
             <div class="flex items-center gap-2 flex-wrap text-xs">
-              <span
-                class="px-3 py-0.5 rounded-full font-semibold"
-                :class="getStatusBadgeClass(project.status)"
-              >
-                {{ getStatusLabel(project.status) }}
-              </span>
               <span class="px-2.5 py-0.5 rounded-full font-bold bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]">
                 Vòng {{ projectCompetition.currentRound || 1 }}: {{ projectCompetition.currentRound === 3 ? 'Chung kết' : projectCompetition.currentRound === 2 ? 'Bán kết' : 'Vòng Loại' }}
-              </span>
-              <span class="text-[#4B5B7A]">
-                • Lần lưu: v{{ project.version || 1 }}
-              </span>
-              <span class="text-[#4B5B7A]">
-                • Vai trò: <strong class="text-[#0B1F4B]">{{ isOwner ? 'Trưởng nhóm' : 'Thành viên' }}</strong>
-              </span>
+              </span> 
             </div>
-
             <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0B1F4B] leading-snug">
               {{ project.title }}
             </h1>

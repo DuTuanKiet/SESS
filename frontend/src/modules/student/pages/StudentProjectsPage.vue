@@ -9,7 +9,7 @@
             Đề tài Khởi nghiệp của Bạn
           </h1>
           <p class="text-sm text-[#4B5B7A] leading-relaxed">
-            Quản lý các đề tài khởi nghiệp, kết nối bạn học cùng nhóm và theo dõi tiến độ thực hiện.
+            Quản lý các đề tài khởi nghiệp đang tham gia, kết nối bạn học cùng nhóm và theo dõi tiến độ thực hiện.
           </p>
         </div>
 

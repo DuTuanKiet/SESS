@@ -54,7 +54,7 @@
                   <span class="font-bold text-[#0B1F4B] text-sm">{{ profileData.className }}</span>
                 </div>
                 <div class="col-span-2 pt-2 border-t border-slate-200/60">
-                  <span class="text-[#4B5B7A] block text-[11px]">Khoa chuyên môn:</span>
+                  <span class="text-[#4B5B7A] block text-[11px]">Khoa: </span>
                   <span class="font-semibold text-[#0B1F4B]">{{ profileData.faculty }}</span>
                 </div>
               </div>
@@ -276,6 +276,13 @@
                     {{ project.abstract }}
                   </p>
 
+                  <!-- Khối thông tin giải thưởng & kê khai nhận thưởng (nếu vào chung kết và có giải) -->
+                  <ProjectAwardInfo
+                    v-if="hasFinalAward(project)"
+                    :project="project"
+                    @open-claim="handleOpenRewardClaim"
+                  />
+
                   <div class="p-3 rounded-xl bg-white border border-[#E4ECF7] flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div class="flex items-center gap-2 text-[#4B5B7A]">
                       <span>Lĩnh vực: <strong class="text-[#0B1F4B]">{{ project.category || 'Đổi mới sáng tạo' }}</strong></span>
@@ -342,6 +349,14 @@
 
     <!-- Modal Đổi Mật Khẩu dùng chung -->
     <ChangePasswordModal v-model:isOpen="isChangePasswordOpen" />
+
+    <!-- Modal Kê khai Thông tin Nhận Thưởng Đề tài Đạt giải (Component riêng biệt) -->
+    <RewardClaimModal
+      v-model:isOpen="isRewardModalOpen"
+      :project="selectedProjectForReward"
+      :defaultUserInfo="profileData"
+      @submitted="handleRewardClaimSubmitted"
+    />
   </div>
 </template>
 
@@ -360,6 +375,8 @@ import { useToastStore } from '@/stores/toast';
 import userService from '@/services/userService';
 import projectService from '@/services/projectService';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
+import ProjectAwardInfo from '@/modules/student/components/ProjectAwardInfo.vue';
+import RewardClaimModal from '@/modules/student/components/RewardClaimModal.vue';
 
 const authStore = useAuthStore();
 const toastStore = useToastStore();
@@ -488,6 +505,36 @@ function getStatusLabel(status) {
       return 'Bản nháp';
     default:
       return status || 'Đang thực hiện';
+  }
+}
+
+// --- Quản lý Kê khai Nhận thưởng Đề tài Đạt giải ---
+const isRewardModalOpen = ref(false);
+const selectedProjectForReward = ref(null);
+
+function hasFinalAward(project) {
+  if (!project) return false;
+  return Boolean(
+    project.award &&
+      (project.award.stage === 'FINAL' ||
+        project.award.round?.toLowerCase().includes('chung kết') ||
+        project.status === 'COMPLETED' ||
+        project.award.prize)
+  );
+}
+
+function handleOpenRewardClaim(project) {
+  selectedProjectForReward.value = project;
+  isRewardModalOpen.value = true;
+}
+
+function handleRewardClaimSubmitted({ projectId, rewardClaim }) {
+  const target = allProjects.value.find((p) => p._id === projectId);
+  if (target) {
+    target.rewardClaim = rewardClaim;
+  }
+  if (selectedProjectForReward.value && selectedProjectForReward.value._id === projectId) {
+    selectedProjectForReward.value.rewardClaim = rewardClaim;
   }
 }
 

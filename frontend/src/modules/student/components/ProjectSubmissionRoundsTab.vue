@@ -117,7 +117,7 @@
               <div class="flex items-center gap-2">
                 <span class="w-6 h-6 rounded-lg bg-[#1E56D9] text-white flex items-center justify-center text-xs font-bold shrink-0">1</span>
                 <label class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
-                  Báo cáo dự án hoàn chỉnh (File Word / PDF) <span class="text-rose-500">*</span>
+                  Báo cáo dự án hoàn chỉnh <span class="text-rose-500">*</span>
                 </label>
               </div>
             </div>
@@ -166,13 +166,13 @@
               >
                 <UploadCloud class="w-8 h-8 text-[#1E56D9]" />
                 <div>
-                  <span class="text-xs font-bold text-[#1E56D9]">Nhấn để chọn cuốn báo cáo Word / PDF</span>
+                  <span class="text-xs font-bold text-[#1E56D9]">Nhấn để chọn báo cáo PDF</span>
                   <span class="text-xs text-[#4B5B7A]"> hoặc kéo thả vào đây</span>
                 </div>
-                <p class="text-[11px] text-slate-400">Dung lượng tối đa: 10MB (.docx, .doc, .pdf)</p>
+                <p class="text-[11px] text-slate-400">Dung lượng tối đa: 10MB</p>
                 <input
                   type="file"
-                  accept=".docx,.doc,.pdf"
+                  accept=".pdf"
                   :disabled="!isEditable"
                   class="hidden"
                   @change="handleUploadReport"
@@ -187,7 +187,7 @@
               <div class="flex items-center gap-2">
                 <span class="w-6 h-6 rounded-lg bg-[#1E56D9] text-white flex items-center justify-center text-xs font-bold shrink-0">2</span>
                 <label class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
-                  Poster của dự án (Ảnh A0/A1 hoặc PDF) <span class="text-rose-500">*</span>
+                  Poster của dự án <span class="text-rose-500">*</span>
                 </label>
               </div>
             </div>
@@ -246,12 +246,12 @@
                 <UploadCloud class="w-8 h-8 text-[#1E56D9]" />
                 <div>
                   <span class="text-xs font-bold text-[#1E56D9]">Nhấn để tải lên Poster dự án</span>
-                  <span class="text-xs text-[#4B5B7A]"> (JPG, PNG hoặc PDF)</span>
+                  <span class="text-xs text-[#4B5B7A]"> (PDF)</span>
                 </div>
-                <p class="text-[11px] text-slate-400">Dung lượng tối đa 15MB • Độ phân giải cao, phù hợp in ấn và trình chiếu</p>
+                <p class="text-[11px] text-slate-400">Dung lượng tối đa 15MB</p>
                 <input
                   type="file"
-                  accept="image/*,.pdf"
+                  accept=".pdf"
                   :disabled="!isEditable"
                   class="hidden"
                   @change="handleUploadPoster"
