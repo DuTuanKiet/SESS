@@ -30,6 +30,58 @@
       <!-- Thân Form có cuộn nội bộ -->
       <form @submit.prevent="handleCreateProject" class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
         
+        <!-- KHỐI 0: CUỘC THI THAM GIA (BẮT BUỘC) -->
+        <div class="space-y-3 p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5]">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <Trophy class="w-4 h-4 text-[#1E56D9]" />
+              <h4 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
+                Cuộc thi khởi nghiệp tham gia <span class="text-rose-500">*</span>
+              </h4>
+            </div>
+            <span class="text-[10px] font-semibold text-[#1E56D9] bg-white px-2.5 py-0.5 rounded-full border border-[#C7D7F5] shrink-0">
+              Bắt buộc gắn với 1 cuộc thi
+            </span>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
+              Chọn cuộc thi đang phát động trong năm học <span class="text-rose-500">*</span>
+            </label>
+            <select
+              v-model="selectedCompetitionId"
+              required
+              class="w-full px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-white border border-[#C7D7F5] focus:outline-hidden focus:border-[#1E56D9] cursor-pointer text-[#0B1F4B]"
+            >
+              <option value="" disabled>-- Vui lòng chọn cuộc thi khởi nghiệp --</option>
+              <option
+                v-for="c in availableCompetitions"
+                :key="c.id"
+                :value="c.id"
+              >
+                {{ c.title }} ({{ c.level }} • {{ c.currentRound }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Thông tin tóm tắt cuộc thi đã chọn -->
+          <div v-if="selectedCompetition" class="bg-white p-3.5 rounded-xl border border-[#E4ECF7] text-xs space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-[#0B1F4B]">{{ selectedCompetition.title }}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#1E56D9] border border-blue-200 shrink-0">
+                {{ selectedCompetition.level }}
+              </span>
+            </div>
+            <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
+              {{ selectedCompetition.description }}
+            </p>
+            <div class="pt-1 border-t border-slate-100 flex flex-wrap items-center gap-3 text-[11px] font-medium">
+              <span class="text-emerald-700 font-semibold">• Trạng thái: Đang nhận ý tưởng sơ khảo</span>
+              <span class="text-[#1E56D9]">• Vòng thi khởi đầu: {{ selectedCompetition.currentRound }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- KHỐI 1: THÔNG TIN ĐỊNH DANH ĐỀ TÀI -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
@@ -331,8 +383,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
-import { X, Loader2 } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
+import { X, Loader2, Trophy } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
@@ -346,6 +398,10 @@ const props = defineProps({
     type: Object,
     default: () => ({ canRegister: true, reason: '' }),
   },
+  preselectedCompetitionId: {
+    type: [String, Number],
+    default: null,
+  },
 });
 
 const emit = defineEmits(['update:isOpen', 'close', 'created']);
@@ -355,10 +411,47 @@ const toastStore = useToastStore();
 
 const isSubmitting = ref(false);
 
+/** Danh sách các cuộc thi đang phát động dành cho sinh viên */
+const availableCompetitions = [
+  {
+    id: 1,
+    title: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+    level: 'Cấp Trường',
+    description: 'Cuộc thi khởi nghiệp chính thức của trường với 3 vòng thi: Vòng Loại, Bán kết và Chung kết.',
+    currentRound: 'Vòng 1: Vòng Loại (Sơ khảo)',
+    status: 'ongoing',
+  },
+  {
+    id: 2,
+    title: 'Thử thách Đổi mới Sáng tạo Khoa CNTT',
+    level: 'Cấp Khoa',
+    description: 'Sân chơi sáng tạo và giải pháp công nghệ đa ngành do Khoa CNTT phát động.',
+    currentRound: 'Vòng 1: Vòng Loại (Sơ khảo)',
+    status: 'ongoing',
+  },
+  {
+    id: 3,
+    title: 'Giải thưởng Ý tưởng Khởi nghiệp Đổi mới Sáng tạo Trẻ',
+    level: 'Cấp Trường',
+    description: 'Ươm mầm các sáng kiến khởi nghiệp tiêu biểu đại diện trường tham gia các cấp cao hơn.',
+    currentRound: 'Vòng 1: Vòng Loại (Sơ khảo)',
+    status: 'ongoing',
+  },
+];
+
+const selectedCompetitionId = ref(1);
+
+const selectedCompetition = computed(() => {
+  return availableCompetitions.find((c) => String(c.id) === String(selectedCompetitionId.value)) || null;
+});
+
 const newProjectForm = ref({
   title: '',
   category: '',
   faculty: '',
+  competitionId: 1,
+  competitionTitle: '',
+  currentRound: 1,
   advisorInfo: {
     fullName: '',
     unit: '',
@@ -383,10 +476,19 @@ const newProjectForm = ref({
  */
 function initializeForm() {
   const user = authStore.user || {};
+  if (props.preselectedCompetitionId) {
+    selectedCompetitionId.value = props.preselectedCompetitionId;
+  } else if (!selectedCompetitionId.value) {
+    selectedCompetitionId.value = 1;
+  }
+
   newProjectForm.value = {
     title: '',
     category: '',
     faculty: user.faculty || 'Khoa Công nghệ Thông tin',
+    competitionId: selectedCompetitionId.value,
+    competitionTitle: selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+    currentRound: 1,
     advisorInfo: {
       fullName: '',
       unit: user.faculty || 'Khoa Công nghệ Thông tin',
@@ -439,6 +541,14 @@ async function handleCreateProject() {
     return;
   }
 
+  if (!selectedCompetitionId.value) {
+    toastStore.add({
+      message: 'Vui lòng chọn cuộc thi khởi nghiệp mà bạn muốn đăng ký tham gia.',
+      type: 'warning',
+    });
+    return;
+  }
+
   // Validate bắt buộc link thuyết minh
   const url = (newProjectForm.value.attachmentUrl || '').trim();
   if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
@@ -451,15 +561,36 @@ async function handleCreateProject() {
 
   isSubmitting.value = true;
   try {
+    newProjectForm.value.competitionId = selectedCompetitionId.value;
+    newProjectForm.value.competitionTitle = selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026';
+    newProjectForm.value.currentRound = 1;
+
     const res = await projectService.createProject(newProjectForm.value);
     if (res?.success) {
+      const created = res.data?.project;
+      if (created?._id) {
+        // Lưu metadata cuộc thi cho đề tài vào localStorage để hiển thị bền vững
+        try {
+          const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
+          compMeta[created._id] = {
+            competitionId: selectedCompetitionId.value,
+            competitionTitle: selectedCompetition.value?.title,
+            competitionLevel: selectedCompetition.value?.level,
+            currentRound: 1, // Vòng 1: Loại
+          };
+          localStorage.setItem('sess_project_competitions', JSON.stringify(compMeta));
+        } catch {
+          // Fail-safe
+        }
+      }
+
       toastStore.add({
         message: 'Đăng ký đề tài khởi nghiệp thành công! Đang chuyển đến không gian đề tài...',
         type: 'success',
         duration: 4000,
       });
       emit('update:isOpen', false);
-      emit('created', res.data?.project);
+      emit('created', created);
     }
   } catch (error) {
     toastStore.add({ message: error.message || 'Không thể tạo đề tài', type: 'error' });

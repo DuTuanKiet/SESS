@@ -53,7 +53,11 @@ const routes = [
       { path: 'support', name: 'support', component: NotFoundPage },
       { path: 'resources', name: 'resources', component: NotFoundPage },
       { path: 'competitions/:id', name: 'competition-detail', component: CompetitionsView },
-      { path: 'competitions/:id/submit', name: 'competition-submit', component: CompetitionsView },
+      {
+        path: 'competitions/:id/submit',
+        name: 'competition-submit',
+        redirect: (to) => ({ path: '/student/projects', query: { registerCompetitionId: to.params.id } }),
+      },
       { path: 'competitions/:id/results', name: 'competition-results', component: CompetitionsView },
     ],
   },

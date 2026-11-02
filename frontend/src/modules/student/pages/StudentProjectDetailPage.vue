@@ -5,7 +5,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
         <!-- Dòng trên: Liên kết quay lại & Duy nhất 1 nút Nộp hồ sơ chính thức (khi ở trạng thái nháp/cần sửa) -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="flex items-center gap-2 text-xs text-[#4B5B7A]">
+          <div class="flex items-center gap-2 text-xs text-[#4B5B7A] flex-wrap">
             <router-link
               to="/student/projects"
               class="inline-flex items-center gap-1.5 font-semibold text-[#1E56D9] hover:text-[#0B1F4B] transition-colors"
@@ -16,6 +16,11 @@
             <span>/</span>
             <span class="font-semibold text-[#0B1F4B]">{{ project.code }}</span>
             <span>({{ project.level === 'UNIVERSITY' ? 'Cấp Trường' : 'Cấp Khoa' }})</span>
+            <span>•</span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-white text-[#1E56D9] border border-[#C7D7F5]">
+              <Trophy class="w-3.5 h-3.5" />
+              <span>{{ projectCompetition.competitionTitle }}</span>
+            </span>
           </div>
 
           <div v-if="isOwner && (project.status === 'DRAFT' || project.status === 'NEED_REVISION') && !hasPendingCancellationRequest">
@@ -40,6 +45,9 @@
                 :class="getStatusBadgeClass(project.status)"
               >
                 {{ getStatusLabel(project.status) }}
+              </span>
+              <span class="px-2.5 py-0.5 rounded-full font-bold bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]">
+                Vòng {{ projectCompetition.currentRound || 1 }}: {{ projectCompetition.currentRound === 3 ? 'Chung kết' : projectCompetition.currentRound === 2 ? 'Bán kết' : 'Vòng Loại' }}
               </span>
               <span class="text-[#4B5B7A]">
                 • Lần lưu: v{{ project.version || 1 }}
@@ -85,58 +93,65 @@
         </p>
       </div>
 
-      <!-- 2. THANH CHUYỂN MỤC 4 PHẦN CỦA ĐỀ TÀI (Gạch chân chuẩn mực, không màu mè) -->
+      <!-- 2. THANH CHUYỂN MỤC 5 PHẦN CỦA ĐỀ TÀI -->
       <div class="flex items-center gap-6 border-b border-[#E4ECF7] overflow-x-auto no-scrollbar">
         <button
           type="button"
           @click="activeTab = 'PROPOSAL'"
-          class="flex items-center gap-2 py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+          class="py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
           :class="activeTab === 'PROPOSAL'
             ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
             : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
         >
-          <FileText class="w-4 h-4" />
           <span>1. Thuyết minh ý tưởng</span>
         </button>
 
         <button
           type="button"
+          @click="activeTab = 'MEMBERS'"
+          class="py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+          :class="activeTab === 'MEMBERS'
+            ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
+            : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
+        >
+          <span>2. Thành viên nhóm</span>
+        </button>
+
+        <button
+          type="button"
           @click="activeTab = 'MILESTONES'"
-          class="flex items-center gap-2 py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+          class="py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
           :class="activeTab === 'MILESTONES'
             ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
             : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
         >
-          <Target class="w-4 h-4" />
-          <span>2. Tiến độ &amp; Cố vấn ({{ milestones.length }})</span>
+          <span>3. Tiến độ &amp; Cố vấn</span>
+        </button>
+
+        <button
+          type="button"
+          @click="activeTab = 'ROUNDS_SUBMISSION'"
+          class="py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+          :class="activeTab === 'ROUNDS_SUBMISSION'
+            ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
+            : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
+        >
+          <span>4. Nộp sản phẩm</span>
         </button>
 
         <button
           type="button"
           @click="activeTab = 'REVISIONS'"
-          class="flex items-center gap-2 py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
+          class="py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
           :class="activeTab === 'REVISIONS'
             ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
             : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
         >
-          <History class="w-4 h-4" />
-          <span>3. Xác nhận nộp bài &amp; Lịch sử</span>
-        </button>
-
-        <button
-          type="button"
-          @click="activeTab = 'MEMBERS'"
-          class="flex items-center gap-2 py-3 text-sm font-semibold transition-colors relative shrink-0 cursor-pointer"
-          :class="activeTab === 'MEMBERS'
-            ? 'text-[#1E56D9] border-b-2 border-[#1E56D9]'
-            : 'text-[#4B5B7A] hover:text-[#0B1F4B]'"
-        >
-          <Users class="w-4 h-4" />
-          <span>4. Thành viên nhóm ({{ members.length }})</span>
+          <span>5. Lịch sử và biên nhận</span>
         </button>
       </div>
 
-      <!-- 4 COMPONENT TAB CON -->
+      <!-- 5 COMPONENT TAB CON -->
       <ProjectProposalTab
         v-if="activeTab === 'PROPOSAL'"
         :projectId="projectId"
@@ -144,20 +159,6 @@
         :members="members"
         :isOwner="isOwner"
         @saved="handleProposalSaved"
-      />
-
-      <ProjectMilestonesTab
-        v-else-if="activeTab === 'MILESTONES'"
-        :projectId="projectId"
-        :project="project"
-        :milestones="milestones"
-        @refresh-milestones="fetchMilestones"
-      />
-
-      <ProjectRevisionsTab
-        v-else-if="activeTab === 'REVISIONS'"
-        :project="project"
-        :revisions="revisions"
       />
 
       <ProjectMembersTab
@@ -170,6 +171,28 @@
         :leaveRequestInfo="leaveRequestInfo"
         @refresh-members="fetchMembers"
         @refresh-all="handleRefreshProjectAndMembers"
+      />
+
+      <ProjectMilestonesTab
+        v-else-if="activeTab === 'MILESTONES'"
+        :projectId="projectId"
+        :project="project"
+        :milestones="milestones"
+        @refresh-milestones="fetchMilestones"
+      />
+
+      <ProjectSubmissionRoundsTab
+        v-else-if="activeTab === 'ROUNDS_SUBMISSION'"
+        :projectId="projectId"
+        :project="project"
+        :isOwner="isOwner"
+        :members="members"
+      />
+
+      <ProjectRevisionsTab
+        v-else-if="activeTab === 'REVISIONS'"
+        :project="project"
+        :revisions="revisions"
       />
     </div>
 
@@ -244,27 +267,45 @@ import { useRoute } from 'vue-router';
 import {
   ArrowLeft,
   Send,
-  FileText,
-  Target,
-  History,
-  Users,
   CheckCircle2,
   AlertCircle,
   Loader2,
   X,
+  Trophy,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
 import ProjectProposalTab from '@/modules/student/components/ProjectProposalTab.vue';
-import ProjectMilestonesTab from '@/modules/student/components/ProjectMilestonesTab.vue';
-import ProjectRevisionsTab from '@/modules/student/components/ProjectRevisionsTab.vue';
 import ProjectMembersTab from '@/modules/student/components/ProjectMembersTab.vue';
+import ProjectMilestonesTab from '@/modules/student/components/ProjectMilestonesTab.vue';
+import ProjectSubmissionRoundsTab from '@/modules/student/components/ProjectSubmissionRoundsTab.vue';
+import ProjectRevisionsTab from '@/modules/student/components/ProjectRevisionsTab.vue';
 
 const route = useRoute();
 const toastStore = useToastStore();
 
 const projectId = computed(() => route.params.id);
-const activeTab = ref(route.query.tab ? String(route.query.tab).toUpperCase() : 'PROPOSAL'); // 'PROPOSAL' | 'MILESTONES' | 'REVISIONS' | 'MEMBERS'
+const activeTab = ref(route.query.tab ? String(route.query.tab).toUpperCase() : 'PROPOSAL'); // 'PROPOSAL' | 'MEMBERS' | 'MILESTONES' | 'ROUNDS_SUBMISSION' | 'REVISIONS'
+
+// Lấy thông tin cuộc thi và vòng thi của đề tài
+const projectCompetition = computed(() => {
+  try {
+    const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
+    return (
+      compMeta[projectId.value] || {
+        competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+        competitionLevel: 'Cấp Trường',
+        currentRound: 1,
+      }
+    );
+  } catch {
+    return {
+      competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+      competitionLevel: 'Cấp Trường',
+      currentRound: 1,
+    };
+  }
+});
 
 // Dữ liệu Đề tài
 const project = ref({});

@@ -5,14 +5,11 @@
     <section class="bg-[#F1F7FF] border-b border-[#E4ECF7] py-10 lg:py-12">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div class="space-y-2 max-w-2xl">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white text-[#1E56D9] border border-[#C7D7F5] text-xs font-semibold uppercase tracking-wider">
-            Không gian Đề tài Sinh viên
-          </div>
           <h1 class="text-2xl sm:text-3xl font-bold text-[#0B1F4B] tracking-tight">
             Đề tài Khởi nghiệp của Bạn
           </h1>
           <p class="text-sm text-[#4B5B7A] leading-relaxed">
-            Quản lý các đề tài khởi nghiệp đang tham gia trong kỳ, kết nối bạn học cùng nhóm và theo dõi tiến độ thực hiện.
+            Quản lý các đề tài khởi nghiệp, kết nối bạn học cùng nhóm và theo dõi tiến độ thực hiện.
           </p>
         </div>
 
@@ -126,19 +123,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 3. TIÊU ĐỀ KHU VỰC DỰ ÁN ĐANG THAM GIA (Đã loại bỏ hoàn toàn bộ lọc & tìm kiếm) -->
-      <div class="flex items-center justify-between border-b border-[#E4ECF7] pb-3">
-        <div class="flex items-center gap-2.5">
-          <h2 class="text-base font-bold text-[#0B1F4B]">
-            Dự án đang tham gia
-          </h2>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-[#F1F7FF] text-[#1E56D9] font-bold border border-[#C7D7F5]">
-            {{ projects.length }} đề tài
-          </span>
-        </div>
-      </div>
-
       <!-- 4. DANH SÁCH THẺ ĐỀ TÀI ĐANG HOẠT ĐỘNG -->
       <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="i in 3" :key="i" class="bg-white p-6 rounded-2xl border border-[#E4ECF7] animate-pulse space-y-4">
@@ -171,6 +155,20 @@
               >
                 {{ getStatusLabel(project.status) }}
               </span>
+            </div>
+
+            <!-- Dòng thông tin Cuộc thi & Vòng thi đang tham gia -->
+            <div class="space-y-1.5 p-2.5 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]">
+              <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#0B1F4B]">
+                <Trophy class="w-3.5 h-3.5 text-[#1E56D9] shrink-0" />
+                <span class="truncate">{{ getProjectCompetition(project._id).competitionTitle }}</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px] text-[#4B5B7A] pt-1 border-t border-slate-100">
+                <span class="font-semibold text-[#1E56D9]">
+                  {{ getRoundLabel(getProjectCompetition(project._id).currentRound) }}
+                </span>
+                <span class="text-emerald-700 font-medium">Cửa sổ nộp: Đang mở</span>
+              </div>
             </div>
 
             <!-- Dòng 2: Tên đề tài -->
@@ -256,6 +254,7 @@
     <CreateProjectModal
       v-model:isOpen="isCreateModalOpen"
       :eligibility="eligibility"
+      :preselectedCompetitionId="preselectedCompetitionId"
       @created="handleProjectCreated"
     />
 
@@ -264,7 +263,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   Plus,
   Lock,
@@ -273,12 +272,14 @@ import {
   FolderOpen,
   Mail,
   Check,
+  Trophy,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
 import CreateProjectModal from '@/modules/student/components/CreateProjectModal.vue';
 
 const router = useRouter();
+const route = useRoute();
 const toastStore = useToastStore();
 
 // --- Trạng thái hiển thị & dữ liệu ---
@@ -286,6 +287,7 @@ const projects = ref([]);
 const allProjectsCache = ref([]); // Dùng tính toán quota đề tài active
 const isLoading = ref(false);
 const isCreateModalOpen = ref(false);
+const preselectedCompetitionId = computed(() => route.query.registerCompetitionId || null);
 
 // Chống spam: Cooldown countdown (khi nhận lỗi 429)
 const cooldownSeconds = ref(0);
@@ -448,9 +450,47 @@ async function handleRejectInvitation(invitation) {
   }
 }
 
+// Lấy thông tin cuộc thi và vòng thi của đề tài
+function getProjectCompetition(projectId) {
+  try {
+    const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
+    return (
+      compMeta[projectId] || {
+        competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+        competitionLevel: 'Cấp Trường',
+        currentRound: 1,
+      }
+    );
+  } catch {
+    return {
+      competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+      competitionLevel: 'Cấp Trường',
+      currentRound: 1,
+    };
+  }
+}
+
+function getRoundLabel(roundNumber) {
+  switch (roundNumber) {
+    case 1:
+      return 'Vòng 1: Vòng Loại (Sơ khảo)';
+    case 2:
+      return 'Vòng 2: Vòng Bán kết';
+    case 3:
+      return 'Vòng 3: Vòng Chung kết';
+    default:
+      return `Vòng ${roundNumber}`;
+  }
+}
+
 onMounted(() => {
   fetchAllForEligibility();
   fetchProjects();
   fetchPendingInvitations();
+
+  // Tự động mở modal nếu được chuyển hướng từ trang Cuộc thi
+  if (route.query.registerCompetitionId) {
+    isCreateModalOpen.value = true;
+  }
 });
 </script>

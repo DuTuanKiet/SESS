@@ -6,16 +6,13 @@
       <!-- Đầu mục Thuyết minh + Nút bật chỉnh sửa -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E4ECF7]">
         <div>
-          <span class="text-[11px] font-bold text-[#1E56D9] uppercase tracking-wider block">
-            Biểu mẫu Thuyết minh Dự án (Phụ lục 1 - CTUT STARTUP)
-          </span>
           <h2 class="text-lg font-bold text-[#0B1F4B]">Hồ sơ thuyết minh &amp; Tóm tắt ý tưởng</h2>
           <p class="text-xs text-[#4B5B7A] mt-0.5">
             <template v-if="project.status === 'DRAFT' || project.status === 'NEED_REVISION'">
               Rà soát và hoàn thiện đầy đủ các mục thông tin trước khi gửi phê duyệt.
             </template>
             <template v-else>
-              Hồ sơ đã nộp và đang ở chế độ xem phục vụ đánh giá của Giảng viên Cố vấn &amp; Hội đồng.
+              Hồ sơ đã nộp và đang ở chế độ xem phục vụ đánh giá của giảng viên cố vấn &amp; hội đồng.
             </template>
           </p>
         </div>
@@ -34,7 +31,6 @@
       <!-- 1. THÔNG TIN ĐỊNH DANH ĐỀ TÀI -->
       <div class="space-y-4">
         <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
-          <span class="w-2 h-2 rounded-full bg-[#1E56D9]"></span>
           <h3 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
             Thông tin đề tài dự thi
           </h3>
@@ -101,7 +97,6 @@
       <!-- 2. PHẦN 1: THÔNG TIN CƠ BẢN -->
       <div class="space-y-4 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
         <div class="flex items-center gap-2 pb-1 border-b border-slate-200">
-          <span class="w-2 h-2 rounded-full bg-[#1E56D9]"></span>
           <h3 class="text-xs font-bold uppercase tracking-wider text-[#1E56D9]">
             Phần 1. Thông tin cơ bản
           </h3>
@@ -321,7 +316,6 @@
       <!-- 3. TÓM TẮT Ý TƯỞNG / DỰ ÁN (THEO PHỤ LỤC 1) -->
       <div class="space-y-4">
         <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
-          <span class="w-2 h-2 rounded-full bg-[#1E56D9]"></span>
           <h3 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
             Tóm tắt ý tưởng / Dự án
           </h3>
@@ -366,9 +360,8 @@
       <div class="p-5 bg-[#F1F7FF] rounded-2xl border border-[#C7D7F5] space-y-2.5">
         <div class="flex items-center justify-between">
           <label class="block text-xs font-bold text-[#0B1F4B]">
-            Đường dẫn (Link) tài liệu thuyết minh đầy đủ theo mẫu Phụ lục 1 <span class="text-rose-500">*</span>
+            Đường dẫn tài liệu thuyết minh đầy đủ<span class="text-rose-500"> *</span>
           </label>
-          <span class="text-[11px] font-semibold text-[#1E56D9]">Bắt buộc</span>
         </div>
 
         <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
@@ -397,7 +390,6 @@
             class="inline-flex items-center gap-1 font-semibold text-[#1E56D9] hover:underline shrink-0"
           >
             <span>Mở xem tài liệu</span>
-            <ExternalLink class="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
