@@ -86,7 +86,7 @@
               <template v-if="currentActiveProject">
                 <div class="pb-5 border-b border-[#E4ECF7] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div class="min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
                       <span class="text-xs font-semibold text-[#1E56D9]">
                         Đề tài của bạn ({{ currentActiveProject.code }})
                       </span>
@@ -94,6 +94,22 @@
                       <span class="text-xs text-[#4B5B7A]">
                         {{ currentActiveProject.level === 'UNIVERSITY' ? 'Cấp Trường' : 'Cấp Khoa' }}
                       </span>
+                      <!-- Nút chuyển giữa 2 đề tài nếu sinh viên có 2 đề tài active -->
+                      <template v-if="activeProjectsList.length > 1">
+                        <span class="text-slate-300">•</span>
+                        <div class="inline-flex items-center gap-1">
+                          <button
+                            v-for="(p, idx) in activeProjectsList"
+                            :key="p._id"
+                            type="button"
+                            @click="selectedActiveIndex = idx"
+                            class="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors"
+                            :class="selectedActiveIndex === idx ? 'bg-[#1E56D9] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                          >
+                            Đề tài {{ idx + 1 }}
+                          </button>
+                        </div>
+                      </template>
                     </div>
                     <h3 class="text-base sm:text-lg font-bold text-[#0B1F4B] leading-snug line-clamp-2">
                       {{ currentActiveProject.title }}
@@ -436,11 +452,18 @@ const userInitial = computed(() => {
   return name.trim().charAt(0).toUpperCase();
 });
 
-// Đề tài đang hoạt động của sinh viên (khác COMPLETED và REJECTED)
-const currentActiveProject = computed(() => {
-  return studentProjects.value.find(
+// Danh sách các đề tài đang hoạt động của sinh viên (khác COMPLETED và REJECTED)
+const activeProjectsList = computed(() => {
+  return studentProjects.value.filter(
     (p) => p.status !== 'COMPLETED' && p.status !== 'REJECTED'
-  ) || null;
+  );
+});
+
+const selectedActiveIndex = ref(0);
+
+const currentActiveProject = computed(() => {
+  if (activeProjectsList.value.length === 0) return null;
+  return activeProjectsList.value[selectedActiveIndex.value] || activeProjectsList.value[0];
 });
 
 // Thống kê nhanh số lượng đề tài

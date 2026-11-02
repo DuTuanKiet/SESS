@@ -64,11 +64,27 @@ const MOCK_PROJECTS = [
     title: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
     category: 'Nông nghiệp công nghệ cao',
     field: 'Nông nghiệp công nghệ cao',
+    faculty: 'Khoa Công nghệ Thông tin',
+    advisorInfo: {
+      fullName: 'TS. Nguyễn Văn Hướng',
+      unit: 'Khoa Công nghệ Thông tin',
+      phone: '0912345678',
+      email: 'nvhuong@ctuet.edu.vn',
+    },
+    leaderInfo: {
+      fullName: 'Đặng Tấn Kiệt',
+      studentId: 'KTPM2311025',
+      className: 'KTPM0123',
+      courseYear: 'Khóa 11',
+      phone: '0901234567',
+      email: 'dtkietktpm2311025@student.ctuet.edu.vn',
+    },
+    objectives: 'Xây dựng hệ thống tự động phát hiện sớm bệnh đạo ôn và rầy nâu trên lúa thông qua camera di động, giúp bà con giảm 30% chi phí phun thuốc trừ sâu.',
     abstract: 'Ứng dụng công nghệ thị giác máy tính nhận diện sớm bệnh đạo ôn và rầy nâu trên lá lúa qua thiết bị di động.',
     problemStatement: 'Bà con nông dân gặp khó khăn trong việc phát hiện sâu bệnh kịp thời dẫn đến thiệt hại mùa màng nghiêm trọng.',
     solution: 'Mô hình Deep Learning YOLOv8 kết hợp ứng dụng di động cho kết quả chẩn đoán chính xác 96% trong 3 giây.',
     businessModel: 'Cung cấp giải pháp phần mềm miễn phí cho nông dân, thu phí bản quyền từ các hợp tác xã nông nghiệp.',
-    attachmentUrl: 'https://storage.sess.ctuet.edu.vn/proposals/sess-2026-004.pdf',
+    attachmentUrl: 'https://docs.google.com/document/d/158-TB-DHKTCN-CTUTSTARTUP2025-Demo/edit',
     status: 'UNDER_MENTORSHIP',
     version: 1,
     currentVersion: 1,
@@ -86,11 +102,27 @@ const MOCK_PROJECTS = [
     title: 'Ứng dụng AI Hỗ trợ Phân loại và Tái chế Rác thải Y tế',
     category: 'Y tế & Đời sống',
     field: 'Y tế & Đời sống',
+    faculty: 'Khoa Điện - Điện tử - Viễn thông',
+    advisorInfo: {
+      fullName: 'ThS. Trần Thị Mai',
+      unit: 'Khoa Điện - Điện tử',
+      phone: '0987654321',
+      email: 'ttmai@ctuet.edu.vn',
+    },
+    leaderInfo: {
+      fullName: 'Lê Hoàng Phúc',
+      studentId: 'KTPM2311030',
+      className: 'KTPM0223',
+      courseYear: 'Khóa 11',
+      phone: '0933445566',
+      email: 'lhphuc2311030@student.ctuet.edu.vn',
+    },
+    objectives: 'Tự động hóa hoàn toàn quy trình nhận diện và phân chia rác nguy hại y tế tại nguồn.',
     abstract: 'Giải pháp tự động phân loại rác thải y tế nguy hại sử dụng camera thị giác máy tính và cánh tay robot.',
     problemStatement: 'Nguy cơ lây nhiễm chéo cao khi nhân viên y tế phân loại rác thủ công.',
     solution: 'Mô hình ResNet50 kết hợp cảm biến siêu âm phát hiện và gắp rác tự động vào thùng chuyên dụng.',
     businessModel: 'Bán giải pháp cho các bệnh viện đa khoa và trung tâm y tế dự phòng.',
-    attachmentUrl: 'https://storage.sess.ctuet.edu.vn/proposals/sess-2026-009.pdf',
+    attachmentUrl: 'https://docs.google.com/document/d/sess-2026-009-thuyet-minh/edit',
     status: 'UNDER_MENTORSHIP',
     version: 1,
     currentVersion: 1,
@@ -108,11 +140,27 @@ const MOCK_PROJECTS = [
     title: 'Nền tảng Số hóa và Truy xuất Nguồn gốc Nông sản Bằng Blockchain',
     category: 'Công nghệ thông tin',
     field: 'Công nghệ thông tin',
+    faculty: 'Khoa Công nghệ Thông tin',
+    advisorInfo: {
+      fullName: 'TS. Nguyễn Văn Hướng',
+      unit: 'Khoa Công nghệ Thông tin',
+      phone: '0912345678',
+      email: 'nvhuong@ctuet.edu.vn',
+    },
+    leaderInfo: {
+      fullName: 'Đặng Tấn Kiệt',
+      studentId: 'KTPM2311025',
+      className: 'KTPM0123',
+      courseYear: 'Khóa 11',
+      phone: '0901234567',
+      email: 'dtkietktpm2311025@student.ctuet.edu.vn',
+    },
+    objectives: 'Minh bạch nguồn gốc nông sản xuất khẩu qua công nghệ sổ cái phân tán.',
     abstract: 'Giải pháp ứng dụng chuỗi khối phân tán bảo đảm tính minh bạch và chống giả mạo tem truy xuất nguồn gốc.',
     problemStatement: 'Gian lận thương mại và giả mạo nguồn gốc nông sản hữu cơ gây mất niềm tin của người tiêu dùng.',
     solution: 'Smart contract trên nền tảng Hyperledger Fabric kết hợp tem mã hóa QR động.',
     businessModel: 'Phí dịch vụ tem số hóa trên mỗi lô hàng của doanh nghiệp xuất khẩu.',
-    attachmentUrl: 'https://storage.sess.ctuet.edu.vn/proposals/sess-2025-012.pdf',
+    attachmentUrl: 'https://docs.google.com/document/d/sess-2025-012-blockchain/edit',
     status: 'COMPLETED',
     version: 2,
     currentVersion: 2,
@@ -130,11 +178,27 @@ const MOCK_PROJECTS = [
     title: 'Hệ thống Giám sát Nuôi trồng Thủy sản Thông minh IoT',
     category: 'Tự động hóa & IoT',
     field: 'Tự động hóa & IoT',
+    faculty: 'Khoa Cơ khí',
+    advisorInfo: {
+      fullName: 'ThS. Lê Hoàng Vũ',
+      unit: 'Khoa Cơ khí',
+      phone: '0944556677',
+      email: 'lhvu@ctuet.edu.vn',
+    },
+    leaderInfo: {
+      fullName: 'Trần Văn Nam',
+      studentId: 'KTPM2311026',
+      className: 'KTPM0123',
+      courseYear: 'Khóa 11',
+      phone: '0911223344',
+      email: 'tvnamktpm2311026@student.ctuet.edu.vn',
+    },
+    objectives: 'Tự động đo đạc chỉ số môi trường nước và cảnh báo sớm sự cố ao nuôi tôm.',
     abstract: 'Bộ cảm biến đo nồng độ pH, oxy hòa tan và độ mặn tự động kích hoạt máy sục khí trong ao nuôi tôm.',
     problemStatement: 'Nuôi tôm truyền thống phụ thuộc vào kinh nghiệm thủ công, tỷ lệ rủi ro cao khi môi trường nước thay đổi đột ngột.',
     solution: 'Mạng cảm biến không dây LoraWan truyền dữ liệu về gateway điều khiển máy sục khí tự động.',
     businessModel: 'Bán thiết bị phần cứng và gói bảo trì phần mềm định kỳ.',
-    attachmentUrl: 'https://storage.sess.ctuet.edu.vn/proposals/sess-2024-008.pdf',
+    attachmentUrl: 'https://docs.google.com/document/d/sess-2024-008-iot/edit',
     status: 'COMPLETED',
     version: 1,
     currentVersion: 1,
@@ -852,9 +916,9 @@ export async function respondInvitationApi(invitationId, response) {
   // TRƯỜNG HỢP 1: CHẤP NHẬN LỜI MỜI
   if (response === 'ACCEPTED') {
     const effectiveUserId = getEffectiveUserId(user);
-    // Kiểm tra sinh viên đã có đề tài active khác (khác COMPLETED và REJECTED)
-    const activeProject = MOCK_PROJECTS.find((p) => {
-      const isActiveStatus = p.status !== 'COMPLETED' && p.status !== 'REJECTED';
+    // Kiểm tra số đề tài active hiện tại của sinh viên (tối đa 02 đề tài)
+    const activeProjects = MOCK_PROJECTS.filter((p) => {
+      const isActiveStatus = p.status !== 'COMPLETED' && p.status !== 'REJECTED' && !p.parentId;
       if (!isActiveStatus) return false;
       if (p.ownerId === effectiveUserId || (user && p.ownerId === user.id)) return true;
       const mems = MOCK_MEMBERS[p._id] || [];
@@ -865,9 +929,9 @@ export async function respondInvitationApi(invitationId, response) {
       );
     });
 
-    if (activeProject && activeProject._id !== inv.projectId) {
+    if (activeProjects.length >= 2 && !activeProjects.some((p) => p._id === inv.projectId)) {
       throw new Error(
-        `Bạn đang tham gia đề tài ${activeProject.code} đang hoạt động. Theo quy chế SESS, mỗi sinh viên chỉ được tham gia duy nhất 1 đề tài active. Vui lòng hoàn thành hoặc được Admin duyệt rời đề tài cũ trước khi tham gia đề tài mới.`
+        `Bạn đang tham gia 02 đề tài hoạt động trong kỳ này (${activeProjects.map((p) => p.code).join(', ')}). Theo quy chế SESS, mỗi sinh viên chỉ được tham gia tối đa 2 đề tài cùng lúc. Vui lòng hoàn thành hoặc rời đề tài cũ trước khi tham gia đề tài mới.`
       );
     }
 
@@ -955,6 +1019,22 @@ export async function createProjectApi(payload) {
     title: payload.title || 'Đề tài mới',
     category: payload.category || 'Công nghệ thông tin',
     field: payload.category || 'Công nghệ thông tin',
+    faculty: payload.faculty || 'Khoa Công nghệ Thông tin',
+    advisorInfo: payload.advisorInfo || {
+      fullName: '',
+      unit: '',
+      phone: '',
+      email: '',
+    },
+    leaderInfo: payload.leaderInfo || {
+      fullName: user?.fullName || 'Đặng Tấn Kiệt',
+      studentId: user?.studentId || 'KTPM2311025',
+      className: user?.className || 'KTPM0123',
+      courseYear: 'Khóa 11',
+      phone: user?.phone || '0901234567',
+      email: user?.email || 'dtkietktpm2311025@student.ctuet.edu.vn',
+    },
+    objectives: payload.objectives || '',
     abstract: payload.abstract || '',
     problemStatement: payload.problemStatement || '',
     solution: payload.solution || '',
@@ -974,9 +1054,11 @@ export async function createProjectApi(payload) {
   MOCK_MEMBERS[newProject._id] = [
     {
       userId: user?.id || '671f0000user0001',
-      fullName: user?.fullName || 'Đặng Tấn Kiệt',
-      email: user?.email || 'dtkietktpm2311025@student.ctuet.edu.vn',
-      studentId: user?.studentId || 'KTPM2311025',
+      fullName: payload.leaderInfo?.fullName || user?.fullName || 'Đặng Tấn Kiệt',
+      email: payload.leaderInfo?.email || user?.email || 'dtkietktpm2311025@student.ctuet.edu.vn',
+      studentId: payload.leaderInfo?.studentId || user?.studentId || 'KTPM2311025',
+      className: payload.leaderInfo?.className || user?.className || 'KTPM0123',
+      phone: payload.leaderInfo?.phone || user?.phone || '0901234567',
       role: 'OWNER',
       status: 'ACCEPTED',
       joinedAt: new Date().toISOString(),
@@ -1056,24 +1138,24 @@ export async function requestProjectCancellationApi(projectId, { reason, evidenc
 }
 
 /**
- * Helper: Tính toán điều kiện đăng ký đề tài mới (Quota 1 active/sinh viên)
+ * Helper: Tính toán điều kiện đăng ký đề tài mới (Tối đa 2 đề tài active/sinh viên)
  */
 export function evaluateProjectEligibility(projects = []) {
   const activeStatuses = ['DRAFT', 'SUBMITTED', 'IN_REVIEW', 'UNDER_MENTORSHIP', 'NEED_REVISION', 'APPROVED', 'EVALUATED'];
-  const activeProject = projects.find((p) => activeStatuses.includes(p.status) && !p.parentId);
+  const activeProjects = projects.filter((p) => activeStatuses.includes(p.status) && !p.parentId);
 
-  if (activeProject) {
+  if (activeProjects.length >= 2) {
     return {
       canRegister: false,
-      activeProject,
-      reason: `Bạn đang tham gia đề tài ${activeProject.code} (${activeProject.status}). Theo quy chế SESS, bạn cần hoàn thành đề tài hiện tại trước khi đăng ký đề tài mới.`,
+      activeProjects,
+      reason: `Bạn đang tham gia 02 đề tài hoạt động trong kỳ này (${activeProjects.map((p) => p.code).join(', ')}). Theo quy chế SESS, bạn cần hoàn thành đề tài hiện tại trước khi đăng ký thêm đề tài mới.`,
     };
   }
 
   return {
     canRegister: true,
-    activeProject: null,
-    reason: 'Bạn đủ điều kiện đăng ký đề tài khởi nghiệp mới cho năm nay.',
+    activeProjects,
+    reason: 'Bạn đủ điều kiện đăng ký đề tài khởi nghiệp mới.',
   };
 }
 

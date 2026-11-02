@@ -141,6 +141,7 @@
         v-if="activeTab === 'PROPOSAL'"
         :projectId="projectId"
         :project="project"
+        :members="members"
         :isOwner="isOwner"
         @saved="handleProposalSaved"
       />
@@ -283,23 +284,28 @@ const cancellationRequestInfo = ref(null);
 const isSubmitting = ref(false);
 const isSubmitChecklistModalOpen = ref(false);
 
-// --- Rà soát Pre-submission Checklist (4 trường cốt lõi) ---
+// --- Rà soát Pre-submission Checklist (Theo chuẩn Phụ lục 1) ---
 const preSubmissionChecklist = computed(() => ({
-  title: {
-    label: '1. Tên đề tài khởi nghiệp',
-    passed: Boolean(project.value.title && project.value.title.trim().length > 0),
+  basicInfo: {
+    label: '1. Phần 1. Thông tin cơ bản (Đề tài, Giảng viên hỗ trợ, Trưởng nhóm)',
+    passed: Boolean(
+      project.value.title?.trim() &&
+      project.value.category?.trim() &&
+      project.value.advisorInfo?.fullName?.trim() &&
+      project.value.leaderInfo?.fullName?.trim()
+    ),
   },
-  category: {
-    label: '2. Lĩnh vực nghiên cứu',
-    passed: Boolean(project.value.category && project.value.category.trim().length > 0),
+  objectives: {
+    label: '2. Tóm tắt ý tưởng: 1. Mục tiêu ý tưởng/dự án',
+    passed: Boolean(project.value.objectives && project.value.objectives.trim().length > 0),
   },
   abstract: {
-    label: '3. Tóm tắt ý tưởng (Abstract)',
+    label: '3. Tóm tắt ý tưởng: 2. Mô tả ngắn gọn sản phẩm/dịch vụ & giá trị',
     passed: Boolean(project.value.abstract && project.value.abstract.trim().length > 0),
   },
-  solution: {
-    label: '4. Giải pháp kỹ thuật & Công nghệ (Solution)',
-    passed: Boolean(project.value.solution && project.value.solution.trim().length > 0),
+  attachmentUrl: {
+    label: '4. Đường dẫn (link) tài liệu thuyết minh đầy đủ theo mẫu Phụ lục 1',
+    passed: Boolean(project.value.attachmentUrl && project.value.attachmentUrl.trim().startsWith('http')),
   },
 }));
 
