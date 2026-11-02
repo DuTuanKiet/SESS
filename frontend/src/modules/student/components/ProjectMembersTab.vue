@@ -326,15 +326,19 @@ const isCancellingLeave = ref(false);
 const acceptedMembers = computed(() => props.members.filter((m) => m.status === 'ACCEPTED'));
 const pendingInvites = computed(() => props.members.filter((m) => m.status === 'INVITED'));
 
-// Quản lý thành viên
+// Quản lý thành viên: Mời bạn học cùng trường
 async function handleInviteMember() {
-  if (!inviteEmailInput.value) return;
+  const targetEmail = (inviteEmailInput.value || '').trim();
+  if (!targetEmail) return;
   isSubmitting.value = true;
   try {
-    const res = await projectService.inviteMember(props.projectId, inviteEmailInput.value);
+    const res = await projectService.inviteMember(props.projectId, targetEmail);
     if (res?.success) {
-      toastStore.add({ message: res.message || 'Đã gửi lời mời', type: 'success' });
       inviteEmailInput.value = '';
+      toastStore.add({
+        message: res.message || `Mời thành viên ${targetEmail} thành công! Lời mời đã được gửi.`,
+        type: 'success',
+      });
       emit('refresh-members');
     }
   } catch (error) {
@@ -342,7 +346,7 @@ async function handleInviteMember() {
   } finally {
     setTimeout(() => {
       isSubmitting.value = false;
-    }, 1200);
+    }, 800);
   }
 }
 

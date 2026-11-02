@@ -197,7 +197,7 @@
                 <!-- Liên kết vào chi tiết đề tài -->
                 <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-between">
                   <span class="text-xs text-[#4B5B7A]">
-                    Giảng viên đồng hành: <strong class="text-[#0B1F4B]">{{ authStore.user?.advisorName || 'TS. Nguyễn Văn Hướng' }}</strong>
+                    Giảng viên đồng hành: <strong class="text-[#0B1F4B]">{{ currentActiveProject?.advisorInfo?.fullName || authStore.user?.advisorName || 'Chưa phân công' }}</strong>
                   </span>
                   <router-link
                     :to="{ name: 'student-project-detail', params: { id: currentActiveProject._id } }"

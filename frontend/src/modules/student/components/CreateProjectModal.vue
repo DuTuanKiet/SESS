@@ -453,7 +453,11 @@ async function handleCreateProject() {
   try {
     const res = await projectService.createProject(newProjectForm.value);
     if (res?.success) {
-      toastStore.add({ message: 'Tạo bản đăng ký đề tài thành công!', type: 'success' });
+      toastStore.add({
+        message: 'Đăng ký đề tài khởi nghiệp thành công! Đang chuyển đến không gian đề tài...',
+        type: 'success',
+        duration: 4000,
+      });
       emit('update:isOpen', false);
       emit('created', res.data?.project);
     }

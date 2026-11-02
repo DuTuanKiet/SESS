@@ -188,6 +188,22 @@
               </span>
             </div>
 
+            <!-- Dòng 4: Tiến độ thực hiện theo từng đề tài -->
+            <div class="space-y-1.5 pt-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[#4B5B7A] text-[11px] font-medium">Tiến độ thực hiện:</span>
+                <span class="font-bold text-[#1E56D9] text-[11px]">
+                  {{ getProjectProgress(project._id).percent }}% ({{ getProjectProgress(project._id).completed }}/{{ getProjectProgress(project._id).total }} mốc)
+                </span>
+              </div>
+              <div class="w-full h-1.5 bg-[#E4ECF7] rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-[#1E56D9] rounded-full transition-all duration-300"
+                  :style="{ width: `${getProjectProgress(project._id).percent}%` }"
+                ></div>
+              </div>
+            </div>
+
             <div
               v-if="project.parentId"
               class="text-xs text-[#1E56D9] bg-[#F1F7FF] px-3 py-1.5 rounded-lg font-medium"
@@ -374,6 +390,11 @@ function getStatusLabel(status) {
     default:
       return status;
   }
+}
+
+// Lấy tiến độ % theo từng dự án
+function getProjectProgress(projectId) {
+  return projectService.calculateProjectProgress(projectId);
 }
 
 // --- Quản lý Lời mời tham gia đề tài gửi đến sinh viên ---

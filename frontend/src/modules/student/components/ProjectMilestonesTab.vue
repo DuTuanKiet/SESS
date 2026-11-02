@@ -24,8 +24,12 @@
         </div>
         <div class="min-w-0">
           <span class="text-[10px] text-[#4B5B7A] font-semibold uppercase tracking-wider block">Giảng viên Cố vấn</span>
-          <h4 class="text-sm font-bold text-[#0B1F4B] truncate">TS. Nguyễn Văn Hướng</h4>
-          <p class="text-xs text-[#4B5B7A] truncate">Khoa Công nghệ thông tin</p>
+          <h4 class="text-sm font-bold text-[#0B1F4B] truncate">
+            {{ project.advisorInfo?.fullName || 'Chưa phân công' }}
+          </h4>
+          <p class="text-xs text-[#4B5B7A] truncate">
+            {{ project.advisorInfo?.unit || project.faculty || 'Đang chờ phân công' }}
+          </p>
         </div>
       </div>
     </div>
@@ -45,7 +49,7 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <span class="text-xs text-[#4B5B7A]">Hạn nộp: <strong class="text-[#0B1F4B]">{{ ms.dueDate }}</strong></span>
+            <span class="text-xs text-[#4B5B7A]">Hạn nộp: <strong class="text-[#0B1F4B]">{{ formatDateOnly(ms.dueDate) }}</strong></span>
             <span
               class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
               :class="getMilestoneBadgeClass(ms.status)"
@@ -86,7 +90,11 @@
           <div class="text-xs text-[#4B5B7A]">
             <span v-if="evaluateMilestoneEvidenceEligibility(ms).isCompleted" class="text-emerald-700 font-medium flex items-center gap-1">
               <CheckCircle2 class="w-3.5 h-3.5 text-emerald-600" />
-              <span>Mốc này đã hoàn thành.</span>
+              <span>Mốc này đã hoàn thành (Đã qua hạn nộp).</span>
+            </span>
+            <span v-else-if="evaluateMilestoneEvidenceEligibility(ms).canUpdate" class="text-[#1E56D9] font-medium flex items-center gap-1">
+              <CheckCircle2 class="w-3.5 h-3.5 text-emerald-600" />
+              <span>Đã nộp bài (Có thể cập nhật lại trước {{ formatDateOnly(ms.dueDate) }}).</span>
             </span>
             <span v-else-if="evaluateMilestoneEvidenceEligibility(ms).isNotStarted" class="text-[#4B5B7A] flex items-center gap-1">
               <Clock class="w-3.5 h-3.5" />
@@ -102,7 +110,7 @@
               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium bg-slate-100 text-slate-400 cursor-not-allowed select-none"
             >
               <Lock class="w-3.5 h-3.5" />
-              <span>Đã hoàn thành</span>
+              <span>Đã chốt kết quả</span>
             </button>
 
             <button
@@ -141,8 +149,12 @@
       <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
         <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
           <div>
-            <h3 class="text-base font-bold text-[#0B1F4B]">Gửi bài làm mốc tiến độ</h3>
-            <p class="text-xs text-[#4B5B7A] mt-0.5">{{ selectedMilestone?.title }}</p>
+            <h3 class="text-base font-bold text-[#0B1F4B]">
+              {{ selectedMilestone?.evidence ? 'Cập nhật lại bài làm mốc tiến độ' : 'Gửi bài làm mốc tiến độ' }}
+            </h3>
+            <p class="text-xs text-[#4B5B7A] mt-0.5">
+              {{ selectedMilestone?.title }} • Hạn nộp: <strong class="text-[#1E56D9]">{{ formatDateOnly(selectedMilestone?.dueDate) }}</strong>
+            </p>
           </div>
           <button
             type="button"
@@ -195,7 +207,7 @@
               class="inline-flex items-center gap-2 px-5 py-2 rounded-full font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] cursor-pointer disabled:opacity-50"
             >
               <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-              <span>{{ isSubmitting ? 'Đang gửi...' : 'Gửi bài làm' }}</span>
+              <span>{{ isSubmitting ? 'Đang gửi...' : (selectedMilestone?.evidence ? 'Cập nhật bài làm' : 'Gửi bài làm') }}</span>
             </button>
           </div>
         </form>
@@ -219,12 +231,16 @@ import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
 
 /**
- * Tab 2: Tiến độ & Góp ý từ Giảng viên Cố vấn (Kèm Modal nộp bài làm mốc tiến độ)
+ * Tab 2: Tiến độ & Góp ý từ Giảng viên Cố vấn (Kèm Modal nộp/cập nhật bài làm mốc tiến độ)
  */
 const props = defineProps({
   projectId: {
     type: String,
     required: true,
+  },
+  project: {
+    type: Object,
+    default: () => ({}),
   },
   milestones: {
     type: Array,
@@ -246,7 +262,7 @@ const evidenceForm = ref({
 });
 
 const completedMilestonesCount = computed(() =>
-  props.milestones.filter((m) => m.status === 'Completed').length
+  props.milestones.filter((m) => m.status === 'Completed' || m.status === 'DONE').length
 );
 
 const milestoneProgressPercent = computed(() => {
@@ -256,29 +272,46 @@ const milestoneProgressPercent = computed(() => {
 
 /**
  * Đánh giá điều kiện nộp/cập nhật minh chứng của cột mốc
+ * Cho phép cập nhật lại khi chưa hết hạn (now <= dueDate)
  * @param {Object} ms - Thông tin cột mốc
- * @returns {{ canSubmit: boolean, isCompleted: boolean, isNotStarted: boolean, reason: string }}
+ * @returns {{ canSubmit: boolean, canUpdate: boolean, isCompleted: boolean, isNotStarted: boolean, reason: string }}
  */
 function evaluateMilestoneEvidenceEligibility(ms) {
-  if (!ms) return { canSubmit: false, isCompleted: false, isNotStarted: false, reason: 'Dữ liệu mốc không hợp lệ' };
+  if (!ms) return { canSubmit: false, canUpdate: false, isCompleted: false, isNotStarted: false, reason: 'Dữ liệu mốc không hợp lệ' };
 
-  // 1. Kiểm tra mốc ĐÃ HOÀN THÀNH -> Khóa cập nhật
-  if (ms.status === 'Completed' || ms.status === 'DONE') {
+  const now = new Date();
+  const isPastDue = ms.dueDate && new Date(ms.dueDate) < now;
+
+  // 1. Kiểm tra nếu mốc đã có minh chứng hoặc đã hoàn thành
+  if (ms.status === 'Completed' || ms.status === 'DONE' || ms.evidence) {
+    // Nếu chưa hết hạn của mốc -> Vẫn cho phép cập nhật lại minh chứng!
+    if (!isPastDue) {
+      return {
+        canSubmit: true,
+        canUpdate: true,
+        isCompleted: false,
+        isNotStarted: false,
+        reason: 'Có thể cập nhật lại bài làm trước hạn nộp.',
+      };
+    }
+
+    // Nếu đã quá hạn -> Khóa không cho cập nhật
     return {
       canSubmit: false,
+      canUpdate: false,
       isCompleted: true,
       isNotStarted: false,
-      reason: 'Cột mốc này đã hoàn thành. Minh chứng đã được đóng băng bảo mật, không thể cập nhật thêm.',
+      reason: 'Cột mốc này đã hết hạn nộp. Minh chứng đã được đóng băng bảo mật, không thể cập nhật thêm.',
     };
   }
 
   // 2. Kiểm tra mốc CHƯA BẮT ĐẦU (theo ngày bắt đầu hoặc trạng thái Pending/PLANNED)
-  const now = new Date();
   if (ms.startDate) {
     const start = new Date(ms.startDate);
     if (start.getTime() > now.getTime()) {
       return {
         canSubmit: false,
+        canUpdate: false,
         isCompleted: false,
         isNotStarted: true,
         reason: `Cột mốc này chưa bắt đầu. Thời gian triển khai bắt đầu từ ngày ${formatDateOnly(ms.startDate)}.`,
@@ -289,15 +322,17 @@ function evaluateMilestoneEvidenceEligibility(ms) {
   if (ms.status === 'Pending' || ms.status === 'PLANNED') {
     return {
       canSubmit: false,
+      canUpdate: false,
       isCompleted: false,
       isNotStarted: true,
       reason: 'Cột mốc đang ở trạng thái Chờ triển khai, chưa thể nộp minh chứng.',
     };
   }
 
-  // Mốc hợp lệ để nộp hoặc cập nhật
+  // Mốc hợp lệ để nộp lần đầu
   return {
     canSubmit: true,
+    canUpdate: false,
     isCompleted: false,
     isNotStarted: false,
     reason: '',
@@ -319,7 +354,7 @@ function openEvidenceModal(ms) {
   isEvidenceModalOpen.value = true;
 }
 
-// Gửi Minh chứng (Phòng thủ FE chống bypass ngoài form)
+// Gửi hoặc Cập nhật Minh chứng
 async function handleSubmitEvidence() {
   if (!selectedMilestone.value) return;
 
@@ -330,6 +365,7 @@ async function handleSubmitEvidence() {
     return;
   }
 
+  const isUpdate = Boolean(selectedMilestone.value?.evidence);
   isSubmitting.value = true;
   try {
     const res = await projectService.submitEvidence(
@@ -338,7 +374,10 @@ async function handleSubmitEvidence() {
       evidenceForm.value
     );
     if (res?.success) {
-      toastStore.add({ message: 'Nộp minh chứng mốc tiến độ thành công!', type: 'success' });
+      toastStore.add({
+        message: isUpdate ? 'Cập nhật minh chứng mốc tiến độ thành công!' : 'Nộp minh chứng mốc tiến độ thành công!',
+        type: 'success',
+      });
       isEvidenceModalOpen.value = false;
       emit('refresh-milestones');
     }
@@ -379,22 +418,29 @@ function getMilestoneLabel(status) {
 
 function formatDateOnly(d) {
   if (!d) return '--';
-  return new Date(d).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  // Chuẩn hóa chuỗi dạng yyyy-mm-dd hoặc ISO string thành dd/mm/yyyy
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d.trim())) {
+    const parts = d.trim().slice(0, 10).split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '--';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function formatDate(d) {
   if (!d) return '--';
-  return new Date(d).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '--';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes} ${day}/${month}/${year}`;
 }
 </script>
 

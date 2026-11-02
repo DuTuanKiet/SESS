@@ -149,6 +149,7 @@
       <ProjectMilestonesTab
         v-else-if="activeTab === 'MILESTONES'"
         :projectId="projectId"
+        :project="project"
         :milestones="milestones"
         @refresh-milestones="fetchMilestones"
       />

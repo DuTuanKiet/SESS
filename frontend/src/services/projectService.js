@@ -212,6 +212,36 @@ const MOCK_PROJECTS = [
   },
 ];
 
+const generateDefaultMilestones = (project = {}) => [
+  {
+    _id: `ms_${project?._id || Date.now()}_01`,
+    title: 'Mốc 1: Khảo sát thực trạng & Thiết kế kiến trúc giải pháp',
+    startDate: new Date().toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    status: 'InProgress',
+    evidence: null,
+    mentorFeedback: null,
+  },
+  {
+    _id: `ms_${project?._id || Date.now()}_02`,
+    title: 'Mốc 2: Triển khai thử nghiệm mô hình MVP & Đánh giá sơ bộ',
+    startDate: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    status: 'Pending',
+    evidence: null,
+    mentorFeedback: null,
+  },
+  {
+    _id: `ms_${project?._id || Date.now()}_03`,
+    title: 'Mốc 3: Hoàn thiện báo cáo kết quả & Thuyết minh chung kết',
+    startDate: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    status: 'Pending',
+    evidence: null,
+    mentorFeedback: null,
+  },
+];
+
 const MOCK_MILESTONES = {
   '671f0001a1b2c3d4e5f60001': [
     {
@@ -245,6 +275,79 @@ const MOCK_MILESTONES = {
       status: 'Pending',
       evidence: null,
       mentorFeedback: null,
+    },
+  ],
+  '671f0001a1b2c3d4e5f60009': [
+    {
+      _id: 'ms09_01',
+      title: 'Mốc 1: Thu thập dữ liệu rác y tế & Thiết kế quy chuẩn an toàn',
+      startDate: '2026-03-20',
+      dueDate: '2026-05-30',
+      status: 'InProgress',
+      evidence: null,
+      mentorFeedback: null,
+    },
+    {
+      _id: 'ms09_02',
+      title: 'Mốc 2: Thử nghiệm phân loại tự động bằng cánh tay robot trong Lab',
+      startDate: '2026-06-01',
+      dueDate: '2026-07-15',
+      status: 'Pending',
+      evidence: null,
+      mentorFeedback: null,
+    },
+    {
+      _id: 'ms09_03',
+      title: 'Mốc 3: Thử nghiệm thực tế tại bệnh viện & Hoàn thiện báo cáo',
+      startDate: '2026-07-16',
+      dueDate: '2026-08-30',
+      status: 'Pending',
+      evidence: null,
+      mentorFeedback: null,
+    },
+  ],
+  '671f0001a1b2c3d4e5f60002': [
+    {
+      _id: 'ms02_01',
+      title: 'Mốc 1: Nghiên cứu kiến trúc Blockchain & Thiết kế Smart Contract',
+      startDate: '2025-03-15',
+      dueDate: '2025-05-01',
+      status: 'Completed',
+      evidence: {
+        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-01-blockchain.pdf',
+        fileName: 'Kien-truc-smart-contract.pdf',
+        submittedAt: '2025-04-28T09:00:00Z',
+        note: 'Đã hoàn thiện tài liệu đặc tả kiến trúc phân tán.',
+      },
+      mentorFeedback: 'Hồ sơ thiết kế đạt chuẩn chất lượng.',
+    },
+    {
+      _id: 'ms02_02',
+      title: 'Mốc 2: Kết nối API hải quan và thử nghiệm 3 hợp tác xã',
+      startDate: '2025-05-02',
+      dueDate: '2025-08-01',
+      status: 'Completed',
+      evidence: {
+        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-02-api.pdf',
+        fileName: 'Ket-noi-api-hai-quan.pdf',
+        submittedAt: '2025-07-29T14:30:00Z',
+        note: 'Đã kết nối thành công 3 hợp tác xã xuất khẩu.',
+      },
+      mentorFeedback: 'Thực thi tốt, đạt chuẩn bảo mật dữ liệu.',
+    },
+    {
+      _id: 'ms02_03',
+      title: 'Mốc 3: Hoàn thiện nghiệm thu cấp Trường và công bố mã nguồn',
+      startDate: '2025-08-02',
+      dueDate: '2025-11-15',
+      status: 'Completed',
+      evidence: {
+        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-03-final.pdf',
+        fileName: 'Bao-cao-tong-ket-nghiem-thu.pdf',
+        submittedAt: '2025-11-10T16:00:00Z',
+        note: 'Nghiệm thu thành công đạt giải Nhất NCKH cấp Trường.',
+      },
+      mentorFeedback: 'Xuất sắc. Đạt yêu cầu nghiệm thu xuất sắc.',
     },
   ],
 };
@@ -572,7 +675,7 @@ export async function getProjectRevisionsApi(projectId) {
 }
 
 /**
- * 6. Lấy danh sách mốc tiến độ của đề tài (FR05)
+ * 6. Lấy danh sách mốc tiến độ của đề tài (FR05) - Đảm bảo độc lập theo từng đề tài
  */
 export async function getMilestonesApi(projectId) {
   if (!USE_MOCK_DATA) {
@@ -581,16 +684,20 @@ export async function getMilestonesApi(projectId) {
   }
 
   await delay(300);
-  const milestones = MOCK_MILESTONES[projectId] || MOCK_MILESTONES['671f0001a1b2c3d4e5f60001'] || [];
+  if (!MOCK_MILESTONES[projectId]) {
+    const project = MOCK_PROJECTS.find((p) => p._id === projectId);
+    MOCK_MILESTONES[projectId] = generateDefaultMilestones(project);
+  }
 
   return {
     success: true,
-    data: { milestones },
+    data: { milestones: MOCK_MILESTONES[projectId] },
   };
 }
 
 /**
- * 7. Nộp minh chứng mốc tiến độ (FR05)
+ * 7. Nộp / Cập nhật minh chứng mốc tiến độ (FR05)
+ * Cho phép cập nhật lại minh chứng khi chưa hết hạn của mốc (now <= dueDate)
  */
 export async function submitEvidenceApi(projectId, milestoneId, payload) {
   if (!USE_MOCK_DATA) {
@@ -599,30 +706,41 @@ export async function submitEvidenceApi(projectId, milestoneId, payload) {
   }
 
   await delay(500);
-  const milestones = MOCK_MILESTONES[projectId] || MOCK_MILESTONES['671f0001a1b2c3d4e5f60001'];
-  if (milestones) {
-    const ms = milestones.find((m) => m._id === milestoneId);
-    if (!ms) {
-      throw new Error('Không tìm thấy mốc tiến độ yêu cầu.');
-    }
-
-    if (ms.status === 'Completed' || ms.status === 'DONE') {
-      throw new Error('Cột mốc này đã hoàn thành, không thể nộp thêm hoặc cập nhật minh chứng.');
-    }
-
-    ms.status = 'Completed';
-    ms.evidence = {
-      fileUrl: payload.fileUrl || 'https://storage.sess.ctuet.edu.vn/evidence/uploaded-evidence.pdf',
-      fileName: payload.fileName || 'Minh-chung-tien-do.pdf',
-      submittedAt: new Date().toISOString(),
-      note: payload.note || 'Minh chứng đã được cập nhật.',
-    };
-    ms.mentorFeedback = 'Đã tiếp nhận minh chứng từ nhóm. Đang tiến hành thẩm định.';
+  if (!MOCK_MILESTONES[projectId]) {
+    const project = MOCK_PROJECTS.find((p) => p._id === projectId);
+    MOCK_MILESTONES[projectId] = generateDefaultMilestones(project);
   }
+  const milestones = MOCK_MILESTONES[projectId];
+  const ms = milestones.find((m) => m._id === milestoneId);
+  if (!ms) {
+    throw new Error('Không tìm thấy mốc tiến độ yêu cầu.');
+  }
+
+  const now = new Date();
+  const isPastDue = ms.dueDate && new Date(ms.dueDate) < now;
+
+  // Nếu đã nộp trước đó VÀ đã quá hạn của mốc thì mới chặn cập nhật
+  if (ms.evidence && isPastDue) {
+    throw new Error('Mốc tiến độ này đã quá thời hạn nộp, không thể cập nhật thêm minh chứng.');
+  }
+
+  const isUpdate = Boolean(ms.evidence);
+  ms.status = 'Completed';
+  ms.evidence = {
+    fileUrl: payload.fileUrl || 'https://storage.sess.ctuet.edu.vn/evidence/uploaded-evidence.pdf',
+    fileName: payload.fileName || 'Minh-chung-tien-do.pdf',
+    submittedAt: now.toISOString(),
+    note: payload.note || (isUpdate ? 'Minh chứng đã được cập nhật lại.' : 'Minh chứng đã được gửi.'),
+  };
+  ms.mentorFeedback = isUpdate
+    ? 'Đã tiếp nhận bản cập nhật minh chứng mới từ nhóm. Giảng viên cố vấn sẽ thẩm định lại.'
+    : 'Đã tiếp nhận minh chứng từ nhóm. Đang tiến hành thẩm định.';
 
   return {
     success: true,
-    message: 'Nộp minh chứng mốc tiến độ thành công.',
+    message: isUpdate
+      ? 'Cập nhật lại minh chứng mốc tiến độ thành công.'
+      : 'Nộp minh chứng mốc tiến độ thành công.',
   };
 }
 
@@ -657,6 +775,7 @@ export async function inviteMemberApi(projectId, email) {
   }
 
   await delay(400);
+  const user = getCurrentUser();
   const members = MOCK_MEMBERS[projectId] || [];
 
   // 1. Kiểm tra nếu sinh viên đã có trong nhóm
@@ -682,16 +801,18 @@ export async function inviteMemberApi(projectId, email) {
     studentId: normalizedEmail.split('@')[0].toUpperCase(),
   };
 
+  const project = MOCK_PROJECTS.find((p) => p._id === projectId) || {};
+
   const newInvitation = {
     _id: `inv_${Date.now()}`,
     targetEmail: normalizedEmail,
     projectId,
-    projectCode: 'SESS-2026-004',
-    projectTitle: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
-    category: 'Nông nghiệp công nghệ cao',
-    level: 'FACULTY',
+    projectCode: project.code || 'SESS-2026-004',
+    projectTitle: project.title || 'Đề tài Khởi nghiệp',
+    category: project.category || 'Nông nghiệp công nghệ cao',
+    level: project.level || 'FACULTY',
     inviterName: user?.fullName || 'Đặng Tấn Kiệt',
-    inviterEmail: 'dtkietktpm2311025@student.ctuet.edu.vn',
+    inviterEmail: user?.email || 'dtkietktpm2311025@student.ctuet.edu.vn',
     createdAt: new Date().toISOString(),
   };
   MOCK_INVITATIONS.push(newInvitation);
@@ -1064,6 +1185,8 @@ export async function createProjectApi(payload) {
       joinedAt: new Date().toISOString(),
     },
   ];
+  // Khởi tạo bộ mốc tiến độ độc lập cho đề tài mới
+  MOCK_MILESTONES[newProject._id] = generateDefaultMilestones(newProject);
 
   return {
     success: true,
@@ -1138,6 +1261,26 @@ export async function requestProjectCancellationApi(projectId, { reason, evidenc
 }
 
 /**
+ * Helper: Tính toán tiến độ % hoàn thành các mốc theo từng đề tài
+ * @param {string} projectId
+ * @returns {{ completed: number, total: number, percent: number }}
+ */
+export function calculateProjectProgress(projectId) {
+  const milestones = MOCK_MILESTONES[projectId];
+  if (!milestones || !milestones.length) {
+    const p = MOCK_PROJECTS.find((proj) => proj._id === projectId);
+    if (p?.status === 'COMPLETED') return { completed: 3, total: 3, percent: 100 };
+    return { completed: 0, total: 3, percent: 0 };
+  }
+  const completed = milestones.filter((m) => m.status === 'Completed' || m.status === 'DONE').length;
+  return {
+    completed,
+    total: milestones.length,
+    percent: Math.round((completed / milestones.length) * 100),
+  };
+}
+
+/**
  * Helper: Tính toán điều kiện đăng ký đề tài mới (Tối đa 2 đề tài active/sinh viên)
  */
 export function evaluateProjectEligibility(projects = []) {
@@ -1179,6 +1322,8 @@ export const projectService = {
   respondInvitation: respondInvitationApi,
   requestProjectCancellation: requestProjectCancellationApi,
   evaluateProjectEligibility,
+  calculateProjectProgress,
+  getProjectProgress: calculateProjectProgress,
 };
 
 export default projectService;
