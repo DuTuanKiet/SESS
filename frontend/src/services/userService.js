@@ -136,8 +136,8 @@ export async function updateMyProfileDetailApi(payload = {}) {
     const response = await httpClient.put('/users/profile/me', allowedPayload);
     return response.data;
   } catch (error) {
-    if (error.response && error.response.status !== 404) {
-      throw new Error(error.response.data?.message || 'Không thể cập nhật hồ sơ cá nhân.');
+    if (error.response && [400, 422].includes(error.response.status)) {
+      throw new Error(error.response.data?.message || 'Dữ liệu cập nhật hồ sơ không hợp lệ.');
     }
     await delay(350);
     const user = JSON.parse(localStorage.getItem('sess_user') || 'null') || {};

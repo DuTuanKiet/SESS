@@ -2,8 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 import PublicLayout from '@/layouts/PublicLayout.vue';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import StudentLayout from '@/layouts/StudentLayout.vue';
 import AdvisorLayout from '@/layouts/AdvisorLayout.vue';
 import JudgeLayout from '@/layouts/JudgeLayout.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
@@ -19,8 +17,8 @@ import NewsDetailPage from '@/modules/public-site/pages/NewsDetailPage.vue';
 import ContactPage from '@/modules/public-site/pages/ContactPage.vue';
 import NotFoundPage from '@/modules/public-site/pages/NotFoundPage.vue';
 
-import LoginView from '@/modules/auth/pages/LoginView.vue';
-import AdminLoginView from '@/modules/auth/pages/AdminLoginView.vue';
+import { authRoutes } from './auth';
+import { studentRoutes } from './student';
 
 const ROUTE_PATHS = {
   LOGIN: '/auth/login',
@@ -59,30 +57,8 @@ const routes = [
       { path: 'competitions/:id/results', name: 'competition-results', component: CompetitionsView },
     ],
   },
-  {
-    path: '/auth',
-    component: AuthLayout,
-    children: [
-      { path: 'login', name: 'login', component: LoginView },
-    ],
-  },
-  {
-    path: '/admin/login',
-    name: 'admin-login',
-    component: AdminLoginView,
-    meta: { guestOnly: true },
-  },
-  {
-    path: '/student',
-    component: StudentLayout,
-    meta: { roles: ['student'], requiresAuth: true },
-    children: [
-      { path: '', name: 'student-dashboard', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
-      { path: 'profile', name: 'student-profile', component: () => import('@/modules/student/pages/StudentProfilePage.vue') },
-      { path: 'projects', name: 'student-projects', component: () => import('@/modules/student/pages/StudentProjectsPage.vue') },
-      { path: 'projects/:id', name: 'student-project-detail', component: () => import('@/modules/student/pages/StudentProjectDetailPage.vue') },
-    ],
-  },
+  ...authRoutes,
+  ...studentRoutes,
   {
     path: '/advisor',
     component: AdvisorLayout,

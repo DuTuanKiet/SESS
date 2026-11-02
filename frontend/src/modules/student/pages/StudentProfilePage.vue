@@ -6,25 +6,41 @@
         
         <!-- CỘT TRÁI (5/12): THẺ HỒ SƠ SINH VIÊN (Đặt ở vị trí cao nhất, không bị khối khác đè) -->
         <div class="lg:col-span-5">
-          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-6 sm:p-7 shadow-xs space-y-6">
+          <div class="bg-white rounded-2xl border border-[#DCE7F9] p-5 sm:p-6 shadow-xs space-y-5">
             
             <!-- 1. KHỐI ĐỊNH DANH HỌC VỤ LIỀN MẠCH -->
             <div class="space-y-4 pb-5 border-b border-slate-100">
-              <div class="flex items-center gap-4">
-                <div class="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-[#1E56D9] font-extrabold text-2xl flex items-center justify-center shrink-0 shadow-2xs">
-                  {{ userInitial }}
-                </div>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
-                      Sinh viên Chính quy CTUT
-                    </span>
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-4 min-w-0 flex-1">
+                  <div class="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 text-[#1E56D9] font-extrabold text-2xl flex items-center justify-center shrink-0 shadow-2xs">
+                    {{ userInitial }}
                   </div>
-                  <h1 class="text-xl font-bold text-[#0B1F4B] truncate">
-                    {{ profileData.fullName }}
-                  </h1>
-                  <p class="text-xs text-[#4B5B7A] truncate">{{ profileData.email }}</p>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                        Sinh viên Chính quy CTUT
+                      </span>
+                    </div>
+                    <h1 class="text-xl font-bold text-[#0B1F4B] truncate">
+                      {{ profileData.fullName }}
+                    </h1>
+                    <p class="text-xs text-[#4B5B7A] truncate">{{ profileData.email }}</p>
+                  </div>
                 </div>
+
+                <!-- Nút chỉnh sửa (icon cây bút) ở góc trên bên phải khung -->
+                <button
+                  type="button"
+                  @click="handleToggleEditProfile"
+                  :title="isEditingProfile ? 'Đóng chỉnh sửa' : 'Chỉnh sửa hồ sơ'"
+                  aria-label="Chỉnh sửa hồ sơ"
+                  class="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 border"
+                  :class="isEditingProfile
+                    ? 'bg-[#1E56D9] text-white border-[#1E56D9] shadow-2xs'
+                    : 'bg-[#F8FBFF] text-[#1E56D9] border-[#DCE7F9] hover:bg-[#F1F7FF] hover:border-[#1E56D9]/40'"
+                >
+                  <Pencil class="w-4 h-4" />
+                </button>
               </div>
 
               <!-- Chi tiết thông tin học vụ chính quy -->
@@ -44,77 +60,57 @@
               </div>
             </div>
 
-            <!-- 2. HÀNG NÚT THAO TÁC (Nằm riêng 1 hàng chia đều 50/50, KHÔNG BAO GIỜ BỊ VỠ KHUNG) -->
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                @click="handleToggleEditProfile"
-                class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
-                :class="isEditingProfile
-                  ? 'bg-slate-100 text-[#0B1F4B] hover:bg-slate-200 border border-slate-200'
-                  : 'bg-[#1E56D9] text-white hover:bg-[#1d4ed8] active:scale-98'"
-              >
-                <Pencil class="w-4 h-4 shrink-0" />
-                <span class="truncate">{{ isEditingProfile ? 'Đóng chỉnh sửa' : 'Chỉnh sửa hồ sơ' }}</span>
-              </button>
-
-              <button
-                type="button"
-                @click="isChangePasswordOpen = true"
-                class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-[#0B1F4B] border border-slate-200 hover:bg-[#F8FBFF] transition-colors cursor-pointer shadow-2xs"
-              >
-                <KeyRound class="w-4 h-4 text-[#1E56D9] shrink-0" />
-                <span class="truncate">Đổi mật khẩu</span>
-              </button>
-            </div>
-
-            <!-- 3. PHẦN NỘI DUNG: CHẾ ĐỘ XEM (VIEW) HOẶC CHẾ ĐỘ SỬA (FORM) -->
+            <!-- 2. PHẦN NỘI DUNG: CHẾ ĐỘ XEM (VIEW) HOẶC CHẾ ĐỘ SỬA (FORM) -->
             <!-- CHẾ ĐỘ XEM (VIEW MODE) -->
-            <div v-if="!isEditingProfile" class="space-y-5 pt-1 text-xs">
+            <div v-if="!isEditingProfile" class="space-y-4 pt-1 text-xs">
               <div class="space-y-1.5">
                 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Giới thiệu bản thân
                 </span>
-                <p v-if="profileData.bio" class="text-[#0B1F4B] leading-relaxed bg-[#F8FBFF] p-3.5 rounded-xl border border-[#E4ECF7]">
+                <p
+                  v-if="profileData.bio"
+                  class="text-[#0B1F4B] leading-relaxed bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7] max-h-[3.5rem] overflow-y-auto"
+                >
                   {{ profileData.bio }}
                 </p>
-                <p v-else class="text-[#4B5B7A] italic bg-[#F8FBFF] p-3.5 rounded-xl border border-[#E4ECF7]">
+                <p
+                  v-else
+                  class="text-[#4B5B7A] italic bg-[#F8FBFF] px-3.5 py-2.5 rounded-xl border border-[#E4ECF7] max-h-[3.5rem] overflow-y-auto"
+                >
                   Bạn chưa cập nhật lời giới thiệu bản thân. Hãy bổ sung để các nhóm đề tài hiểu rõ hơn về thế mạnh của bạn.
                 </p>
               </div>
 
-              <div class="space-y-2">
+              <div class="space-y-1.5">
                 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Kỹ năng chuyên môn
                 </span>
-                <div v-if="profileData.skills && profileData.skills.length > 0" class="flex flex-wrap gap-1.5">
-                  <span
-                    v-for="(skill, idx) in profileData.skills"
-                    :key="idx"
-                    class="px-3 py-1 rounded-full bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5] font-semibold text-xs"
-                  >
-                    {{ skill }}
-                  </span>
-                </div>
+                <p
+                  v-if="skillsDisplayText"
+                  class="text-[#0B1F4B] font-medium bg-[#F8FBFF] px-3.5 py-2 rounded-xl border border-[#E4ECF7] truncate"
+                  :title="skillsDisplayText"
+                >
+                  {{ skillsDisplayText }}
+                </p>
                 <p v-else class="text-[#4B5B7A] italic">Chưa thêm kỹ năng chuyên môn.</p>
               </div>
 
-              <div class="space-y-2.5 pt-3 border-t border-slate-100">
+              <div class="space-y-2 pt-2.5 border-t border-slate-100">
                 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Thông tin kết nối &amp; Liên hệ
                 </span>
-                <div class="flex items-center justify-between py-1">
+                <div class="flex items-center justify-between py-0.5">
                   <span class="text-[#4B5B7A]">Số điện thoại:</span>
                   <span class="font-semibold text-[#0B1F4B]">{{ profileData.phone || 'Chưa cập nhật' }}</span>
                 </div>
-                <div v-if="profileData.socialLinks?.github" class="flex items-center justify-between gap-2 py-1">
-                  <span class="text-[#4B5B7A]">GitHub:</span>
+                <div v-if="profileData.socialLinks?.github" class="flex items-center justify-between gap-2 py-0.5">
+                  <span class="text-[#4B5B7A] shrink-0">GitHub:</span>
                   <a :href="profileData.socialLinks.github" target="_blank" rel="noopener noreferrer" class="text-[#1E56D9] hover:underline truncate font-medium">
                     {{ profileData.socialLinks.github }}
                   </a>
                 </div>
-                <div v-if="profileData.socialLinks?.linkedin" class="flex items-center justify-between gap-2 py-1">
-                  <span class="text-[#4B5B7A]">LinkedIn:</span>
+                <div v-if="profileData.socialLinks?.linkedin" class="flex items-center justify-between gap-2 py-0.5">
+                  <span class="text-[#4B5B7A] shrink-0">LinkedIn:</span>
                   <a :href="profileData.socialLinks.linkedin" target="_blank" rel="noopener noreferrer" class="text-[#1E56D9] hover:underline truncate font-medium">
                     {{ profileData.socialLinks.linkedin }}
                   </a>
@@ -123,74 +119,19 @@
             </div>
 
             <!-- CHẾ ĐỘ CHỈNH SỬA (FORM EDIT) -->
-            <form v-else @submit.prevent="handleSaveProfile" class="space-y-4 pt-1 text-xs">
-              <div class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-[11px] leading-relaxed">
-                <strong>Lưu ý:</strong> Thông tin học vụ chính quy do Nhà trường đồng bộ cố định. Bạn chỉ có thể cập nhật thông tin năng lực và liên kết cá nhân bên dưới.
-              </div>
-
-              <!-- Các trường cố định (bị xám đi) -->
-              <div class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div>
-                  <label class="block text-slate-500 font-medium mb-1">Họ và tên sinh viên (Cố định):</label>
-                  <input
-                    type="text"
-                    :value="profileData.fullName"
-                    disabled
-                    class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed font-semibold text-xs"
-                  />
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-slate-500 font-medium mb-1">MSSV:</label>
-                    <input
-                      type="text"
-                      :value="profileData.studentId"
-                      disabled
-                      class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed font-semibold text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-slate-500 font-medium mb-1">Lớp:</label>
-                    <input
-                      type="text"
-                      :value="profileData.className"
-                      disabled
-                      class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed font-semibold text-xs"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-slate-500 font-medium mb-1">Khoa chuyên môn:</label>
-                  <input
-                    type="text"
-                    :value="profileData.faculty"
-                    disabled
-                    class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed font-semibold text-xs"
-                  />
-                </div>
-                <div>
-                  <label class="block text-slate-500 font-medium mb-1">Email trường:</label>
-                  <input
-                    type="text"
-                    :value="profileData.email"
-                    disabled
-                    class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed text-xs"
-                  />
-                </div>
-              </div>
-
+            <form v-else @submit.prevent="handleSaveProfile" class="space-y-3 pt-1 text-xs">
               <!-- Các trường được phép sửa -->
-              <div class="space-y-3 pt-2">
+              <div class="space-y-3">
                 <div>
                   <label class="block font-semibold text-[#0B1F4B] mb-1">
                     Giới thiệu bản thân &amp; Định hướng
                   </label>
                   <textarea
                     v-model="editForm.bio"
-                    rows="3"
+                    rows="2"
                     maxlength="1000"
                     placeholder="Chia sẻ thế mạnh, đam mê hoặc mong muốn tham gia đề tài..."
-                    class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+                    class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9] resize-none overflow-y-auto leading-relaxed"
                   ></textarea>
                 </div>
 
@@ -198,38 +139,12 @@
                   <label class="block font-semibold text-[#0B1F4B] mb-1">
                     Kỹ năng chuyên môn
                   </label>
-                  <div class="flex items-center gap-2 mb-2">
-                    <input
-                      v-model="skillInput"
-                      type="text"
-                      placeholder="VD: Thiết kế UI/UX, AI, Node.js..."
-                      @keydown.enter.prevent="handleAddSkill"
-                      class="flex-1 px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                    />
-                    <button
-                      type="button"
-                      @click="handleAddSkill"
-                      class="px-3.5 py-2 rounded-xl bg-[#F1F7FF] text-[#1E56D9] font-semibold hover:bg-blue-100 transition-colors cursor-pointer shrink-0"
-                    >
-                      Thêm
-                    </button>
-                  </div>
-                  <div v-if="editForm.skills.length > 0" class="flex flex-wrap gap-1.5">
-                    <span
-                      v-for="(skill, idx) in editForm.skills"
-                      :key="idx"
-                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F1F7FF] text-[#1E56D9] font-medium text-[11px]"
-                    >
-                      <span>{{ skill }}</span>
-                      <button
-                        type="button"
-                        @click="handleRemoveSkill(idx)"
-                        class="hover:text-rose-600 cursor-pointer"
-                      >
-                        <X class="w-3 h-3" />
-                      </button>
-                    </span>
-                  </div>
+                  <input
+                    v-model="editForm.skillsText"
+                    type="text"
+                    placeholder="VD: Thiết kế UI/UX, AI, Node.js..."
+                    class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+                  />
                 </div>
 
                 <div>
@@ -265,94 +180,42 @@
                   </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <!-- Chân form thao tác: Đổi mật khẩu bên trái, Hủy / Lưu hồ sơ bên phải -->
+                <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
-                    @click="isEditingProfile = false"
-                    class="px-4 py-2 rounded-full text-[#4B5B7A] hover:bg-slate-100 font-medium cursor-pointer"
+                    @click="isChangePasswordOpen = true"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#0B1F4B] border border-slate-200 hover:bg-[#F8FBFF] font-semibold transition-colors cursor-pointer shadow-2xs"
                   >
-                    Hủy
+                    <KeyRound class="w-3.5 h-3.5 text-[#1E56D9] shrink-0" />
+                    <span>Đổi mật khẩu</span>
                   </button>
-                  <button
-                    type="submit"
-                    :disabled="isSavingProfile"
-                    class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#1E56D9] text-white font-semibold hover:bg-[#1d4ed8] disabled:opacity-50 cursor-pointer shadow-2xs"
-                  >
-                    <Loader2 v-if="isSavingProfile" class="w-3.5 h-3.5 animate-spin" />
-                    <span>{{ isSavingProfile ? 'Đang lưu...' : 'Lưu hồ sơ' }}</span>
-                  </button>
+
+                  <div class="flex items-center gap-2 ml-auto">
+                    <button
+                      type="button"
+                      @click="isEditingProfile = false"
+                      class="px-4 py-2 rounded-full text-[#4B5B7A] hover:bg-slate-100 font-medium cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      :disabled="isSavingProfile"
+                      class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#1E56D9] text-white font-semibold hover:bg-[#1d4ed8] disabled:opacity-50 cursor-pointer shadow-2xs"
+                    >
+                      <Loader2 v-if="isSavingProfile" class="w-3.5 h-3.5 animate-spin" />
+                      <span>{{ isSavingProfile ? 'Đang lưu...' : 'Lưu hồ sơ' }}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
           </div>
         </div>
 
-        <!-- CỘT PHẢI (7/12): THÀNH TÍCH TỔNG QUAN & LỊCH SỬ CÁC DỰ ÁN ĐÃ THAM GIA -->
+        <!-- CỘT PHẢI (7/12): LỊCH SỬ CÁC DỰ ÁN ĐÃ THAM GIA -->
         <div class="lg:col-span-7 space-y-6">
-          
-          <!-- 4 THẺ CHỈ SỐ THÀNH TÍCH ĐỀ TÀI (Được đưa về đúng ngữ cảnh Lịch sử dự án) -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div class="bg-white rounded-2xl border border-[#DCE7F9] p-4 flex flex-col justify-between shadow-xs">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] text-[#4B5B7A] font-medium">Tổng đề tài</span>
-                <div class="w-7 h-7 rounded-lg bg-[#F1F7FF] text-[#1E56D9] flex items-center justify-center shrink-0">
-                  <FolderKanban class="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <span class="text-2xl font-extrabold text-[#0B1F4B] block leading-none">{{ projectStats.total }}</span>
-                <span class="text-[11px] text-[#1E56D9] font-medium mt-1.5 block">
-                  {{ projectStats.active > 0 ? `${projectStats.active} đang thi` : 'Sẵn sàng mới' }}
-                </span>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-[#DCE7F9] p-4 flex flex-col justify-between shadow-xs">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] text-[#4B5B7A] font-medium">Nghiệm thu</span>
-                <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Award class="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <span class="text-2xl font-extrabold text-[#0B1F4B] block leading-none">{{ projectStats.completed }}</span>
-                <span class="text-[11px] text-emerald-700 font-medium mt-1.5 block">
-                  {{ projectStats.completed > 0 ? 'Đã hoàn thành' : 'Đang tích lũy' }}
-                </span>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-[#DCE7F9] p-4 flex flex-col justify-between shadow-xs">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] text-[#4B5B7A] font-medium">Trưởng nhóm</span>
-                <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                  <ShieldCheck class="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <span class="text-2xl font-extrabold text-[#0B1F4B] block leading-none">{{ projectStats.ownerCount }}</span>
-                <span class="text-[11px] text-[#4B5B7A] font-medium mt-1.5 block">
-                  {{ projectStats.memberCount }} lần thành viên
-                </span>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-[#DCE7F9] p-4 flex flex-col justify-between shadow-xs">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] text-[#4B5B7A] font-medium">Cấp Trường</span>
-                <div class="w-7 h-7 rounded-lg bg-blue-50 text-[#1E56D9] flex items-center justify-center shrink-0">
-                  <Sparkles class="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <span class="text-2xl font-extrabold text-[#0B1F4B] block leading-none">{{ projectStats.universityCount }}</span>
-                <span class="text-[11px] text-[#1E56D9] font-medium mt-1.5 block">
-                  {{ projectStats.receiptCount }} biên nhận số
-                </span>
-              </div>
-            </div>
-          </div>
-
           <!-- KHUNG LỊCH SỬ DỰ ÁN -->
           <div class="bg-white rounded-2xl border border-[#DCE7F9] p-6 sm:p-7 shadow-xs space-y-6">
             <div class="flex items-center justify-between gap-4 pb-4 border-b border-[#E4ECF7]">
@@ -487,14 +350,9 @@ import { ref, computed, onMounted } from 'vue';
 import {
   Pencil,
   KeyRound,
-  FolderKanban,
-  Award,
-  ShieldCheck,
-  Sparkles,
   ArrowRight,
   Rocket,
   Plus,
-  X,
   Loader2,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
@@ -510,7 +368,6 @@ const toastStore = useToastStore();
 const isChangePasswordOpen = ref(false);
 const isEditingProfile = ref(false);
 const isSavingProfile = ref(false);
-const skillInput = ref('');
 
 const profileData = ref({
   fullName: authStore.user?.fullName || 'Sinh viên CTUT',
@@ -526,7 +383,7 @@ const profileData = ref({
 
 const editForm = ref({
   bio: '',
-  skills: [],
+  skillsText: '',
   phone: '',
   socialLinks: { github: '', linkedin: '', facebook: '', website: '' },
 });
@@ -540,34 +397,16 @@ const userInitial = computed(() => {
   return name.trim().charAt(0).toUpperCase();
 });
 
-// Tổng hợp chỉ số thành tích từ danh sách dự án của sinh viên
-const projectStats = computed(() => {
-  const total = allProjects.value.length;
-  const completed = allProjects.value.filter((p) => p.status === 'COMPLETED').length;
-  const active = allProjects.value.filter(
-    (p) => p.status !== 'COMPLETED' && p.status !== 'REJECTED'
-  ).length;
-  const ownerCount = allProjects.value.filter((p) => p.userRole === 'OWNER').length;
-  const memberCount = allProjects.value.filter((p) => p.userRole !== 'OWNER').length;
-  const universityCount = allProjects.value.filter((p) => p.level === 'UNIVERSITY').length;
-  const receiptCount = allProjects.value.filter((p) => Boolean(p.digitalReceiptHash)).length;
-
-  return {
-    total,
-    completed,
-    active,
-    ownerCount,
-    memberCount,
-    universityCount,
-    receiptCount,
-  };
+const skillsDisplayText = computed(() => {
+  if (!profileData.value.skills || profileData.value.skills.length === 0) return '';
+  return profileData.value.skills.join(', ');
 });
 
 function handleToggleEditProfile() {
   if (!isEditingProfile.value) {
     editForm.value = {
       bio: profileData.value.bio || '',
-      skills: [...(profileData.value.skills || [])],
+      skillsText: (profileData.value.skills || []).join(', '),
       phone: profileData.value.phone || '',
       socialLinks: {
         github: profileData.value.socialLinks?.github || '',
@@ -580,34 +419,44 @@ function handleToggleEditProfile() {
   isEditingProfile.value = !isEditingProfile.value;
 }
 
-function handleAddSkill() {
-  const trimmed = skillInput.value.trim();
-  if (!trimmed) return;
-  if (!editForm.value.skills.includes(trimmed)) {
-    editForm.value.skills.push(trimmed);
-  }
-  skillInput.value = '';
-}
-
-function handleRemoveSkill(index) {
-  editForm.value.skills.splice(index, 1);
-}
-
 async function handleSaveProfile() {
   isSavingProfile.value = true;
   try {
-    const res = await userService.updateMyProfileDetail(editForm.value);
-    if (res?.success && res.data?.profile) {
+    const parsedSkills = editForm.value.skillsText
+      ? editForm.value.skillsText
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    const payload = {
+      bio: editForm.value.bio,
+      skills: parsedSkills,
+      phone: editForm.value.phone,
+      socialLinks: { ...editForm.value.socialLinks },
+    };
+
+    const res = await userService.updateMyProfileDetail(payload);
+    const updated = res?.data?.profile || res?.data?.data?.profile || res?.profile || res?.data;
+    if (updated && typeof updated === 'object') {
       profileData.value = {
         ...profileData.value,
-        ...res.data.profile,
+        ...updated,
       };
-      isEditingProfile.value = false;
-      toastStore.add({
-        message: res.message || 'Cập nhật hồ sơ năng lực thành công!',
-        type: 'success',
-      });
+    } else {
+      profileData.value = {
+        ...profileData.value,
+        ...payload,
+      };
     }
+
+    // Đóng form chỉnh sửa thông tin, trở lại chế độ xem
+    isEditingProfile.value = false;
+
+    toastStore.add({
+      message: res?.message || 'Cập nhật hồ sơ năng lực thành công!',
+      type: 'success',
+    });
   } catch (error) {
     toastStore.add({
       message: error.message || 'Không thể lưu hồ sơ năng lực.',
