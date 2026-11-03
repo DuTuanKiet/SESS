@@ -275,12 +275,12 @@ function handleForgotPasswordClick() {
 </script>
 
 <template>
-  <div class="mt-4">
+  <div class="mt-3.5">
     <!-- Thông báo lỗi phản hồi từ hệ thống -->
     <div
       v-if="errorMessage"
       role="alert"
-      class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in"
+      class="mb-2.5 p-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in"
     >
       <svg class="w-4 h-4 shrink-0 mt-0.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -293,11 +293,11 @@ function handleForgotPasswordClick() {
       <!-- Ô nhập Email -->
       <div class="space-y-1">
         <label for="email" class="block text-xs font-semibold text-slate-700">
-          {{ portalType === 'admin' ? 'Tài khoản Quản trị viên' : 'Email' }}
+          {{ portalType === 'admin' ? 'Tài khoản Quản trị viên' : 'Email học vụ / cá nhân' }}
           <span class="text-red-500">*</span>
         </label>
-        <div class="relative rounded-lg shadow-xs">
-          <div class="pointer-events-none absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400">
+        <div class="relative rounded-lg sm:rounded-xl shadow-xs">
+          <div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
@@ -307,17 +307,17 @@ function handleForgotPasswordClick() {
             v-model="email"
             type="email"
             autocomplete="username"
-            placeholder="Nhập email của bạn"
+            placeholder="Nhập email (vd: sv@ctuet.edu.vn)"
             :disabled="isLoading"
             :aria-invalid="Boolean(fieldErrors.email)"
-            class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 transition-colors disabled:bg-slate-50 disabled:text-slate-500 border"
-            :class="fieldErrors.email ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600'"
+            class="block w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-white rounded-lg sm:rounded-xl text-slate-900 placeholder:text-slate-400 transition-colors disabled:bg-slate-50 disabled:text-slate-500 border"
+            :class="fieldErrors.email ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#1E56D9] focus:border-[#1E56D9]'"
             @input="handleInputEmail"
             @blur="handleBlurEmail"
           />
         </div>
         <!-- Thông báo lỗi in-line cho Email -->
-        <p v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">
+        <p v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-0.5 flex items-center gap-1 font-medium">
           <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
@@ -330,8 +330,8 @@ function handleForgotPasswordClick() {
         <label for="password" class="block text-xs font-semibold text-slate-700">
           Mật khẩu <span class="text-red-500">*</span>
         </label>
-        <div class="relative rounded-lg shadow-xs">
-          <div class="pointer-events-none absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400">
+        <div class="relative rounded-lg sm:rounded-xl shadow-xs">
+          <div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
@@ -341,11 +341,11 @@ function handleForgotPasswordClick() {
             v-model="password"
             :type="isPasswordVisible ? 'text' : 'password'"
             autocomplete="current-password"
-            placeholder="Nhập mật khẩu của bạn"
+            placeholder="Nhập mật khẩu"
             :disabled="isLoading"
             :aria-invalid="Boolean(fieldErrors.password)"
-            class="block w-full pl-8 pr-9 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 transition-colors disabled:bg-slate-50 disabled:text-slate-500 border"
-            :class="fieldErrors.password ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600'"
+            class="block w-full pl-9 pr-9 py-2 text-xs sm:text-sm bg-white rounded-lg sm:rounded-xl text-slate-900 placeholder:text-slate-400 transition-colors disabled:bg-slate-50 disabled:text-slate-500 border"
+            :class="fieldErrors.password ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#1E56D9] focus:border-[#1E56D9]'"
             @input="handleInputPassword"
             @blur="handleBlurPassword"
           />
@@ -365,7 +365,7 @@ function handleForgotPasswordClick() {
           </button>
         </div>
         <!-- Thông báo lỗi in-line cho Mật khẩu -->
-        <p v-if="fieldErrors.password" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">
+        <p v-if="fieldErrors.password" class="text-[11px] text-red-600 mt-0.5 flex items-center gap-1 font-medium">
           <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
@@ -380,14 +380,14 @@ function handleForgotPasswordClick() {
             v-model="isRememberMe"
             type="checkbox"
             :disabled="isLoading"
-            class="h-3.5 w-3.5 rounded border-slate-300 text-blue-700 focus:ring-blue-600 cursor-pointer"
+            class="h-3.5 w-3.5 rounded border-slate-300 text-[#0B1F4B] focus:ring-[#1E56D9] cursor-pointer"
           />
           <span>Ghi nhớ đăng nhập</span>
         </label>
         <button
           type="button"
           @click="handleForgotPasswordClick"
-          class="text-blue-700 hover:text-blue-900 font-medium hover:underline focus:outline-hidden cursor-pointer"
+          class="text-[#1E56D9] hover:text-[#0B1F4B] font-medium hover:underline focus:outline-hidden cursor-pointer"
         >
           Quên mật khẩu?
         </button>
@@ -397,7 +397,7 @@ function handleForgotPasswordClick() {
       <button
         type="submit"
         :disabled="isLoading"
-        class="w-full mt-1 flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-lg shadow-xs text-xs sm:text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+        class="w-full mt-1.5 flex items-center justify-center gap-2 py-2 sm:py-2.5 px-4 border border-transparent rounded-lg sm:rounded-xl shadow-xs text-xs sm:text-sm font-semibold text-white bg-[#0B1F4B] hover:bg-[#152e68] active:bg-[#0B1F4B] focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-[#1E56D9] transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
       >
         <svg v-if="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -409,9 +409,9 @@ function handleForgotPasswordClick() {
 
     <!-- Nút Đăng nhập Google (Chỉ hiển thị cho Cổng Người dùng) -->
     <div v-if="portalType === 'user'">
-      <div class="relative my-3 flex items-center justify-center">
+      <div class="relative my-2.5 sm:my-3 flex items-center justify-center">
         <div class="w-full border-t border-slate-200"></div>
-        <span class="absolute bg-white px-2.5 text-[11px] text-slate-500 font-medium">
+        <span class="absolute bg-white px-2.5 text-[10.5px] text-slate-400 font-medium uppercase tracking-wider">
           hoặc
         </span>
       </div>
@@ -419,6 +419,10 @@ function handleForgotPasswordClick() {
         :is-loading="isLoading"
         @click="handleGoogleLoginClick"
       />
+
+      <p class="mt-2.5 text-center text-[10.5px] text-slate-400 leading-relaxed">
+        Sử dụng tài khoản học vụ định dạng <span class="font-medium text-slate-600">@ctuet.edu.vn</span> để đăng nhập.
+      </p>
     </div>
 
     <!-- Modals -->

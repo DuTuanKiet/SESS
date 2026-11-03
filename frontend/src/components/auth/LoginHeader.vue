@@ -16,7 +16,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="flex flex-col items-center text-center pb-3 border-b border-slate-100">
+  <div class="flex flex-col items-center text-center pb-2.5 sm:pb-3 border-b border-slate-100">
     <!-- Logo trường CTUT -->
     <div class="w-12 h-12 mb-1.5 p-0.5 rounded-full bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
       <img
@@ -28,13 +28,18 @@ defineProps({
     </div>
 
     <!-- Tên cơ quan chủ quản / Tên trường đại học -->
-    <p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+    <p class="text-[10.5px] sm:text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
       Trường Đại học Kỹ thuật – Công nghệ Cần Thơ
     </p>
 
     <!-- Tên hệ thống / Cổng đăng nhập -->
-    <h1 class="mt-1 text-[13px] sm:text-[14.5px] font-bold text-blue-900 tracking-tight whitespace-nowrap">
+    <h1 class="mt-1 text-sm sm:text-[15px] font-bold text-[#0B1F4B] tracking-tight">
       {{ systemTitle }}
     </h1>
+
+    <!-- Phụ đề trạng thái đăng nhập -->
+    <p class="mt-0.5 text-[10.5px] text-slate-400 font-medium">
+      {{ isAdminPortal ? 'Cổng xác thực an toàn dành cho Quản trị viên' : 'Đăng nhập vào hệ thống để tiếp tục' }}
+    </p>
   </div>
 </template>

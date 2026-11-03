@@ -23,7 +23,7 @@ function handleClick() {
     type="button"
     :disabled="isDisabled || isLoading"
     @click="handleClick"
-    class="w-full flex items-center justify-center gap-2.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-medium text-xs sm:text-sm transition-colors shadow-xs focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+    class="w-full flex items-center justify-center gap-2.5 px-3.5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-medium text-xs sm:text-sm transition-colors shadow-xs focus:outline-hidden focus:ring-2 focus:ring-[#1E56D9] focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
   >
     <!-- Icon Google 4 màu chính thức -->
     <svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
