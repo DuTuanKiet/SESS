@@ -24,8 +24,8 @@
         </button>
       </div>
 
-      <!-- Thân Form có cuộn nội bộ -->
-      <form @submit.prevent="handleCreateProject" class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+      <!-- Thân Form có cuộn nội bộ (ẩn thanh cuộn) -->
+      <form @submit.prevent="handleCreateProject" class="flex-1 overflow-y-auto no-scrollbar p-5 sm:p-6 space-y-6">
         
         <!-- KHỐI 0: CUỘC THI THAM GIA (BẮT BUỘC) -->
         <div class="space-y-3 p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5]">
@@ -427,3 +427,15 @@ async function handleCreateProject() {
   }
 }
 </script>
+
+<style scoped>
+/* Ẩn thanh cuộn nhưng vẫn cho phép cuộn nội dung form */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE và Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+</style>

@@ -61,3 +61,13 @@ body {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Tiện ích ẩn thanh cuộn nhưng vẫn cho phép cuộn nội dung */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE và Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}

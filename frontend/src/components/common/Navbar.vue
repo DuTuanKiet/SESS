@@ -115,15 +115,6 @@
                 </div>
 
                 <router-link
-                  :to="dashboardPath"
-                  @click="isUserMenuOpen = false"
-                  class="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors"
-                >
-                  <LayoutDashboard class="w-3.5 h-3.5 text-slate-400" />
-                  <span>Trang tổng quan</span>
-                </router-link>
-
-                <router-link
                   v-if="authStore.isStudent"
                   to="/student/profile"
                   @click="isUserMenuOpen = false"
@@ -132,29 +123,6 @@
                   <User class="w-3.5 h-3.5 text-slate-400" />
                   <span>Hồ sơ cá nhân</span>
                 </router-link>
-
-                <router-link
-                  v-if="authStore.isStudent"
-                  to="/student/projects"
-                  @click="isUserMenuOpen = false"
-                  class="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors"
-                >
-                  <FolderKanban class="w-3.5 h-3.5 text-slate-400" />
-                  <span>Dự án của tôi</span>
-                </router-link>
-
-                <!-- Mở modal đổi mật khẩu trực tiếp từ menu người dùng -->
-                <button
-                  type="button"
-                  @click="isUserMenuOpen = false; isChangePasswordOpen = true"
-                  class="w-full flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-[#0B1F4B] transition-colors text-left cursor-pointer"
-                >
-                  <KeyRound class="w-3.5 h-3.5 text-slate-400" />
-                  <span>Đổi mật khẩu</span>
-                </button>
-
-                <div class="border-t border-slate-100 my-1"></div>
-
                 <button
                   type="button"
                   @click="handleLogout"
