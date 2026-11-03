@@ -116,7 +116,7 @@
                     </h3>
                   </div>
                   <span class="self-start sm:self-auto px-3 py-1 rounded-full bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5] text-xs font-semibold shrink-0">
-                    {{ getProjectStatusLabel(currentActiveProject.status) }}
+                    {{ getProjectStatusLabel(currentActiveProject.status, 'dashboard') }}
                   </span>
                 </div>
 
@@ -421,9 +421,7 @@
       </div>
     </section>
 
-    <!-- Modal Đổi Mật Khẩu Sinh Viên (Tái sử dụng ChangePasswordModal) -->
-    <ChangePasswordModal v-model:isOpen="isChangePasswordOpen" />
-
+    <!-- Kết thúc nội dung Dashboard -->
   </div>
 </template>
 
@@ -439,18 +437,12 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { competitionsService } from '@/modules/competitions/services/competitionsService';
 import projectService from '@/services/projectService';
-import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
+import { getProjectStatusLabel } from '@/modules/student/utils/studentProjectHelpers';
 
 const authStore = useAuthStore();
-const isChangePasswordOpen = ref(false);
 const pendingInvitations = ref([]);
 const studentProjects = ref([]);
 const isLoadingProjects = ref(false);
-
-const userInitial = computed(() => {
-  const name = authStore.user?.fullName || 'S';
-  return name.trim().charAt(0).toUpperCase();
-});
 
 // Danh sách các đề tài đang hoạt động của sinh viên (khác COMPLETED và REJECTED)
 const activeProjectsList = computed(() => {
@@ -466,21 +458,6 @@ const currentActiveProject = computed(() => {
   return activeProjectsList.value[selectedActiveIndex.value] || activeProjectsList.value[0];
 });
 
-// Thống kê nhanh số lượng đề tài
-const projectStats = computed(() => {
-  const activeCount = studentProjects.value.filter(
-    (p) => p.status !== 'COMPLETED' && p.status !== 'REJECTED'
-  ).length;
-  const completedCount = studentProjects.value.filter(
-    (p) => p.status === 'COMPLETED'
-  ).length;
-  return {
-    activeCount,
-    completedCount,
-    totalCount: studentProjects.value.length,
-  };
-});
-
 // Tính toán bước lộ trình hiện tại của đề tài
 const currentStageStep = computed(() => {
   if (!currentActiveProject.value) return 0;
@@ -489,30 +466,6 @@ const currentStageStep = computed(() => {
   if (['EVALUATED', 'COMPLETED'].includes(status)) return 3;
   return 1; // 'DRAFT', 'SUBMITTED', 'IN_REVIEW', 'NEED_REVISION'
 });
-
-// Chuyển đổi mã trạng thái sang tiếng Việt dễ hiểu
-function getProjectStatusLabel(status) {
-  switch (status) {
-    case 'UNDER_MENTORSHIP':
-      return 'Đang ở Vòng Bán kết & Cố vấn';
-    case 'SUBMITTED':
-      return 'Đã nộp bài Sơ khảo';
-    case 'IN_REVIEW':
-      return 'Đang xét duyệt Sơ khảo';
-    case 'NEED_REVISION':
-      return 'Cần chỉnh sửa hồ sơ';
-    case 'APPROVED':
-      return 'Đã duyệt vào Bán kết';
-    case 'EVALUATED':
-      return 'Đã chấm điểm Chung kết';
-    case 'COMPLETED':
-      return 'Đã hoàn thành mùa thi';
-    case 'DRAFT':
-      return 'Bản nháp hồ sơ';
-    default:
-      return status || 'Đang tham gia';
-  }
-}
 
 // Dữ liệu cuộc thi mở nhận hồ sơ
 const defaultActiveCompetitions = [

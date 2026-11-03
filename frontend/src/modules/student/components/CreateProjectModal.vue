@@ -9,9 +9,6 @@
       <!-- Header Modal cố định -->
       <div class="flex items-center justify-between p-5 sm:p-6 border-b border-[#E4ECF7] shrink-0">
         <div>
-          <span class="text-[11px] font-bold text-[#1E56D9] uppercase tracking-wider block">
-            Hồ sơ đăng ký ý tưởng CTUT STARTUP 2025
-          </span>
           <h3 class="text-base sm:text-lg font-bold text-[#0B1F4B]">
             Đăng ký Đề tài Khởi nghiệp Mới
           </h3>
@@ -34,20 +31,12 @@
         <div class="space-y-3 p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5]">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <Trophy class="w-4 h-4 text-[#1E56D9]" />
               <h4 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
                 Cuộc thi khởi nghiệp tham gia <span class="text-rose-500">*</span>
               </h4>
             </div>
-            <span class="text-[10px] font-semibold text-[#1E56D9] bg-white px-2.5 py-0.5 rounded-full border border-[#C7D7F5] shrink-0">
-              Bắt buộc gắn với 1 cuộc thi
-            </span>
           </div>
-
           <div>
-            <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Chọn cuộc thi đang phát động trong năm học <span class="text-rose-500">*</span>
-            </label>
             <select
               v-model="selectedCompetitionId"
               required
@@ -59,7 +48,7 @@
                 :key="c.id"
                 :value="c.id"
               >
-                {{ c.title }} ({{ c.level }} • {{ c.currentRound }})
+                {{ c.title }} ({{ c.level }} - {{ c.currentRound }})
               </option>
             </select>
           </div>
@@ -76,8 +65,7 @@
               {{ selectedCompetition.description }}
             </p>
             <div class="pt-1 border-t border-slate-100 flex flex-wrap items-center gap-3 text-[11px] font-medium">
-              <span class="text-emerald-700 font-semibold">• Trạng thái: Đang nhận ý tưởng sơ khảo</span>
-              <span class="text-[#1E56D9]">• Vòng thi khởi đầu: {{ selectedCompetition.currentRound }}</span>
+              <span class="text-emerald-700 font-semibold"> Trạng thái: Đang nhận ý tưởng sơ khảo</span>
             </div>
           </div>
         </div>
@@ -85,7 +73,6 @@
         <!-- KHỐI 1: THÔNG TIN ĐỊNH DANH ĐỀ TÀI -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
-            <span class="w-2 h-2 rounded-full bg-[#1E56D9]"></span>
             <h4 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
               Thông tin đề tài dự thi
             </h4>
@@ -140,175 +127,20 @@
           </div>
         </div>
 
-        <!-- KHỐI 2: PHẦN 1. THÔNG TIN CƠ BẢN (THEO PHỤ LỤC 1) -->
-        <div class="space-y-5 p-4 sm:p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
-          <div>
-            <h4 class="text-xs font-bold uppercase tracking-wider text-[#1E56D9]">
-              Phần 1. Thông tin cơ bản (Theo Phụ lục 1)
-            </h4>
-            <p class="text-[11px] text-[#4B5B7A] mt-0.5">
-              Cung cấp thông tin Giảng viên hỗ trợ và Trưởng nhóm sinh viên phụ trách đề tài
-            </p>
-          </div>
-
-          <!-- 1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN (BẮT BUỘC) -->
-          <div class="space-y-3 bg-white p-4 rounded-xl border border-[#E4ECF7]">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-[#0B1F4B]">1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN</span>
-              <span class="text-rose-500 text-xs font-bold">*</span>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  1.1. Họ và tên giảng viên <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.advisorInfo.fullName"
-                  type="text"
-                  required
-                  placeholder="TS. Nguyễn Văn Hướng"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  1.2. Đơn vị công tác <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.advisorInfo.unit"
-                  type="text"
-                  required
-                  placeholder="Khoa Công nghệ Thông tin - CTUT"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  1.3. Điện thoại liên hệ <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.advisorInfo.phone"
-                  type="tel"
-                  required
-                  placeholder="0912345678"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  1.4. Email trường <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.advisorInfo.email"
-                  type="email"
-                  required
-                  placeholder="giangvien@ctuet.edu.vn"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. THÔNG TIN VỀ TRƯỞNG NHÓM (BẮT BUỘC) -->
-          <div class="space-y-3 bg-white p-4 rounded-xl border border-[#E4ECF7]">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-[#0B1F4B]">2. THÔNG TIN VỀ TRƯỞNG NHÓM (SINH VIÊN ĐĂNG KÝ)</span>
-              <span class="text-[11px] text-[#1E56D9] font-medium">Tự động điền từ tài khoản</span>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Họ và tên <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.fullName"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Mã số sinh viên (MSSV) <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.studentId"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Lớp sinh hoạt <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.className"
-                  type="text"
-                  required
-                  placeholder="KTPM0123"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Khóa học <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.courseYear"
-                  type="text"
-                  required
-                  placeholder="Khóa 11"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Số điện thoại <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.phone"
-                  type="tel"
-                  required
-                  placeholder="0901234567"
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-                  Email sinh viên <span class="text-rose-500">*</span>
-                </label>
-                <input
-                  v-model="newProjectForm.leaderInfo.email"
-                  type="email"
-                  required
-                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-            </div>
-
-            <div class="text-[11px] text-[#4B5B7A] italic pt-1">
-              * Lưu ý: Các thành viên khác cùng tham gia nhóm sẽ được Trưởng nhóm mời thông qua email trường tại mục <strong>"4. Thành viên nhóm"</strong> sau khi khởi tạo đề tài.
-            </div>
-          </div>
-        </div>
+        <!-- KHỐI 2: PHẦN 1. THÔNG TIN CƠ BẢN (THEO PHỤ LỤC 1 - TÁCH THÀNH COMPONENT) -->
+        <ProposalAdvisorLeaderSection
+          :advisorInfo="newProjectForm.advisorInfo"
+          :leaderInfo="newProjectForm.leaderInfo"
+          :isEditing="true"
+          :showAutoFillHint="true"
+          :showNoteForOtherMembers="true"
+        />
 
         <!-- KHỐI 3: TÓM TẮT Ý TƯỞNG / DỰ ÁN (THEO PHỤ LỤC 1) -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
-            <span class="w-2 h-2 rounded-full bg-[#1E56D9]"></span>
             <h4 class="text-xs font-bold uppercase tracking-wider text-[#0B1F4B]">
-              Tóm tắt ý tưởng / Dự án (Theo Phụ lục 1)
+              Tóm tắt ý tưởng / Dự án 
             </h4>
           </div>
 
@@ -344,10 +176,10 @@
         <!-- KHỐI 4: LINK TÀI LIỆU THUYẾT MINH ĐẦY ĐỦ THEO BIỂU MẪU (BẮT BUỘC) -->
         <div class="p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5] space-y-2">
           <label class="block text-xs font-bold text-[#0B1F4B]">
-            Đường dẫn (Link) tài liệu thuyết minh đầy đủ theo mẫu Phụ lục 1 <span class="text-rose-500">*</span>
+            Đường dẫn tài liệu thuyết minh <span class="text-rose-500">*</span>
           </label>
           <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
-            Hồ sơ dự thi bắt buộc phải có tài liệu thuyết minh hoàn chỉnh (bao gồm Business Model Canvas và 7 nội dung chi tiết theo mẫu số 158-TB/ĐHKTCN). Bạn vui lòng tải file lên Google Drive, OneDrive hoặc lưu trữ đám mây và dán liên kết xem trực tiếp tại đây.
+            Hồ sơ dự thi bắt buộc phải có tài liệu thuyết minh hoàn chỉnh.
           </p>
           <input
             v-model="newProjectForm.attachmentUrl"
@@ -388,6 +220,8 @@ import { X, Loader2, Trophy } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import ProposalAdvisorLeaderSection from '@/modules/student/components/ProposalAdvisorLeaderSection.vue';
+import { saveProjectCompetitionMeta } from '@/modules/student/utils/studentProjectHelpers';
 
 const props = defineProps({
   isOpen: {
@@ -570,18 +404,12 @@ async function handleCreateProject() {
       const created = res.data?.project;
       if (created?._id) {
         // Lưu metadata cuộc thi cho đề tài vào localStorage để hiển thị bền vững
-        try {
-          const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
-          compMeta[created._id] = {
-            competitionId: selectedCompetitionId.value,
-            competitionTitle: selectedCompetition.value?.title,
-            competitionLevel: selectedCompetition.value?.level,
-            currentRound: 1, // Vòng 1: Loại
-          };
-          localStorage.setItem('sess_project_competitions', JSON.stringify(compMeta));
-        } catch {
-          // Fail-safe
-        }
+        saveProjectCompetitionMeta(created._id, {
+          competitionId: selectedCompetitionId.value,
+          competitionTitle: selectedCompetition.value?.title,
+          competitionLevel: selectedCompetition.value?.level,
+          currentRound: 1, // Vòng 1: Loại
+        });
       }
 
       toastStore.add({

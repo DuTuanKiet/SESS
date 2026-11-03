@@ -3,102 +3,12 @@
     <!-- MASTER CONTAINER: HỢP NHẤT BIỂU NGỮ CỬA SỔ NỘP + COUNTDOWN VÀ DANH MỤC 4 SẢN PHẨM -->
     <div class="bg-white rounded-2xl border border-[#E4ECF7] shadow-sm overflow-hidden">
       
-      <!-- PHẦN A: HEADER CỦA CONTAINER - BIỂU NGỮ CỬA SỔ NỘP & ĐỒNG HỒ ĐẾM NGƯỢC (ĐÃ HỢP NHẤT) -->
-      
-      <!-- Trạng thái 1: CỔNG NỘP ĐANG MỞ (Kèm Countdown Timer trực quan) -->
-      <div
-        v-if="windowStatus === 'OPEN'"
-        class="border-b p-5 sm:p-6 transition-all duration-300"
-        :class="isEmergencyUrgent
-          ? 'bg-rose-50 border-rose-200 text-rose-950'
-          : isWarningUrgent
-            ? 'bg-amber-50 border-amber-200 text-amber-950'
-            : 'bg-[#F1F7FF] border-[#C7D7F5] text-[#0B1F4B]'"
-      >
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div class="space-y-1.5">
-            <h3 class="text-base sm:text-lg font-bold">
-              {{ isEmergencyUrgent
-                ? 'Khẩn cấp: Sắp kết thúc thời hạn nộp bài!'
-                : isWarningUrgent
-                  ? 'Lưu ý: Chỉ còn chưa đầy 48 giờ để hoàn tất nộp bài!'
-                  : 'Cổng nộp bài đang mở — Nhóm có thể tải lên và cập nhật tài liệu' }}
-            </h3>
-            <p class="text-xs opacity-90 max-w-2xl leading-relaxed">
-              Trong thời gian nộp bài này, sinh viên được phép sửa đổi và thay thế các tài liệu.
-            </p>
-          </div>
-
-          <!-- Live Countdown Timer -->
-          <div class="flex items-center gap-2 sm:gap-3 shrink-0 self-center lg:self-auto">
-            <div class="flex flex-col items-center bg-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-black/10 shadow-xs min-w-[56px] sm:min-w-[64px]">
-              <span class="text-lg sm:text-2xl font-black text-[#0B1F4B]">{{ countdown.days }}</span>
-              <span class="text-[10px] font-bold uppercase text-slate-500">Ngày</span>
-            </div>
-            <span class="text-xl font-bold text-slate-400">:</span>
-            <div class="flex flex-col items-center bg-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-black/10 shadow-xs min-w-[56px] sm:min-w-[64px]">
-              <span class="text-lg sm:text-2xl font-black text-[#0B1F4B]">{{ countdown.hours }}</span>
-              <span class="text-[10px] font-bold uppercase text-slate-500">Giờ</span>
-            </div>
-            <span class="text-xl font-bold text-slate-400">:</span>
-            <div class="flex flex-col items-center bg-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-black/10 shadow-xs min-w-[56px] sm:min-w-[64px]">
-              <span class="text-lg sm:text-2xl font-black text-[#0B1F4B]">{{ countdown.minutes }}</span>
-              <span class="text-[10px] font-bold uppercase text-slate-500">Phút</span>
-            </div>
-            <span class="text-xl font-bold text-slate-400">:</span>
-            <div class="flex flex-col items-center bg-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-black/10 shadow-xs min-w-[56px] sm:min-w-[64px]">
-              <span class="text-lg sm:text-2xl font-black text-[#1E56D9]">{{ countdown.seconds }}</span>
-              <span class="text-[10px] font-bold uppercase text-slate-500">Giây</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trạng thái 2: THỜI GIAN NỘP ĐÃ KẾT THÚC (Khóa chỉnh sửa) -->
-      <div
-        v-else-if="windowStatus === 'CLOSED'"
-        class="border-b border-slate-200 bg-slate-100 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-slate-800"
-      >
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <Lock class="w-4 h-4 text-slate-600" />
-            <h3 class="text-base sm:text-lg font-bold text-[#0B1F4B]">
-              Thời gian nộp bài đã kết thúc
-            </h3>
-          </div>
-          <p class="text-xs text-slate-600 leading-relaxed max-w-2xl">
-            Cổng nộp bài {{ currentRound.code }} đã chính thức đóng.
-          </p>
-        </div>
-
-        <div class="bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 shrink-0 self-start sm:self-auto flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-          <span>Hội đồng đang tiến hành chấm điểm</span>
-        </div>
-      </div>
-
-      <!-- Trạng thái 3: ĐÃ QUA VÒNG (Mở khóa để tiếp tục nâng cấp hồ sơ cho vòng kế tiếp) -->
-      <div
-        v-else-if="windowStatus === 'PASSED'"
-        class="border-b border-emerald-200 bg-emerald-50/80 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-emerald-950"
-      >
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <Trophy class="w-5 h-5 text-emerald-700" />
-            <h3 class="text-base sm:text-lg font-bold text-emerald-900">
-              Chúc mừng! Nhóm đã xuất sắc vượt qua {{ currentRound.title }}
-            </h3>
-          </div>
-          <p class="text-xs text-emerald-800 leading-relaxed max-w-2xl">
-            Hồ sơ đã được mở khóa. Nhóm có thể tiếp tục chỉnh sửa, nâng cấp và hoàn thiện các tài liệu bên dưới theo nhận xét và góp ý của Hội đồng để sẵn sàng cho vòng thi tiếp theo.
-          </p>
-        </div>
-
-        <div class="bg-emerald-100/80 px-4 py-2 rounded-xl border border-emerald-300 text-xs font-bold text-emerald-800 flex items-center gap-2 shrink-0">
-          <CheckCircle2 class="w-4 h-4 text-emerald-700" />
-          <span>Hồ sơ đã mở khóa để nâng cấp</span>
-        </div>
-      </div>
+      <!-- PHẦN A: HEADER CỦA CONTAINER - BIỂU NGỮ CỬA SỔ NỘP & ĐỒNG HỒ ĐẾM NGƯỢC (TÁCH THÀNH COMPONENT) -->
+      <SubmissionWindowBanner
+        :windowStatus="windowStatus"
+        :currentRound="currentRound"
+        @window-expired="windowStatus = 'CLOSED'"
+      />
 
       <!-- PHẦN B: BODY - DANH MỤC 4 HẠNG MỤC SẢN PHẨM QUY CHUẨN ĐA NGÀNH -->
       <div class="p-6 sm:p-8 space-y-8">
@@ -112,224 +22,57 @@
         <div class="space-y-6">
 
           <!-- HẠNG MỤC 1: CUỐN BÁO CÁO DỰ ÁN HOÀN CHỈNH (WORD / PDF, TỐI ĐA 10MB) -->
-          <div class="space-y-3 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-lg bg-[#1E56D9] text-white flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                <label class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
-                  Báo cáo dự án hoàn chỉnh <span class="text-rose-500">*</span>
-                </label>
-              </div>
-            </div>
-
-            <p class="text-xs text-[#4B5B7A] leading-relaxed">
-              Thuyết minh chi tiết giải pháp, mô hình kinh doanh, tính khả thi và kế hoạch tài chính đã hoàn thiện.
-            </p>
-
-            <!-- Trạng thái file đã nộp -->
-            <div v-if="submissionForm.reportFile" class="bg-white p-4 rounded-xl border border-[#E4ECF7] flex items-center justify-between gap-4">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-blue-50 text-[#1E56D9] flex items-center justify-center shrink-0">
-                  <FileText class="w-5 h-5" />
-                </div>
-                <div class="min-w-0 space-y-0.5">
-                  <p class="text-xs font-bold text-[#0B1F4B] truncate">
-                    {{ submissionForm.reportFile.name }}
-                  </p>
-                  <p class="text-[11px] text-[#4B5B7A]">
-                    {{ submissionForm.reportFile.size }} - Đã tải lên: {{ submissionForm.reportFile.uploadedAt }}
-                  </p>
-                </div>
-              </div>
-
-              <div v-if="isEditable" class="flex items-center gap-2 shrink-0">
-                <label class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F1F7FF] text-[#1E56D9] hover:bg-[#E4ECF7] cursor-pointer transition-colors">
-                  <span>Thay thế tệp</span>
-                  <input type="file" accept=".docx,.doc,.pdf" class="hidden" @change="handleUploadReport" />
-                </label>
-                <button
-                  type="button"
-                  @click="submissionForm.reportFile = null"
-                  class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
-                  title="Xóa tệp"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <!-- Nút chọn file khi chưa có -->
-            <div v-else>
-              <label
-                :class="isEditable ? 'cursor-pointer hover:border-[#1E56D9] hover:bg-white' : 'cursor-not-allowed opacity-60'"
-                class="border-2 border-dashed border-[#C7D7F5] rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-white transition-all text-center"
-              >
-                <UploadCloud class="w-8 h-8 text-[#1E56D9]" />
-                <div>
-                  <span class="text-xs font-bold text-[#1E56D9]">Nhấn để chọn báo cáo PDF</span>
-                  <span class="text-xs text-[#4B5B7A]"> hoặc kéo thả vào đây</span>
-                </div>
-                <p class="text-[11px] text-slate-400">Dung lượng tối đa: 10MB</p>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  :disabled="!isEditable"
-                  class="hidden"
-                  @change="handleUploadReport"
-                />
-              </label>
-            </div>
-          </div>
+          <SubmissionFileUploadCard
+            :stepNumber="1"
+            title="Báo cáo dự án hoàn chỉnh"
+            description="Thuyết minh chi tiết giải pháp, mô hình kinh doanh, tính khả thi và kế hoạch tài chính đã hoàn thiện."
+            :required="true"
+            v-model="submissionForm.reportFile"
+            :isEditable="isEditable"
+            accept=".docx,.doc,.pdf"
+            :maxSizeMB="10"
+            uploadPromptText="Nhấn để chọn báo cáo PDF"
+            uploadSubText=" hoặc kéo thả vào đây"
+            maxLimitHint="Dung lượng tối đa: 10MB"
+            replaceButtonText="Thay thế tệp"
+            iconType="document"
+          />
 
           <!-- HẠNG MỤC 2: POSTER GIỚI THIỆU DỰ ÁN (KHỔ A0/A1, HÌNH ẢNH HOẶC PDF, TỐI ĐA 15MB) -->
-          <div class="space-y-3 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-lg bg-[#1E56D9] text-white flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                <label class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
-                  Poster của dự án <span class="text-rose-500">*</span>
-                </label>
-              </div>
-            </div>
-
-            <p class="text-xs text-[#4B5B7A] leading-relaxed">
-              Poster tóm tắt trực quan giải pháp, đội ngũ và các điểm nổi bật của dự án để trưng bày triển lãm và đánh giá.
-            </p>
-
-            <!-- Hiển thị poster đã nộp kèm Thumbnail preview -->
-            <div v-if="submissionForm.posterFile" class="bg-white p-4 rounded-xl border border-[#E4ECF7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div class="flex items-center gap-4">
-                <div class="w-16 h-20 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                  <img
-                    v-if="submissionForm.posterFile.previewUrl"
-                    :src="submissionForm.posterFile.previewUrl"
-                    alt="Poster preview"
-                    class="w-full h-full object-cover"
-                  />
-                  <FileText v-else class="w-6 h-6 text-slate-400" />
-                </div>
-                <div class="space-y-1">
-                  <p class="text-xs font-bold text-[#0B1F4B]">
-                    {{ submissionForm.posterFile.name }}
-                  </p>
-                  <p class="text-[11px] text-[#4B5B7A]">
-                    {{ submissionForm.posterFile.size }} - Tải lên: {{ submissionForm.posterFile.uploadedAt }}
-                  </p>
-                  <span class="inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-[#1E56D9] rounded">
-                    Chuẩn kích thước triển lãm A0/A1
-                  </span>
-                </div>
-              </div>
-
-              <div v-if="isEditable" class="flex items-center gap-2 self-end sm:self-auto">
-                <label class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F1F7FF] text-[#1E56D9] hover:bg-[#E4ECF7] cursor-pointer transition-colors">
-                  <span>Thay poster khác</span>
-                  <input type="file" accept="image/*,.pdf" class="hidden" @change="handleUploadPoster" />
-                </label>
-                <button
-                  type="button"
-                  @click="submissionForm.posterFile = null"
-                  class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
-                  title="Xóa poster"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <!-- Nút chọn file poster -->
-            <div v-else>
-              <label
-                :class="isEditable ? 'cursor-pointer hover:border-[#1E56D9] hover:bg-white' : 'cursor-not-allowed opacity-60'"
-                class="border-2 border-dashed border-[#C7D7F5] rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-white transition-all text-center"
-              >
-                <UploadCloud class="w-8 h-8 text-[#1E56D9]" />
-                <div>
-                  <span class="text-xs font-bold text-[#1E56D9]">Nhấn để tải lên Poster dự án</span>
-                  <span class="text-xs text-[#4B5B7A]"> (PDF)</span>
-                </div>
-                <p class="text-[11px] text-slate-400">Dung lượng tối đa 15MB</p>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  :disabled="!isEditable"
-                  class="hidden"
-                  @change="handleUploadPoster"
-                />
-              </label>
-            </div>
-          </div>
+          <SubmissionFileUploadCard
+            :stepNumber="2"
+            title="Poster của dự án"
+            description="Poster tóm tắt trực quan giải pháp, đội ngũ và các điểm nổi bật của dự án để trưng bày triển lãm và đánh giá."
+            :required="true"
+            v-model="submissionForm.posterFile"
+            :isEditable="isEditable"
+            accept="image/*,.pdf"
+            :maxSizeMB="15"
+            uploadPromptText="Nhấn để tải lên Poster dự án"
+            uploadSubText=" (PDF)"
+            maxLimitHint="Dung lượng tối đa 15MB"
+            replaceButtonText="Thay poster khác"
+            iconType="poster"
+            :showThumbnail="true"
+            badgeText="Chuẩn kích thước triển lãm A0/A1"
+          />
 
           <!-- HẠNG MỤC 3: VIDEO DEMO DỰ ÁN (TẢI FILE TRỰC TIẾP TỪ MÁY, GIỚI HẠN 1 VIDEO < 500MB) -->
-          <div class="space-y-3 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-lg bg-[#1E56D9] text-white flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                <label class="text-xs sm:text-sm font-bold text-[#0B1F4B]">
-                  Video thuyết minh<span class="text-rose-500"> *</span>
-                </label>
-              </div>
-            </div>
-
-            <p class="text-xs text-[#4B5B7A] leading-relaxed">
-              Video trình bày cách thức giải pháp hoạt động, tính năng sản phẩm hoặc phần thuyết trình (Pitching) của nhóm (Thời lượng khuyến nghị 3 – 5 phút, dung lượng dưới 500MB).
-            </p>
-
-            <!-- Trạng thái file video đã tải lên -->
-            <div v-if="submissionForm.videoFile" class="space-y-3 bg-white p-4 rounded-xl border border-[#E4ECF7]">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-10 h-10 rounded-xl bg-blue-50 text-[#1E56D9] flex items-center justify-center shrink-0">
-                    <Video class="w-5 h-5" />
-                  </div>
-                  <div class="min-w-0 space-y-0.5">
-                    <p class="text-xs font-bold text-[#0B1F4B] truncate">
-                      {{ submissionForm.videoFile.name }}
-                    </p>
-                    <p class="text-[11px] text-[#4B5B7A]">
-                      {{ submissionForm.videoFile.size }} - Đã tải lên: {{ submissionForm.videoFile.uploadedAt }}
-                    </p>
-                  </div>
-                </div>
-
-                <div v-if="isEditable" class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <label class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F1F7FF] text-[#1E56D9] hover:bg-[#E4ECF7] cursor-pointer transition-colors">
-                    <span>Thay video khác</span>
-                    <input type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" class="hidden" @change="handleUploadVideo" />
-                  </label>
-                  <button
-                    type="button"
-                    @click="submissionForm.videoFile = null"
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
-                    title="Xóa video"
-                  >
-                    <Trash2 class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Nút chọn file video khi chưa có -->
-            <div v-else>
-              <label
-                :class="isEditable ? 'cursor-pointer hover:border-[#1E56D9] hover:bg-white' : 'cursor-not-allowed opacity-60'"
-                class="border-2 border-dashed border-[#C7D7F5] rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-white transition-all text-center"
-              >
-                <Video class="w-8 h-8 text-[#1E56D9]" />
-                <div>
-                  <span class="text-xs font-bold text-[#1E56D9]">Nhấn để tải lên file Video thuyết minh</span>
-                </div>
-                <p class="text-[11px] text-slate-400">Giới hạn 1 file MP4 duy nhất dung lượng dưới 500MB</p>
-                <input
-                  type="file"
-                  accept="video/mp4,video/webm,video/ogg,video/quicktime"
-                  :disabled="!isEditable"
-                  class="hidden"
-                  @change="handleUploadVideo"
-                />
-              </label>
-            </div>
-          </div>
+          <SubmissionFileUploadCard
+            :stepNumber="3"
+            title="Video thuyết minh"
+            description="Video trình bày cách thức giải pháp hoạt động, tính năng sản phẩm hoặc phần thuyết trình (Pitching) của nhóm (Thời lượng khuyến nghị 3 – 5 phút, dung lượng dưới 500MB)."
+            :required="true"
+            v-model="submissionForm.videoFile"
+            :isEditable="isEditable"
+            accept="video/mp4,video/webm,video/ogg,video/quicktime"
+            :maxSizeMB="500"
+            uploadPromptText="Nhấn để tải lên file Video thuyết minh"
+            uploadSubText=""
+            maxLimitHint="Giới hạn 1 file MP4 duy nhất dung lượng dưới 500MB"
+            replaceButtonText="Thay video khác"
+            iconType="video"
+          />
 
           <!-- HẠNG MỤC 4: HÌNH ẢNH SẢN PHẨM THỰC TẾ (TỐI ĐA 5 ẢNH, TỔNG DUNG LƯỢNG 25–50MB) -->
           <div class="space-y-3 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
@@ -429,22 +172,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import {
-  Trophy,
-  CheckCircle2,
-  Lock,
-  FileText,
-  UploadCloud,
-  Trash2,
-  Plus,
-  X,
-  Send,
-  Loader2,
-  Video,
-} from 'lucide-vue-next';
+import { ref, computed, onMounted } from 'vue';
+import { CheckCircle2, Plus, X, Loader2 } from 'lucide-vue-next';
 import { useToastStore } from '@/stores/toast';
 import { useAuthStore } from '@/stores/authStore';
+import SubmissionWindowBanner from '@/modules/student/components/SubmissionWindowBanner.vue';
+import SubmissionFileUploadCard from '@/modules/student/components/SubmissionFileUploadCard.vue';
 
 const props = defineProps({
   project: {
@@ -479,8 +212,6 @@ const currentRound = ref({
   title: 'Vòng 1: Vòng Loại (Sơ khảo)',
   stage: 'Sơ khảo',
 });
-
-
 
 /**
  * Trạng thái form có được phép chỉnh sửa hay không:
@@ -543,34 +274,6 @@ const submissionReceipt = ref({
   submittedBy: authStore.user?.fullName || 'Đặng Tấn Kiệt',
 });
 
-// Đồng hồ đếm ngược (Countdown Timer) giả lập 2 ngày 14 giờ
-const remainingSeconds = ref(2 * 86400 + 14 * 3600 + 25 * 60 + 40);
-let timerInterval = null;
-
-const countdown = computed(() => {
-  const total = Math.max(0, remainingSeconds.value);
-  const days = String(Math.floor(total / 86400)).padStart(2, '0');
-  const hours = String(Math.floor((total % 86400) / 3600)).padStart(2, '0');
-  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
-  const seconds = String(total % 60).padStart(2, '0');
-  return { days, hours, minutes, seconds };
-});
-
-const isWarningUrgent = computed(() => remainingSeconds.value <= 48 * 3600 && remainingSeconds.value > 24 * 3600);
-const isEmergencyUrgent = computed(() => remainingSeconds.value <= 24 * 3600);
-
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (remainingSeconds.value > 0) {
-      remainingSeconds.value -= 1;
-    } else {
-      windowStatus.value = 'CLOSED';
-      clearInterval(timerInterval);
-    }
-  }, 1000);
-}
-
 // Đọc dữ liệu nộp bài từ LocalStorage
 function loadSubmissionData() {
   try {
@@ -601,80 +304,7 @@ function loadSubmissionData() {
   }
 }
 
-// 1. Tải file Báo cáo Word/PDF (Giới hạn tối đa 10MB theo yêu cầu của Yu)
-function handleUploadReport(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const maxBytes = 10 * 1024 * 1024; // 10MB
-  if (file.size > maxBytes) {
-    toastStore.add({
-      message: `Tệp báo cáo vượt quá dung lượng cho phép (${(file.size / (1024 * 1024)).toFixed(1)}MB > 10MB)`,
-      type: 'warning',
-    });
-    return;
-  }
-
-  submissionForm.value.reportFile = {
-    name: file.name,
-    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-    sizeBytes: file.size,
-    uploadedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ', Hôm nay',
-  };
-  toastStore.add({ message: `Đã tải lên tệp báo cáo "${file.name}"`, type: 'info' });
-}
-
-// 2. Tải Poster (Giới hạn tối đa 15MB theo yêu cầu của Yu)
-function handleUploadPoster(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const maxBytes = 15 * 1024 * 1024; // 15MB
-  if (file.size > maxBytes) {
-    toastStore.add({
-      message: `File poster vượt quá dung lượng cho phép (${(file.size / (1024 * 1024)).toFixed(1)}MB > 15MB)`,
-      type: 'warning',
-    });
-    return;
-  }
-
-  const previewUrl = URL.createObjectURL(file);
-  submissionForm.value.posterFile = {
-    name: file.name,
-    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-    sizeBytes: file.size,
-    uploadedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ', Hôm nay',
-    previewUrl,
-  };
-  toastStore.add({ message: `Đã tải lên poster "${file.name}"`, type: 'info' });
-}
-
-// 3. Tải Video Demo trực tiếp từ máy (Giới hạn 1 video < 500MB theo yêu cầu của Yu)
-function handleUploadVideo(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const maxBytes = 500 * 1024 * 1024; // 500MB
-  if (file.size > maxBytes) {
-    toastStore.add({
-      message: `Dung lượng video demo vượt quá giới hạn 500MB (${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
-      type: 'warning',
-    });
-    return;
-  }
-
-  const previewUrl = URL.createObjectURL(file);
-  submissionForm.value.videoFile = {
-    name: file.name,
-    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-    sizeBytes: file.size,
-    uploadedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ', Hôm nay',
-    previewUrl,
-  };
-  toastStore.add({ message: `Đã tải lên video demo "${file.name}"`, type: 'info' });
-}
-
-// 4. Thêm ảnh sản phẩm thực tế (Tối đa 5 ảnh, tổng dung lượng từ 25 - 50MB theo yêu cầu của Yu)
+// Thêm ảnh sản phẩm thực tế (Tối đa 5 ảnh, tổng dung lượng từ 25 - 50MB theo yêu cầu của Yu)
 function handleAddProductImage(e) {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -760,11 +390,6 @@ async function handleSaveSubmission() {
 }
 
 onMounted(() => {
-  startTimer();
   loadSubmissionData();
-});
-
-onUnmounted(() => {
-  if (timerInterval) clearInterval(timerInterval);
 });
 </script>

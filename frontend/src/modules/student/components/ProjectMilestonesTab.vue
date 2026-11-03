@@ -142,77 +142,12 @@
     </div>
 
     <!-- MODAL NỘP BÀI LÀM MỐC TIẾN ĐỘ -->
-    <div
-      v-if="isEvidenceModalOpen"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
-          <div>
-            <h3 class="text-base font-bold text-[#0B1F4B]">
-              {{ selectedMilestone?.evidence ? 'Cập nhật lại bài làm mốc tiến độ' : 'Gửi bài làm mốc tiến độ' }}
-            </h3>
-            <p class="text-xs text-[#4B5B7A] mt-0.5">
-              {{ selectedMilestone?.title }} • Hạn nộp: <strong class="text-[#1E56D9]">{{ formatDateOnly(selectedMilestone?.dueDate) }}</strong>
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="isEvidenceModalOpen = false"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <form @submit.prevent="handleSubmitEvidence" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-[#0B1F4B] mb-1">
-              Đường dẫn tài liệu / Bài làm <span class="text-rose-500">*</span>
-            </label>
-            <input
-              v-model="evidenceForm.fileUrl"
-              type="url"
-              required
-              placeholder="https://drive.google.com/..."
-              class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-[#0B1F4B] mb-1">
-              Ghi chú kết quả thực hiện <span class="text-rose-500">*</span>
-            </label>
-            <textarea
-              v-model="evidenceForm.note"
-              rows="3"
-              required
-              maxlength="1000"
-              placeholder="Tóm tắt các nội dung nhóm đã hoàn thành..."
-              class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-            ></textarea>
-          </div>
-
-          <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-end gap-3">
-            <button
-              type="button"
-              @click="isEvidenceModalOpen = false"
-              class="px-4 py-2 rounded-full font-medium text-[#4B5B7A] hover:bg-slate-100 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="inline-flex items-center gap-2 px-5 py-2 rounded-full font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] cursor-pointer disabled:opacity-50"
-            >
-              <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-              <span>{{ isSubmitting ? 'Đang gửi...' : (selectedMilestone?.evidence ? 'Cập nhật bài làm' : 'Gửi bài làm') }}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <MilestoneEvidenceModal
+      v-model:is-open="isEvidenceModalOpen"
+      :milestone="selectedMilestone"
+      :is-submitting="isSubmitting"
+      @submit="handleSubmitEvidence"
+    />
   </section>
 </template>
 
@@ -224,11 +159,16 @@ import {
   Lock,
   MessageSquare,
   Upload,
-  Loader2,
-  X,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import {
+  getMilestoneStatusBadgeClass,
+  getMilestoneStatusLabel,
+  formatDateOnlyVi,
+  formatDateTimeVi,
+} from '@/modules/student/utils/studentProjectHelpers';
+import MilestoneEvidenceModal from '@/modules/student/components/MilestoneEvidenceModal.vue';
 
 /**
  * Tab 2: Tiến độ & Góp ý từ Giảng viên Cố vấn (Kèm Modal nộp/cập nhật bài làm mốc tiến độ)
@@ -255,11 +195,6 @@ const toastStore = useToastStore();
 const isSubmitting = ref(false);
 const isEvidenceModalOpen = ref(false);
 const selectedMilestone = ref(null);
-
-const evidenceForm = ref({
-  fileUrl: '',
-  note: '',
-});
 
 const completedMilestonesCount = computed(() =>
   props.milestones.filter((m) => m.status === 'Completed' || m.status === 'DONE').length
@@ -347,15 +282,11 @@ function openEvidenceModal(ms) {
   }
 
   selectedMilestone.value = ms;
-  evidenceForm.value = {
-    fileUrl: ms.evidence?.fileUrl || '',
-    note: ms.evidence?.note || '',
-  };
   isEvidenceModalOpen.value = true;
 }
 
 // Gửi hoặc Cập nhật Minh chứng
-async function handleSubmitEvidence() {
+async function handleSubmitEvidence(evidencePayload) {
   if (!selectedMilestone.value) return;
 
   const check = evaluateMilestoneEvidenceEligibility(selectedMilestone.value);
@@ -371,7 +302,7 @@ async function handleSubmitEvidence() {
     const res = await projectService.submitEvidence(
       props.projectId,
       selectedMilestone.value._id,
-      evidenceForm.value
+      evidencePayload
     );
     if (res?.success) {
       toastStore.add({
@@ -390,57 +321,10 @@ async function handleSubmitEvidence() {
   }
 }
 
-function getMilestoneBadgeClass(status) {
-  switch (status) {
-    case 'Completed':
-      return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    case 'InProgress':
-      return 'bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]';
-    case 'Overdue':
-      return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default:
-      return 'bg-slate-100 text-slate-600';
-  }
-}
-
-function getMilestoneLabel(status) {
-  switch (status) {
-    case 'Completed':
-      return 'Đã hoàn thành';
-    case 'InProgress':
-      return 'Đang thực hiện';
-    case 'Overdue':
-      return 'Quá hạn';
-    default:
-      return 'Chờ thực hiện';
-  }
-}
-
-function formatDateOnly(d) {
-  if (!d) return '--';
-  // Chuẩn hóa chuỗi dạng yyyy-mm-dd hoặc ISO string thành dd/mm/yyyy
-  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d.trim())) {
-    const parts = d.trim().slice(0, 10).split('-');
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return '--';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-function formatDate(d) {
-  if (!d) return '--';
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return '--';
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes} ${day}/${month}/${year}`;
-}
+// Helpers giao diện tái sử dụng từ studentProjectHelpers
+const getMilestoneBadgeClass = getMilestoneStatusBadgeClass;
+const getMilestoneLabel = getMilestoneStatusLabel;
+const formatDateOnly = formatDateOnlyVi;
+const formatDate = formatDateTimeVi;
 </script>
 

@@ -60,6 +60,7 @@
 <script setup>
 import { ShieldCheck, Download } from 'lucide-vue-next';
 import { useToastStore } from '@/stores/toast';
+import { formatDateTimeVi } from '@/modules/student/utils/studentProjectHelpers';
 
 /**
  * Tab 3: Giấy xác nhận nộp bài điện tử & Lịch sử các lần nộp hồ sơ
@@ -81,15 +82,6 @@ function handleDownloadReceipt() {
   toastStore.add({ message: 'Đang chuẩn bị file Biên nhận số PDF...', type: 'info' });
 }
 
-function formatDate(d) {
-  if (!d) return '--';
-  return new Date(d).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const formatDate = formatDateTimeVi;
 </script>
 

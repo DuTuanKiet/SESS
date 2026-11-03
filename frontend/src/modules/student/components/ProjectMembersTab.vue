@@ -76,7 +76,7 @@
 
     <div class="bg-white rounded-2xl border border-[#E4ECF7] p-6 shadow-sm space-y-4">
       <h3 class="text-base font-bold text-[#0B1F4B]">
-        Danh sách thành viên ({{ acceptedMembers.length }})
+        Danh sách thành viên
       </h3>
 
       <div class="divide-y divide-[#E4ECF7]">
@@ -99,7 +99,7 @@
                   Đang xin rời nhóm
                 </span>
               </div>
-              <p class="text-[11px] text-[#4B5B7A]">{{ member.email }} • MSSV: {{ member.studentId }}</p>
+              <p class="text-[11px] text-[#4B5B7A]">{{ member.email }} - MSSV: {{ member.studentId }}</p>
             </div>
           </div>
 
@@ -168,103 +168,16 @@
       </div>
     </div>
 
-    <!-- MODAL CHUYỂN VAI TRÒ TRƯỞNG NHÓM -->
-    <div
-      v-if="isTransferModalOpen"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
-          <h3 class="text-base font-bold text-[#0B1F4B]">Chuyển vai trò Trưởng nhóm</h3>
-          <button
-            type="button"
-            @click="isTransferModalOpen = false"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <p class="text-xs text-[#4B5B7A] leading-relaxed">
-          Chuyển vai trò Trưởng nhóm đề tài <strong>{{ project.code }}</strong> cho thành viên:
-        </p>
-
-        <div class="p-3 bg-[#F1F7FF] border border-[#C7D7F5] rounded-xl text-xs text-[#0B1F4B]">
-          <p class="font-bold">{{ targetMemberToTransfer?.fullName }}</p>
-          <p class="text-[11px] text-[#4B5B7A]">{{ targetMemberToTransfer?.email }} • MSSV: {{ targetMemberToTransfer?.studentId }}</p>
-        </div>
-
-        <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-end gap-3">
-          <button
-            type="button"
-            @click="isTransferModalOpen = false"
-            class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 cursor-pointer"
-          >
-            Hủy bỏ
-          </button>
-          <button
-            type="button"
-            @click="handleConfirmTransferOwnership"
-            :disabled="isSubmitting"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] cursor-pointer disabled:opacity-50"
-          >
-            <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-            <span>{{ isSubmitting ? 'Đang chuyển...' : 'Xác nhận chuyển' }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL XIN RỜI NHÓM -->
-    <div
-      v-if="isLeaveModalOpen"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
-          <h3 class="text-base font-bold text-[#0B1F4B]">Đơn xin rút khỏi nhóm đề tài</h3>
-          <button
-            type="button"
-            @click="isLeaveModalOpen = false"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <div class="space-y-1.5">
-          <label class="block text-xs font-semibold text-[#0B1F4B]">
-            Lý do xin rút khỏi nhóm <span class="text-rose-500">*</span>
-          </label>
-          <textarea
-            v-model="leaveReasonInput"
-            rows="4"
-            maxlength="1000"
-            placeholder="Nhập lý do xin rút khỏi nhóm (tối thiểu 10 ký tự)..."
-            class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-          ></textarea>
-        </div>
-
-        <div class="pt-3 border-t border-[#E4ECF7] flex items-center justify-end gap-3">
-          <button
-            type="button"
-            @click="isLeaveModalOpen = false"
-            class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 cursor-pointer"
-          >
-            Hủy bỏ
-          </button>
-          <button
-            type="button"
-            @click="handleSubmitLeaveRequest"
-            :disabled="isSubmitting || leaveReasonInput.trim().length < 10"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer disabled:opacity-40"
-          >
-            <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-            <span>{{ isSubmitting ? 'Đang gửi...' : 'Gửi đơn' }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- MODAL THÀNH VIÊN: CHUYỂN TRƯỞNG NHÓM & XIN RỜI NHÓM -->
+    <MemberActionModals
+      v-model:is-transfer-open="isTransferModalOpen"
+      :target-member="targetMemberToTransfer"
+      :project-code="project.code"
+      v-model:is-leave-open="isLeaveModalOpen"
+      :is-submitting="isSubmitting"
+      @confirm-transfer="handleConfirmTransferOwnership"
+      @submit-leave="handleSubmitLeaveRequest"
+    />
   </section>
 </template>
 
@@ -276,10 +189,10 @@ import {
   LogOut,
   Trash2,
   UserPlus,
-  X,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import MemberActionModals from '@/modules/student/components/MemberActionModals.vue';
 
 /**
  * Tab 4: Quản lý thành viên nhóm đề tài (Mời thành viên, Chuyển quyền Trưởng nhóm, Xin rời nhóm)
@@ -320,7 +233,6 @@ const isSubmitting = ref(false);
 const isTransferModalOpen = ref(false);
 const targetMemberToTransfer = ref(null);
 const isLeaveModalOpen = ref(false);
-const leaveReasonInput = ref('');
 const isCancellingLeave = ref(false);
 
 const acceptedMembers = computed(() => props.members.filter((m) => m.status === 'ACCEPTED'));
@@ -409,22 +321,14 @@ async function handleCancelInvitation(identifier) {
 
 // Nộp đơn xin rời nhóm
 function handleOpenLeaveModal() {
-  leaveReasonInput.value = '';
   isLeaveModalOpen.value = true;
 }
 
-async function handleSubmitLeaveRequest() {
-  if (!leaveReasonInput.value || leaveReasonInput.value.trim().length < 10) {
-    toastStore.add({
-      message: 'Vui lòng nêu rõ lý do xin rời nhóm (tối thiểu 10 ký tự)',
-      type: 'error',
-    });
-    return;
-  }
+async function handleSubmitLeaveRequest(reason) {
   isSubmitting.value = true;
   try {
     const res = await projectService.requestLeaveProject(props.projectId, {
-      reason: leaveReasonInput.value,
+      reason,
     });
     if (res?.success) {
       toastStore.add({

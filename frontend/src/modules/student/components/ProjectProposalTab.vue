@@ -94,180 +94,19 @@
         </div>
       </div>
 
-      <!-- 2. PHẦN 1: THÔNG TIN CƠ BẢN -->
-      <div class="space-y-4 p-5 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7]">
-        <div class="flex items-center gap-2 pb-1 border-b border-slate-200">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-[#1E56D9]">
-            Phần 1. Thông tin cơ bản
-          </h3>
-        </div>
-
-        <!-- 1.1 THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN -->
-        <div class="bg-white p-4.5 rounded-xl border border-[#E4ECF7] space-y-3">
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs font-bold text-[#0B1F4B]">1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN</span>
-            <span v-if="isEditingProposal" class="text-rose-500 text-xs font-bold">*</span>
-          </div>
-
-          <div v-if="isEditingProposal" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">1.1. Họ và tên</label>
-              <input
-                v-model="proposalForm.advisorInfo.fullName"
-                type="text"
-                required
-                class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">1.2. Đơn vị</label>
-              <input
-                v-model="proposalForm.advisorInfo.unit"
-                type="text"
-                required
-                class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">1.3. Điện thoại</label>
-              <input
-                v-model="proposalForm.advisorInfo.phone"
-                type="tel"
-                required
-                class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-              />
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">1.4. Email</label>
-              <input
-                v-model="proposalForm.advisorInfo.email"
-                type="email"
-                required
-                class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-              />
-            </div>
-          </div>
-
-          <!-- Chế độ xem thông tin Giảng viên -->
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
-              <span class="text-[#4B5B7A] text-[11px] block">1.1. Họ và tên:</span>
-              <span class="font-bold text-[#0B1F4B]">{{ project.advisorInfo?.fullName || 'Chưa cập nhật' }}</span>
-            </div>
-            <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
-              <span class="text-[#4B5B7A] text-[11px] block">1.2. Đơn vị:</span>
-              <span class="font-semibold text-[#0B1F4B]">{{ project.advisorInfo?.unit || 'Chưa cập nhật' }}</span>
-            </div>
-            <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
-              <span class="text-[#4B5B7A] text-[11px] block">1.3. Điện thoại:</span>
-              <span class="font-semibold text-[#0B1F4B]">{{ project.advisorInfo?.phone || 'Chưa cập nhật' }}</span>
-            </div>
-            <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
-              <span class="text-[#4B5B7A] text-[11px] block">1.4. Email:</span>
-              <span class="font-semibold text-[#1E56D9]">{{ project.advisorInfo?.email || 'Chưa cập nhật' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 1.2 THÔNG TIN VỀ CÁC THÀNH VIÊN THAM GIA -->
-        <div class="bg-white p-4.5 rounded-xl border border-[#E4ECF7] space-y-4">
-          <span class="text-xs font-bold text-[#0B1F4B] block">2. THÔNG TIN VỀ CÁC THÀNH VIÊN THAM GIA</span>
-
-          <!-- A. Thông tin Trưởng nhóm -->
-          <div class="space-y-2">
-            <span class="text-[11px] font-bold text-[#1E56D9] uppercase tracking-wide block">
-              - Thông tin về Trưởng nhóm:
-            </span>
-
-            <div v-if="isEditingProposal" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Họ và tên</label>
-                <input
-                  v-model="proposalForm.leaderInfo.fullName"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">MSSV</label>
-                <input
-                  v-model="proposalForm.leaderInfo.studentId"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Lớp</label>
-                <input
-                  v-model="proposalForm.leaderInfo.className"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Khóa</label>
-                <input
-                  v-model="proposalForm.leaderInfo.courseYear"
-                  type="text"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Số điện thoại</label>
-                <input
-                  v-model="proposalForm.leaderInfo.phone"
-                  type="tel"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Email</label>
-                <input
-                  v-model="proposalForm.leaderInfo.email"
-                  type="email"
-                  required
-                  class="w-full px-3 py-1.5 rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-                />
-              </div>
-            </div>
-
-            <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-[#F8FBFF] p-3 rounded-xl border border-[#E4ECF7]">
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">Họ và tên:</span>
-                <span class="font-bold text-[#0B1F4B]">{{ project.leaderInfo?.fullName || 'Đặng Tấn Kiệt' }}</span>
-              </div>
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">MSSV:</span>
-                <span class="font-bold text-[#1E56D9]">{{ project.leaderInfo?.studentId || 'KTPM2311025' }}</span>
-              </div>
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">Lớp:</span>
-                <span class="font-semibold text-[#0B1F4B]">{{ project.leaderInfo?.className || 'KTPM0123' }}</span>
-              </div>
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">Khóa:</span>
-                <span class="font-semibold text-[#0B1F4B]">{{ project.leaderInfo?.courseYear || 'Khóa 11' }}</span>
-              </div>
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">Số điện thoại:</span>
-                <span class="font-semibold text-[#0B1F4B]">{{ project.leaderInfo?.phone || '0901234567' }}</span>
-              </div>
-              <div>
-                <span class="text-[#4B5B7A] text-[11px] block">Email:</span>
-                <span class="font-semibold text-[#1E56D9] truncate block">{{ project.leaderInfo?.email || 'dtkietktpm2311025@student.ctuet.edu.vn' }}</span>
-              </div>
-            </div>
-          </div>
-
+      <!-- 2. PHẦN 1: THÔNG TIN CƠ BẢN (THEO PHỤ LỤC 1 - TÁCH THÀNH COMPONENT DÙNG CHUNG) -->
+      <ProposalAdvisorLeaderSection
+        :advisorInfo="isEditingProposal ? proposalForm.advisorInfo : (project.advisorInfo || {})"
+        :leaderInfo="isEditingProposal ? proposalForm.leaderInfo : (project.leaderInfo || {})"
+        :isEditing="isEditingProposal"
+        :showAutoFillHint="false"
+        :showNoteForOtherMembers="false"
+      >
+        <template #members-table>
           <!-- B. Bảng danh sách các thành viên tham gia (Chuẩn bảng Phụ lục 1) -->
           <div class="space-y-2 pt-2 border-t border-slate-100">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-[#1E56D9] uppercase tracking-wide block">
+              <span class="text-[11px] font-bold text-[#0B1F4B] uppercase tracking-wide block">
                 - Danh sách các thành viên tham gia cùng nhóm:
               </span>
               <span class="text-[11px] text-[#4B5B7A]">{{ memberList.length }} thành viên</span>
@@ -289,7 +128,7 @@
                   <tr v-for="(m, idx) in memberList" :key="m.userId || idx" class="hover:bg-slate-50/60">
                     <td class="py-2.5 px-3 text-center font-bold text-[#0B1F4B]">{{ idx + 1 }}</td>
                     <td class="py-2.5 px-3 font-semibold text-[#0B1F4B]">{{ m.fullName }}</td>
-                    <td class="py-2.5 px-3 font-mono text-[#1E56D9]">{{ m.studentId || '--' }}</td>
+                    <td class="py-2.5 px-3 font-mono font-medium text-[#0B1F4B]">{{ m.studentId || '--' }}</td>
                     <td class="py-2.5 px-3">{{ m.className || 'KTPM0123' }}</td>
                     <td class="py-2.5 px-3">{{ m.phone || '--' }}</td>
                     <td class="py-2.5 px-3 text-right">
@@ -303,15 +142,15 @@
                   </tr>
                   <tr v-if="memberList.length === 0">
                     <td colspan="6" class="py-3 px-3 text-center text-slate-400 italic">
-                      Chưa có thành viên nào khác trong nhóm. Bạn có thể mời thêm bạn học tại tab "4. Thành viên nhóm".
+                      Chưa có thành viên nào khác trong nhóm. Bạn có thể mời thêm bạn học tại mục "2. Thành viên nhóm".
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
-      </div>
+        </template>
+      </ProposalAdvisorLeaderSection>
 
       <!-- 3. TÓM TẮT Ý TƯỞNG / DỰ ÁN (THEO PHỤ LỤC 1) -->
       <div class="space-y-4">
@@ -427,6 +266,7 @@ import { ref, computed, watch } from 'vue';
 import { Edit3, Loader2, ExternalLink } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import ProposalAdvisorLeaderSection from '@/modules/student/components/ProposalAdvisorLeaderSection.vue';
 
 /**
  * Tab 1: Thuyết minh ý tưởng đề tài chuẩn theo biểu mẫu Phụ lục 1
@@ -548,7 +388,7 @@ async function handleSaveProposal() {
   const url = (proposalForm.value.attachmentUrl || '').trim();
   if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
     toastStore.add({
-      message: 'Vui lòng nhập đường dẫn (link) tài liệu thuyết minh hợp lệ bắt đầu bằng https://',
+      message: 'Vui lòng nhập đường dẫn tài liệu thuyết minh',
       type: 'warning',
     });
     return;

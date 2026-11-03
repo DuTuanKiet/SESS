@@ -183,67 +183,12 @@
     </div>
 
     <!-- 3. MODAL KIỂM TRA TRƯỚC KHI NỘP HỒ SƠ CHÍNH THỨC -->
-    <div
-      v-if="isSubmitChecklistModalOpen"
-      class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E4ECF7] space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-[#E4ECF7]">
-          <h3 class="text-base font-bold text-[#0B1F4B]">Kiểm tra hồ sơ trước khi nộp chính thức</h3>
-          <button
-            type="button"
-            @click="isSubmitChecklistModalOpen = false"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <p class="text-xs text-[#4B5B7A]">
-          Hệ thống kiểm tra 4 mục thông tin bắt buộc trong thuyết minh của nhóm trước khi gửi:
-        </p>
-
-        <div class="space-y-2 text-xs">
-          <div
-            v-for="(item, key) in preSubmissionChecklist"
-            :key="key"
-            class="p-3 rounded-xl border flex items-center justify-between"
-            :class="item.passed ? 'bg-emerald-50/60 border-emerald-200 text-emerald-800' : 'bg-rose-50/60 border-rose-200 text-rose-800'"
-          >
-            <span class="font-medium">{{ item.label }}</span>
-            <span class="font-bold flex items-center gap-1">
-              <CheckCircle2 v-if="item.passed" class="w-4 h-4 text-emerald-600" />
-              <AlertCircle v-else class="w-4 h-4 text-rose-600" />
-              <span>{{ item.passed ? 'Đạt' : 'Chưa điền' }}</span>
-            </span>
-          </div>
-        </div>
-
-        <div class="p-3 bg-[#F1F7FF] rounded-xl text-xs text-[#0B1F4B] leading-relaxed">
-          Sau khi nộp, đề tài sẽ được chuyển tới Hội đồng đánh giá và cấp <strong>Giấy xác nhận nộp bài điện tử</strong>.
-        </div>
-
-        <div class="pt-2 flex items-center justify-end gap-3 border-t border-[#E4ECF7]">
-          <button
-            type="button"
-            @click="isSubmitChecklistModalOpen = false"
-            class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 cursor-pointer"
-          >
-            Quay lại bổ sung
-          </button>
-
-          <button
-            type="button"
-            @click="handleConfirmFinalSubmit"
-            :disabled="!isAllChecklistPassed || isSubmitting"
-            class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] hover:bg-[#1d4ed8] text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Loader2 v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" />
-            <span>{{ isSubmitting ? 'Đang gửi...' : 'Xác nhận nộp chính thức' }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <PreSubmissionChecklistModal
+      v-model:is-open="isSubmitChecklistModalOpen"
+      :project="project"
+      :is-submitting="isSubmitting"
+      @confirm-submit="handleConfirmFinalSubmit"
+    />
   </div>
 </template>
 
@@ -253,19 +198,20 @@ import { useRoute } from 'vue-router';
 import {
   ArrowLeft,
   Send,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
-  X,
-  Trophy,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import {
+  getProjectCompetitionMeta,
+  formatDateTimeVi,
+} from '@/modules/student/utils/studentProjectHelpers';
 import ProjectProposalTab from '@/modules/student/components/ProjectProposalTab.vue';
 import ProjectMembersTab from '@/modules/student/components/ProjectMembersTab.vue';
 import ProjectMilestonesTab from '@/modules/student/components/ProjectMilestonesTab.vue';
 import ProjectSubmissionRoundsTab from '@/modules/student/components/ProjectSubmissionRoundsTab.vue';
 import ProjectRevisionsTab from '@/modules/student/components/ProjectRevisionsTab.vue';
+import PreSubmissionChecklistModal from '@/modules/student/components/PreSubmissionChecklistModal.vue';
 
 const route = useRoute();
 const toastStore = useToastStore();
@@ -274,24 +220,7 @@ const projectId = computed(() => route.params.id);
 const activeTab = ref(route.query.tab ? String(route.query.tab).toUpperCase() : 'PROPOSAL'); // 'PROPOSAL' | 'MEMBERS' | 'MILESTONES' | 'ROUNDS_SUBMISSION' | 'REVISIONS'
 
 // Lấy thông tin cuộc thi và vòng thi của đề tài
-const projectCompetition = computed(() => {
-  try {
-    const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
-    return (
-      compMeta[projectId.value] || {
-        competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-        competitionLevel: 'Cấp Trường',
-        currentRound: 1,
-      }
-    );
-  } catch {
-    return {
-      competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-      competitionLevel: 'Cấp Trường',
-      currentRound: 1,
-    };
-  }
-});
+const projectCompetition = computed(() => getProjectCompetitionMeta(projectId.value));
 
 // Dữ liệu Đề tài
 const project = ref({});
@@ -311,35 +240,6 @@ const cancellationRequestInfo = ref(null);
 // Trạng thái Modal Nộp hồ sơ chính thức
 const isSubmitting = ref(false);
 const isSubmitChecklistModalOpen = ref(false);
-
-// --- Rà soát Pre-submission Checklist (Theo chuẩn Phụ lục 1) ---
-const preSubmissionChecklist = computed(() => ({
-  basicInfo: {
-    label: '1. Phần 1. Thông tin cơ bản (Đề tài, Giảng viên hỗ trợ, Trưởng nhóm)',
-    passed: Boolean(
-      project.value.title?.trim() &&
-      project.value.category?.trim() &&
-      project.value.advisorInfo?.fullName?.trim() &&
-      project.value.leaderInfo?.fullName?.trim()
-    ),
-  },
-  objectives: {
-    label: '2. Tóm tắt ý tưởng: 1. Mục tiêu ý tưởng/dự án',
-    passed: Boolean(project.value.objectives && project.value.objectives.trim().length > 0),
-  },
-  abstract: {
-    label: '3. Tóm tắt ý tưởng: 2. Mô tả ngắn gọn sản phẩm/dịch vụ & giá trị',
-    passed: Boolean(project.value.abstract && project.value.abstract.trim().length > 0),
-  },
-  attachmentUrl: {
-    label: '4. Đường dẫn (link) tài liệu thuyết minh đầy đủ theo mẫu Phụ lục 1',
-    passed: Boolean(project.value.attachmentUrl && project.value.attachmentUrl.trim().startsWith('http')),
-  },
-}));
-
-const isAllChecklistPassed = computed(() =>
-  Object.values(preSubmissionChecklist.value).every((item) => item.passed)
-);
 
 // --- Tải Dữ liệu ---
 async function fetchProjectDetails() {
@@ -411,8 +311,6 @@ function handleOpenSubmitChecklistModal() {
 
 // Nộp bài chính thức / Nộp bài cuối cùng
 async function handleConfirmFinalSubmit() {
-  if (!isAllChecklistPassed.value) return;
-
   isSubmitting.value = true;
   try {
     const res = await projectService.submitProject(projectId.value);
@@ -438,55 +336,8 @@ async function handleConfirmFinalSubmit() {
 }
 
 // Helpers giao diện
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case 'COMPLETED':
-      return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    case 'UNDER_MENTORSHIP':
-      return 'bg-white text-[#1E56D9] border border-[#C7D7F5]';
-    case 'IN_REVIEW':
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'SUBMITTED':
-      return 'bg-white text-[#1E56D9] border border-[#C7D7F5]';
-    case 'NEED_REVISION':
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'REJECTED':
-      return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default:
-      return 'bg-white text-slate-700 border border-slate-200';
-  }
-}
-
-function getStatusLabel(status) {
-  switch (status) {
-    case 'COMPLETED':
-      return 'Đã hoàn thành';
-    case 'UNDER_MENTORSHIP':
-      return 'Đang hướng dẫn';
-    case 'IN_REVIEW':
-      return 'Đang xét duyệt';
-    case 'SUBMITTED':
-      return 'Đã nộp bài';
-    case 'NEED_REVISION':
-      return 'Cần chỉnh sửa';
-    case 'REJECTED':
-      return 'Không đạt';
-    case 'DRAFT':
-      return 'Bản nháp';
-    default:
-      return status || 'Đang xử lý';
-  }
-}
-
 function formatDate(d) {
-  if (!d) return '--';
-  return new Date(d).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTimeVi(d);
 }
 
 onMounted(() => {

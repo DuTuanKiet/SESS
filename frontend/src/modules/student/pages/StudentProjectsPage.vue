@@ -67,62 +67,13 @@
       </div>
 
       <!-- 2. KHỐI LỜI MỜI THAM GIA NHÓM ĐỀ TÀI (Chỉ hiện khi có bạn học mời) -->
-      <div
-        v-if="pendingInvitations.length > 0"
-        class="bg-[#F1F7FF] border border-[#C7D7F5] rounded-2xl p-5 sm:p-6 space-y-4"
-      >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-[#1E56D9] text-white flex items-center justify-center shrink-0">
-              <Mail class="w-4 h-4" />
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-[#0B1F4B]">Lời mời tham gia nhóm đề tài</h3>
-              <p class="text-xs text-[#4B5B7A]">Bạn nhận được {{ pendingInvitations.length }} lời mời cùng thực hiện đề tài</p>
-            </div>
-          </div>
-        </div>
+      <PendingInvitationsPanel
+        :invitations="pendingInvitations"
+        :is-responding="isRespondingInvitation"
+        @accept="handleAcceptInvitation"
+        @reject="handleRejectInvitation"
+      />
 
-        <div class="space-y-3">
-          <div
-            v-for="inv in pendingInvitations"
-            :key="inv._id"
-            class="bg-white rounded-xl p-4 border border-[#E4ECF7] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-          >
-            <div class="space-y-1 min-w-0">
-              <div class="flex items-center gap-2 text-xs text-[#4B5B7A]">
-                <span class="font-bold text-[#1E56D9]">{{ inv.projectCode }}</span>
-                <span>•</span>
-                <span>{{ inv.category || 'Chưa phân loại' }}</span>
-              </div>
-              <h4 class="text-sm font-bold text-[#0B1F4B] truncate">{{ inv.projectTitle }}</h4>
-              <p class="text-xs text-[#4B5B7A]">
-                Người mời: <strong class="text-[#0B1F4B]">{{ inv.inviterName }}</strong> ({{ inv.inviterEmail }})
-              </p>
-            </div>
-
-            <div class="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-              <button
-                type="button"
-                @click="handleRejectInvitation(inv)"
-                :disabled="isRespondingInvitation"
-                class="px-4 py-2 rounded-full text-xs font-medium text-[#4B5B7A] hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Từ chối
-              </button>
-              <button
-                type="button"
-                @click="handleAcceptInvitation(inv)"
-                :disabled="isRespondingInvitation"
-                class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-xs font-semibold bg-[#1E56D9] text-white hover:bg-[#1d4ed8] transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Check class="w-3.5 h-3.5" />
-                <span>Đồng ý tham gia</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
       <!-- 4. DANH SÁCH THẺ ĐỀ TÀI ĐANG HOẠT ĐỘNG -->
       <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="i in 3" :key="i" class="bg-white p-6 rounded-2xl border border-[#E4ECF7] animate-pulse space-y-4">
@@ -151,9 +102,9 @@
 
               <span
                 class="px-2.5 py-0.5 rounded-full text-[11px] font-medium shrink-0"
-                :class="getStatusBadgeClass(project.status)"
+                :class="getProjectStatusBadgeClass(project.status)"
               >
-                {{ getStatusLabel(project.status) }}
+                {{ getProjectStatusLabel(project.status) }}
               </span>
             </div>
 
@@ -161,11 +112,11 @@
             <div class="space-y-1.5 p-2.5 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]">
               <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#0B1F4B]">
                 <Trophy class="w-3.5 h-3.5 text-[#1E56D9] shrink-0" />
-                <span class="truncate">{{ getProjectCompetition(project._id).competitionTitle }}</span>
+                <span class="truncate">{{ getProjectCompetitionMeta(project._id).competitionTitle }}</span>
               </div>
               <div class="flex items-center justify-between text-[10px] text-[#4B5B7A] pt-1 border-t border-slate-100">
                 <span class="font-semibold text-[#1E56D9]">
-                  {{ getRoundLabel(getProjectCompetition(project._id).currentRound) }}
+                  {{ getRoundLabel(getProjectCompetitionMeta(project._id).currentRound) }}
                 </span>
                 <span class="text-emerald-700 font-medium">Cửa sổ nộp: Đang mở</span>
               </div>
@@ -270,13 +221,18 @@ import {
   Clock,
   ArrowRight,
   FolderOpen,
-  Mail,
-  Check,
   Trophy,
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import {
+  getProjectStatusLabel,
+  getProjectStatusBadgeClass,
+  getRoundLabel,
+  getProjectCompetitionMeta,
+} from '@/modules/student/utils/studentProjectHelpers';
 import CreateProjectModal from '@/modules/student/components/CreateProjectModal.vue';
+import PendingInvitationsPanel from '@/modules/student/components/PendingInvitationsPanel.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -357,43 +313,6 @@ async function handleProjectCreated(createdProject) {
   }
 }
 
-// --- Helpers giao diện: Màu sắc Badge trạng thái chuẩn ---
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case 'UNDER_MENTORSHIP':
-      return 'bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]';
-    case 'IN_REVIEW':
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'SUBMITTED':
-      return 'bg-[#F1F7FF] text-[#1E56D9] border border-[#C7D7F5]';
-    case 'NEED_REVISION':
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'REJECTED':
-      return 'bg-rose-50 text-rose-700 border border-rose-200';
-    default:
-      return 'bg-slate-100 text-slate-700 border border-slate-200';
-  }
-}
-
-function getStatusLabel(status) {
-  switch (status) {
-    case 'UNDER_MENTORSHIP':
-      return 'Đang hướng dẫn';
-    case 'IN_REVIEW':
-      return 'Đang xét duyệt';
-    case 'SUBMITTED':
-      return 'Đã nộp bài';
-    case 'NEED_REVISION':
-      return 'Cần chỉnh sửa';
-    case 'REJECTED':
-      return 'Không đạt';
-    case 'DRAFT':
-      return 'Bản nháp';
-    default:
-      return status;
-  }
-}
-
 // Lấy tiến độ % theo từng dự án
 function getProjectProgress(projectId) {
   return projectService.calculateProjectProgress(projectId);
@@ -447,39 +366,6 @@ async function handleRejectInvitation(invitation) {
     toastStore.add({ message: error.message || 'Lỗi khi từ chối lời mời', type: 'error' });
   } finally {
     isRespondingInvitation.value = false;
-  }
-}
-
-// Lấy thông tin cuộc thi và vòng thi của đề tài
-function getProjectCompetition(projectId) {
-  try {
-    const compMeta = JSON.parse(localStorage.getItem('sess_project_competitions') || '{}');
-    return (
-      compMeta[projectId] || {
-        competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-        competitionLevel: 'Cấp Trường',
-        currentRound: 1,
-      }
-    );
-  } catch {
-    return {
-      competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-      competitionLevel: 'Cấp Trường',
-      currentRound: 1,
-    };
-  }
-}
-
-function getRoundLabel(roundNumber) {
-  switch (roundNumber) {
-    case 1:
-      return 'Vòng 1: Vòng Loại (Sơ khảo)';
-    case 2:
-      return 'Vòng 2: Vòng Bán kết';
-    case 3:
-      return 'Vòng 3: Vòng Chung kết';
-    default:
-      return `Vòng ${roundNumber}`;
   }
 }
 
