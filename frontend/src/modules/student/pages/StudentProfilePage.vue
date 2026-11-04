@@ -1,6 +1,13 @@
 <template>
   <div class="font-sans bg-[#F8FAFC] min-h-[75vh]">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <p v-if="isLoadingProfile" class="mb-4 text-sm text-slate-500" role="status">
+        Đang tải hồ sơ sinh viên...
+      </p>
+      <p v-else-if="profileError" class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+        {{ profileError }}
+      </p>
+
       <!-- BỐ CỤC 2 CỘT CHÍNH: HỒ SƠ CÁ NHÂN (5/12) & THÀNH TÍCH/LỊCH SỬ ĐỀ TÀI (7/12) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         <!-- CỘT TRÁI (5/12): THẺ HỒ SƠ SINH VIÊN -->
@@ -42,15 +49,12 @@
  * Đóng vai trò coordinator kết nối Thẻ hồ sơ sinh viên, Lịch sử đề tài và các modal thao tác.
  */
 import { ref, onMounted } from 'vue';
-import { useAuthStore } from '@/stores/authStore';
 import userService from '@/services/userService';
 import projectService from '@/services/projectService';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 import RewardClaimModal from '@/modules/student/components/RewardClaimModal.vue';
 import StudentProfileInfoCard from '@/modules/student/components/StudentProfileInfoCard.vue';
 import StudentProjectHistoryList from '@/modules/student/components/StudentProjectHistoryList.vue';
-
-const authStore = useAuthStore();
 
 // --- Trạng thái Modal ---
 const isChangePasswordOpen = ref(false);
@@ -59,11 +63,11 @@ const selectedProjectForReward = ref(null);
 
 // --- Dữ liệu Hồ sơ ---
 const profileData = ref({
-  fullName: authStore.user?.fullName || 'Sinh viên CTUT',
-  studentId: authStore.user?.studentId || 'KTPM2311025',
-  className: authStore.user?.className || 'KTPM0123',
-  faculty: authStore.user?.faculty || 'Khoa Công nghệ Thông tin',
-  email: authStore.user?.email || 'student@student.ctuet.edu.vn',
+  fullName: '',
+  studentId: '',
+  className: '',
+  faculty: '',
+  email: '',
   bio: '',
   skills: [],
   phone: '',
@@ -73,6 +77,8 @@ const profileData = ref({
 // --- Dữ liệu Lịch sử Đề tài ---
 const allProjects = ref([]);
 const isLoadingProjects = ref(false);
+const isLoadingProfile = ref(true);
+const profileError = ref('');
 
 function handleProfileUpdated(updatedData) {
   profileData.value = {
@@ -105,9 +111,13 @@ onMounted(async () => {
         ...profileData.value,
         ...profileRes.data.profile,
       };
+    } else {
+      profileError.value = 'Hệ thống chưa trả về dữ liệu hồ sơ sinh viên.';
     }
-  } catch {
-    // Fallback an toàn về authStore.user
+  } catch (error) {
+    profileError.value = error.message || 'Không thể tải hồ sơ sinh viên.';
+  } finally {
+    isLoadingProfile.value = false;
   }
 
   // 2. Tải toàn bộ lịch sử đề tài của sinh viên (FR03)

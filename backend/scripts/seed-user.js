@@ -95,6 +95,7 @@ const seedUser = async () => {
       defaults.studentId ||
       undefined,
     className: whitelistEntry?.className ?? '',
+    faculty: whitelistEntry?.faculty ?? '',
     advisorEmail: whitelistEntry?.advisorEmail ?? '',
   };
 

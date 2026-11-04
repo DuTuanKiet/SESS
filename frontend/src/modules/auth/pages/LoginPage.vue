@@ -20,52 +20,12 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { loginApi } from '@/services/authService';
-import { useAuthStore } from '@/stores/authStore';
 
-const router = useRouter();
-const authStore = useAuthStore();
 const form = reactive({ email: '', password: '' });
 const loading = ref(false);
 const error = ref('');
 
-const onSubmit = async () => {
-  error.value = '';
-  loading.value = true;
-  try {
-    const res = await loginApi({
-      email: form.email,
-      password: form.password,
-      portalType: 'user',
-    });
-
-    const data = res.data?.data || res.data;
-    if (data?.user && data?.tokens) {
-      authStore.setSession({
-        user: data.user,
-        tokens: data.tokens,
-        portal: 'user',
-      });
-
-      // Chuyển hướng theo vai trò
-      const role = data.user.role || data.user.systemRole;
-      const roleToPath = {
-        student: '/student',
-        mentor: '/advisor',
-        teacher: '/advisor',
-        judge: '/judge',
-        admin: '/admin',
-      };
-      router.push(roleToPath[role] || '/');
-    } else {
-      error.value = 'Phản hồi đăng nhập không hợp lệ.';
-    }
-  } catch (e) {
-    const msg = e.response?.data?.message || e.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.';
-    error.value = msg;
-  } finally {
-    loading.value = false;
-  }
+const onSubmit = () => {
+  error.value = 'Chức năng đăng nhập chưa kết nối.';
 };
 </script>

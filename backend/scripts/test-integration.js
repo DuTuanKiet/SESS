@@ -31,6 +31,7 @@ const { connectDatabase, disconnectDatabase } = require('../src/config/database'
 const {
   USER_ROLES,
   USER_STATUS,
+  AUTH_PROVIDERS,
   PROJECT_STATUS,
   PROJECT_MEMBER_ROLES,
   PROJECT_MEMBER_STATUS,
@@ -41,6 +42,10 @@ const {
 } = require('../src/utils/constants');
 
 const User = require('../src/models/User');
+const app = require('../src/app');
+const authService = require('../src/services/authService');
+const tokenService = require('../src/services/tokenService');
+const userService = require('../src/services/userService');
 const Project = require('../src/models/Project');
 const ProjectMember = require('../src/models/ProjectMember');
 const ProjectMemberChangeRequest = require('../src/models/ProjectMemberChangeRequest');
@@ -198,6 +203,7 @@ async function seed() {
     role: USER_ROLES.STUDENT,
     fullName: 'IT Student',
     studentId: 'IT0001',
+    extra: { faculty: 'Giá trị trên tài khoản không được ghi đè whitelist' },
   });
   const student2 = await mkUser({
     email: 'it.student2@ctuet.edu.vn',
@@ -219,16 +225,141 @@ async function seed() {
     role: USER_ROLES.MENTOR,
     fullName: 'IT Mentor',
   });
+  const passwordStudent = await mkUser({
+    email: 'it.password-student@ctuet.edu.vn',
+    password: 'Current@12345',
+    role: USER_ROLES.STUDENT,
+    fullName: 'IT Password Student',
+    studentId: 'IT0004',
+  });
+  const googleStudent = await mkUser({
+    email: 'it.google-student@ctuet.edu.vn',
+    role: USER_ROLES.STUDENT,
+    fullName: 'IT Google Student',
+    studentId: 'IT0005',
+    extra: { authProvider: AUTH_PROVIDERS.GOOGLE },
+  });
   await mentorService.ensureMentorProfile(mentor);
 
   await StudentWhitelist.insertMany([
-    { email: student.email, studentId: student.studentId, fullName: student.fullName, className: 'IT-CLASS' },
+    { email: student.email, studentId: student.studentId, fullName: student.fullName, className: 'IT-CLASS', faculty: 'Khoa Công nghệ Thông tin' },
     { email: student2.email, studentId: student2.studentId, fullName: student2.fullName, className: 'IT-CLASS' },
     { email: student3.email, studentId: student3.studentId, fullName: student3.fullName, className: 'IT-CLASS' },
   ]);
 
-  fixtures = { admin, judge, judge2, student, student2, student3, mentor };
+  fixtures = { admin, judge, judge2, student, student2, student3, mentor, passwordStudent, googleStudent };
   return fixtures;
+}
+
+async function testStudentProfileAndPassword() {
+  group('Phase 1 - Hồ sơ sinh viên và đổi mật khẩu');
+
+  await test('faculty được đồng bộ từ StudentWhitelist và không lấy từ User', async () => {
+    const { profile } = await userService.getMyProfileDetail(fixtures.student);
+    assertEqual(profile.faculty, 'Khoa Công nghệ Thông tin', 'Faculty lấy từ whitelist');
+  });
+
+  await test('faculty thiếu trong whitelist được trả về chuỗi trống', async () => {
+    const { profile } = await userService.getMyProfileDetail(fixtures.student2);
+    assertEqual(profile.faculty, '', 'Faculty thiếu phải rỗng');
+  });
+
+  await test('sinh viên không thể sửa faculty qua API cập nhật hồ sơ', async () => {
+    await assertThrows(
+      () => userService.updateMyProfileDetail(fixtures.student, { faculty: 'Khoa giả' }),
+      'SCHOOL_MANAGED_FIELD',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu hiện tại sai', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Wrong@12345',
+        newPassword: 'Changed@12345',
+      }),
+      'CURRENT_PASSWORD_INVALID',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu mới dưới 8 ký tự', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Short1!',
+      }),
+      'PASSWORD_TOO_SHORT',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu mới trùng mật khẩu hiện tại', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Current@12345',
+      }),
+      'PASSWORD_SAME_AS_OLD',
+    );
+  });
+
+  await test('tài khoản Google chưa có mật khẩu cục bộ nhận lỗi rõ ràng', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.googleStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Changed@12345',
+      }),
+      'LOCAL_PASSWORD_NOT_SET',
+    );
+  });
+
+  await test('API đổi mật khẩu kiểm tra payload, xác thực và giữ phiên hiện tại', async () => {
+    const sessionTokens = await tokenService.issueTokens(fixtures.passwordStudent, {});
+    const server = app.listen(0, '127.0.0.1');
+
+    try {
+      await new Promise((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+      });
+
+      const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/auth/change-password`;
+      const sendRequest = async (body) => {
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${sessionTokens.accessToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, body: await response.json() };
+      };
+
+      const invalidLength = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Short1!' });
+      assertEqual(invalidLength.status, 400, 'API phải từ chối mật khẩu dưới 8 ký tự');
+      assertEqual(invalidLength.body.code, 'VALIDATION_ERROR', 'Mã lỗi payload không hợp lệ');
+
+      const invalidCurrent = await sendRequest({ currentPassword: 'Wrong@12345', newPassword: 'Changed@12345' });
+      assertEqual(invalidCurrent.status, 401, 'API phải từ chối mật khẩu hiện tại sai');
+      assertEqual(invalidCurrent.body.code, 'CURRENT_PASSWORD_INVALID', 'Mã lỗi mật khẩu hiện tại');
+
+      const samePassword = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Current@12345' });
+      assertEqual(samePassword.status, 400, 'API phải từ chối mật khẩu mới trùng mật khẩu cũ');
+      assertEqual(samePassword.body.code, 'PASSWORD_SAME_AS_OLD', 'Mã lỗi mật khẩu trùng');
+
+      const changed = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Changed@12345' });
+      assertEqual(changed.status, 200, 'API đổi mật khẩu thành công');
+      assertEqual(changed.body.data.changed, true, 'Kết quả đổi mật khẩu');
+
+      const updatedUser = await User.findById(fixtures.passwordStudent._id).select('+password');
+      assert(await updatedUser.comparePassword('Changed@12345'), 'Mật khẩu mới phải được hash và lưu');
+      const accessClaims = tokenService.verifyAccessToken(sessionTokens.accessToken);
+      assertEqual(accessClaims.sub, String(fixtures.passwordStudent._id), 'Access token hiện tại còn hiệu lực');
+      const rotated = await tokenService.rotateTokens(sessionTokens.refreshToken, {});
+      assert(rotated.tokens.accessToken, 'Refresh token phiên cũ vẫn dùng được sau khi đổi mật khẩu');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -920,6 +1051,7 @@ const main = async () => {
 
   await detectTransactionSupport();
 
+  await testStudentProfileAndPassword();
   await testStep1();
   await testStep2();
   await testStep3();

@@ -32,6 +32,7 @@ const userProfileSchema = new mongoose.Schema(
     fullName: { type: String, trim: true, default: '' },
     studentId: { type: String, trim: true, default: '' },
     className: { type: String, trim: true, default: '' },
+    faculty: { type: String, trim: true, default: '' },
     advisorEmail: { type: String, lowercase: true, trim: true, default: '' },
 
     bio: { type: String, trim: true, default: '', maxlength: 1000 },

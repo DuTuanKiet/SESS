@@ -56,6 +56,7 @@ const userSchema = new mongoose.Schema(
     studentId: { type: String, trim: true, unique: true, sparse: true },
     /** Lớp sinh hoạt - lấy từ danh sách sinh viên của trường (StudentWhitelist) */
     className: { type: String, trim: true, default: '' },
+    faculty: { type: String, trim: true, default: '' },
     /** Email Giảng viên cố vấn học tập (CVHT) của lớp */
     advisorEmail: { type: String, lowercase: true, trim: true, default: '' },
 

@@ -45,6 +45,9 @@ function handleClose() {
         <p class="mt-1 text-xs text-slate-500">
           Chính sách bảo mật trường Đại học Kỹ thuật – Công nghệ Cần Thơ
         </p>
+        <p class="mt-2 text-xs font-semibold text-amber-700" role="status">
+          Chức năng đăng nhập chưa kết nối.
+        </p>
       </div>
 
       <!-- Nội dung hướng dẫn chi tiết -->

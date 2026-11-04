@@ -37,4 +37,13 @@ const logout = async (req, res) => {
   });
 };
 
-module.exports = { verifyOtp, login, loginWithGoogle, refreshToken, logout };
+const handleChangePassword = async (req, res) => {
+  const data = await authService.changePassword(req.user, req.body);
+  res.status(200).json({
+    success: true,
+    message: 'Đổi mật khẩu thành công.',
+    data,
+  });
+};
+
+module.exports = { verifyOtp, login, loginWithGoogle, refreshToken, logout, handleChangePassword };

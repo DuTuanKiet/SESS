@@ -90,7 +90,7 @@
               <input
                 :type="showNewPassword ? 'text' : 'password'"
                 v-model="form.newPassword"
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Tối thiểu 8 ký tự, đủ độ phức tạp"
                 class="w-full px-3.5 py-2.5 pr-10 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1E56D9]/20 focus:border-[#1E56D9] transition-all"
                 :disabled="isLoading"
                 autocomplete="new-password"
@@ -105,7 +105,7 @@
               </button>
             </div>
             <p class="text-[10px] text-slate-400 mt-1">
-              Khuyến khích dùng chữ hoa, chữ thường và chữ số để an toàn hơn.
+              Cần có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
             </p>
           </div>
 
@@ -229,8 +229,12 @@ async function handleSubmit() {
     errorMessage.value = 'Vui lòng nhập mật khẩu mới.';
     return;
   }
-  if (form.newPassword.length < 6) {
-    errorMessage.value = 'Mật khẩu mới phải có ít nhất 6 ký tự.';
+  if (form.newPassword.length < 8) {
+    errorMessage.value = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
+    return;
+  }
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(form.newPassword)) {
+    errorMessage.value = 'Mật khẩu cần có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.';
     return;
   }
   if (form.currentPassword === form.newPassword) {

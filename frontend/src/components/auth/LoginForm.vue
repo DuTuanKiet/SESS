@@ -3,7 +3,8 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toast';
-import { loginApi, verifyOtpApi, googleLoginApi } from '@/services/authService';
+import { googleLoginApi, loginApi, resendOtpApi, verifyOtpApi } from '@/services/authService';
+import { useRecaptcha } from '@/composables/useRecaptcha';
 import GoogleAuthButton from './GoogleAuthButton.vue';
 import OtpModal from './OtpModal.vue';
 import ForgotPasswordModal from './ForgotPasswordModal.vue';
@@ -15,9 +16,10 @@ const props = defineProps({
   },
 });
 
-const router = useRouter();
 const authStore = useAuthStore();
 const toastStore = useToastStore();
+const router = useRouter();
+const { executeRecaptcha } = useRecaptcha();
 
 // Form State
 const email = ref('');
@@ -38,6 +40,7 @@ const isOtpModalOpen = ref(false);
 const otpEmail = ref('');
 const isOtpLoading = ref(false);
 const otpErrorMessage = ref('');
+const otpInfoMessage = ref('');
 const isForgotPasswordOpen = ref(false);
 
 // Khởi tạo Email ghi nhớ nếu có
@@ -87,189 +90,140 @@ function handleBlurPassword() {
   }
 }
 
-// Xử lý sự kiện đăng nhập form
+function getDashboardPath(user) {
+  const role = user?.role || user?.systemRole;
+  const rolePaths = {
+    student: '/student',
+    mentor: '/advisor',
+    teacher: '/advisor',
+    judge: '/judge',
+    admin: '/admin',
+  };
+  return rolePaths[role] || '/';
+}
+
+async function handleLoginSuccess(response) {
+  const session = response?.data;
+  if (!session?.user || !session?.tokens?.accessToken || !session?.tokens?.refreshToken) {
+    throw new Error('Hệ thống không trả về phiên đăng nhập hợp lệ.');
+  }
+
+  authStore.setSession({
+    user: session.user,
+    tokens: session.tokens,
+    portal: props.portalType,
+  });
+  toastStore.add({
+    message: response.message || 'Đăng nhập thành công.',
+    type: 'success',
+    duration: 4000,
+  });
+  await router.replace(getDashboardPath(session.user));
+}
+
 async function handleSubmitLogin() {
   errorMessage.value = '';
-
-  // Kiểm tra để trống
   fieldErrors.value.email = validateEmail(email.value);
   fieldErrors.value.password = !password.value.trim() ? 'Vui lòng nhập mật khẩu.' : '';
 
-  if (fieldErrors.value.email || fieldErrors.value.password) {
-    return;
+  if (fieldErrors.value.email || fieldErrors.value.password) return;
+
+  if (isRememberMe.value) {
+    authStore.saveRememberedEmail(email.value);
+  } else {
+    authStore.clearRememberedEmail();
   }
 
   isLoading.value = true;
-
   try {
-    const res = await loginApi({
+    const recaptchaToken = await executeRecaptcha('login');
+    const response = await loginApi({
       email: email.value,
       password: password.value,
       portalType: props.portalType,
+      recaptchaToken,
     });
-
-    // Quản lý Ghi nhớ đăng nhập an toàn
-    if (isRememberMe.value) {
-      authStore.saveRememberedEmail(email.value);
-    } else {
-      authStore.clearRememberedEmail();
-    }
-
-    // Lưu phiên vào RAM chuẩn OWASP
-    authStore.setSession({
-      user: res.data.user,
-      tokens: res.data.tokens,
-      portal: props.portalType,
-    });
-
-    toastStore.add({
-      message: res.data.message || 'Đăng nhập thành công.',
-      type: 'success',
-      duration: 4000,
-    });
-
-    // Điều hướng vào Trang chủ hệ thống tương ứng theo vai trò
-    const role = res.data.user?.role || res.data.user?.systemRole;
-    const roleToPath = {
-      student: '/student',
-      mentor: '/advisor',
-      teacher: '/advisor',
-      judge: '/judge',
-      admin: '/admin',
-    };
-    if (props.portalType === 'admin') {
-      router.push('/admin');
-    } else {
-      router.push(roleToPath[role] || '/');
-    }
+    await handleLoginSuccess(response);
   } catch (error) {
-    // Nếu tài khoản cần xác thực OTP email
     if (error.code === 'EMAIL_NOT_VERIFIED') {
-      otpEmail.value = email.value.trim();
+      otpEmail.value = email.value.trim().toLowerCase();
+      otpInfoMessage.value = error.message;
       otpErrorMessage.value = '';
       isOtpModalOpen.value = true;
-      toastStore.add({
-        message: error.message || 'Mã xác thực OTP đã được gửi đến email của bạn, vui lòng kiểm tra hộp thư!',
-        type: 'info',
-        duration: 6000,
-      });
-    } else {
-      errorMessage.value = error.message || 'Email hoặc mật khẩu không chính xác.';
-      toastStore.add({
-        message: errorMessage.value,
-        type: 'error',
-        duration: 6000,
-      });
+      return;
     }
+    errorMessage.value = error.message || 'Đăng nhập không thành công. Vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }
 }
 
- // Xác thực mã OTP 6 số
-async function handleVerifyOtp(otpCode) {
-  isOtpLoading.value = true;
+async function handleVerifyOtp(otp) {
   otpErrorMessage.value = '';
-
+  isOtpLoading.value = true;
   try {
-    const res = await verifyOtpApi({ email: otpEmail.value, otp: otpCode });
+    const response = await verifyOtpApi({
+      email: otpEmail.value,
+      otp,
+      portalType: props.portalType,
+    });
+    await handleLoginSuccess(response);
     isOtpModalOpen.value = false;
-
-    authStore.setSession({
-      user: res.data.user,
-      tokens: res.data.tokens,
-      portal: props.portalType,
-    });
-
-    toastStore.add({
-      message: res.data.message || 'Xác thực OTP thành công.',
-      type: 'success',
-      duration: 4000,
-    });
-
-    // Điều hướng theo vai trò sau khi xác thực OTP thành công
-    const role = res.data.user?.role || res.data.user?.systemRole;
-    const roleToPath = {
-      student: '/student',
-      mentor: '/advisor',
-      teacher: '/advisor',
-      judge: '/judge',
-      admin: '/admin',
-    };
-    router.push(roleToPath[role] || '/');
   } catch (error) {
-    otpErrorMessage.value = error.message || 'Mã xác thực không hợp lệ.';
-    toastStore.add({
-      message: otpErrorMessage.value,
-      type: 'error',
-      duration: 6000,
-    });
+    otpErrorMessage.value = error.message || 'Không thể xác thực mã OTP.';
   } finally {
     isOtpLoading.value = false;
   }
 }
 
-// Gửi lại mã OTP (kích hoạt lại API đăng nhập để backend gửi mã OTP mới)
 async function handleResendOtp() {
-  isOtpLoading.value = true;
   otpErrorMessage.value = '';
-
+  otpInfoMessage.value = '';
+  isOtpLoading.value = true;
   try {
-    // Gọi lại đăng nhập để backend gửi lại mã OTP (tương tự bước đầu)
-    await loginApi({
+    const recaptchaToken = await executeRecaptcha('login');
+    const response = await resendOtpApi({
       email: otpEmail.value,
       password: password.value,
       portalType: props.portalType,
+      recaptchaToken,
     });
-  } catch (error) {
-    // Backend sẽ ném EMAIL_NOT_VERIFIED và gửi lại OTP qua Gmail
-    if (error.code !== 'EMAIL_NOT_VERIFIED') {
-      otpErrorMessage.value = error.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại sau.';
-      toastStore.add({
-        message: otpErrorMessage.value,
-        type: 'error',
-        duration: 6000,
-      });
+    if (response?.data?.tokens?.accessToken) {
+      await handleLoginSuccess(response);
+      isOtpModalOpen.value = false;
+      return;
     }
-    // Nếu là EMAIL_NOT_VERIFIED -> backend đã gửi lại OTP, modal vẫn giữ mở
+    otpInfoMessage.value = response.message || 'Mã xác thực mới đã được gửi tới email của bạn.';
+  } catch (error) {
+    otpErrorMessage.value = error.message || 'Không thể gửi lại mã OTP.';
   } finally {
     isOtpLoading.value = false;
   }
 }
 
- // Đăng nhập qua Google (Dành cho cổng người dùng)
-async function handleGoogleLoginClick() {
+async function handleGoogleCredential(idToken) {
   errorMessage.value = '';
   isLoading.value = true;
-
   try {
-    const res = await googleLoginApi({ idToken: 'mock_google_id_token' });
-    authStore.setSession({
-      user: res.data.user,
-      tokens: res.data.tokens,
-      portal: 'user',
+    const recaptchaToken = await executeRecaptcha('login');
+    const response = await googleLoginApi({
+      idToken,
+      portalType: props.portalType,
+      recaptchaToken,
     });
-
-    toastStore.add({
-      message: res.data.message || 'Đăng nhập Google thành công.',
-      type: 'success',
-      duration: 4000,
-    });
-    router.push('/');
+    await handleLoginSuccess(response);
   } catch (error) {
-    errorMessage.value = 'Đăng nhập Google không thành công. Vui lòng thử lại sau.';
-    toastStore.add({
-      message: errorMessage.value,
-      type: 'error',
-      duration: 6000,
-    });
+    errorMessage.value = error.message || 'Đăng nhập Google không thành công.';
   } finally {
     isLoading.value = false;
   }
 }
 
+function handleGoogleError(error) {
+  errorMessage.value = error?.message || 'Không thể khởi tạo đăng nhập Google.';
+}
+
 function handleForgotPasswordClick() {
-  errorMessage.value = '';
   isForgotPasswordOpen.value = true;
 }
 </script>
@@ -417,7 +371,8 @@ function handleForgotPasswordClick() {
       </div>
       <GoogleAuthButton
         :is-loading="isLoading"
-        @click="handleGoogleLoginClick"
+        @credential="handleGoogleCredential"
+        @error="handleGoogleError"
       />
 
       <p class="mt-2.5 text-center text-[10.5px] text-slate-400 leading-relaxed">
@@ -430,6 +385,7 @@ function handleForgotPasswordClick() {
       :is-open="isOtpModalOpen"
       :email="otpEmail"
       :is-loading="isOtpLoading"
+      :info-message="otpInfoMessage"
       :error-message="otpErrorMessage"
       @close="isOtpModalOpen = false"
       @verify="handleVerifyOtp"

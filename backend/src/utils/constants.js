@@ -294,10 +294,10 @@ const PROJECT_LOCKED_MESSAGE =
  * - Bản ghi trong danh sách sinh viên của trường (scripts/seed-whitelist.js)
  * Production: đổi qua biến môi trường STUDENT_EMAIL.
  */
-const GLOBAL_TEST_EMAIL = 'dtkietktpm2311025@student.ctuet.edu.vn';
+const GLOBAL_TEST_EMAIL = 'hlmquynhktpm2311024@student.ctuet.edu.vn';
 
 /** MSSV tương ứng với GLOBAL_TEST_EMAIL */
-const GLOBAL_TEST_STUDENT_ID = 'KTPM2311025';
+const GLOBAL_TEST_STUDENT_ID = 'KTPM2311024';
 
 module.exports = {
   // Vai trò & trạng thái người dùng

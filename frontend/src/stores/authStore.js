@@ -7,6 +7,15 @@ const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'sess_user';
 const PORTAL_KEY = 'sess_portal';
 
+const persistedAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+const persistedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+if (persistedAccessToken?.startsWith('mock_') || persistedRefreshToken?.startsWith('mock_')) {
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(PORTAL_KEY);
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // State: lưu trong RAM + localStorage persistence
   const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'));

@@ -258,8 +258,8 @@ const editForm = ref({
 });
 
 const userInitial = computed(() => {
-  const name = props.profileData?.fullName || 'S';
-  return name.trim().charAt(0).toUpperCase();
+  const name = props.profileData?.fullName || '';
+  return name.trim().charAt(0).toUpperCase() || '?';
 });
 
 const skillsDisplayText = computed(() => {
