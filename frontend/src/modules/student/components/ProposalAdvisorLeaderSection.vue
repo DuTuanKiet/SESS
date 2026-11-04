@@ -13,19 +13,22 @@
     <div class="bg-white p-4 sm:p-4.5 rounded-xl border border-[#E4ECF7] space-y-3">
       <div class="flex items-center gap-2">
         <span class="text-xs font-bold text-[#0B1F4B]">1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN</span>
-        <span v-if="isEditing" class="text-rose-500 text-xs font-bold">*</span>
       </div>
 
       <!-- Chế độ sửa -->
       <div v-if="isEditing" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <label class="sm:col-span-2 inline-flex items-center gap-2 font-semibold text-[#0B1F4B]">
+          <input v-model="advisorInfo.hasAdvisor" type="checkbox" class="accent-[#1E56D9]" />
+          Có giảng viên hỗ trợ / hướng dẫn
+        </label>
+        <template v-if="advisorInfo.hasAdvisor">
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.1. Họ và tên giảng viên <span class="text-rose-500">*</span>
+            1.1. Họ và tên giảng viên
           </label>
           <input
             v-model="advisorInfo.fullName"
             type="text"
-            required
             placeholder="TS. Nguyễn Văn Hướng"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -33,12 +36,11 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.2. Đơn vị công tác <span class="text-rose-500">*</span>
+            1.2. Đơn vị công tác
           </label>
           <input
-            v-model="advisorInfo.unit"
+            v-model="advisorInfo.department"
             type="text"
-            required
             placeholder="Khoa Công nghệ Thông tin - CTUT"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -46,12 +48,11 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.3. Điện thoại liên hệ <span class="text-rose-500">*</span>
+            1.3. Điện thoại liên hệ
           </label>
           <input
             v-model="advisorInfo.phone"
             type="tel"
-            required
             placeholder="0912345678"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -59,27 +60,40 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.4. Email trường <span class="text-rose-500">*</span>
+            1.4. Email trường
           </label>
           <input
             v-model="advisorInfo.email"
             type="email"
-            required
             placeholder="giangvien@ctuet.edu.vn"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
         </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Học hàm / học vị</label>
+          <input
+            v-model="advisorInfo.academicRank"
+            type="text"
+            maxlength="100"
+            placeholder="ThS., TS., ..."
+            class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+          />
+        </div>
+        </template>
+        <p v-else class="sm:col-span-2 text-[11px] text-[#4B5B7A] italic">
+          Chưa đăng ký giảng viên hỗ trợ hoặc hướng dẫn.
+        </p>
       </div>
 
       <!-- Chế độ xem -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.1. Họ và tên:</span>
-          <span class="font-bold text-[#0B1F4B]">{{ advisorInfo?.fullName || 'Chưa cập nhật' }}</span>
+          <span class="font-bold text-[#0B1F4B]">{{ advisorInfo?.hasAdvisor ? (advisorInfo?.fullName || 'Chưa cập nhật') : 'Chưa đăng ký' }}</span>
         </div>
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.2. Đơn vị:</span>
-          <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo?.unit || 'Chưa cập nhật' }}</span>
+          <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo?.department || advisorInfo?.unit || 'Chưa cập nhật' }}</span>
         </div>
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.3. Điện thoại:</span>
@@ -88,6 +102,10 @@
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.4. Email:</span>
           <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo?.email || 'Chưa cập nhật' }}</span>
+        </div>
+        <div v-if="advisorInfo?.academicRank" class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
+          <span class="text-[#4B5B7A] text-[11px] block">Học hàm / học vị:</span>
+          <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo.academicRank }}</span>
         </div>
       </div>
     </div>
@@ -107,36 +125,36 @@
         <div v-if="isEditing" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Họ và tên <span class="text-rose-500">*</span>
+              Họ và tên
             </label>
             <input
               v-model="leaderInfo.fullName"
               type="text"
-              required
+              :readonly="!leaderEditable"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
           </div>
 
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              MSSV <span class="text-rose-500">*</span>
+              MSSV
             </label>
             <input
               v-model="leaderInfo.studentId"
               type="text"
-              required
+              :readonly="!leaderEditable"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
           </div>
 
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Lớp <span class="text-rose-500">*</span>
+              Lớp
             </label>
             <input
               v-model="leaderInfo.className"
               type="text"
-              required
+              :readonly="!leaderEditable"
               placeholder="KTPM0123"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
@@ -144,25 +162,25 @@
 
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Khóa <span class="text-rose-500">*</span>
+              Khoa
             </label>
             <input
-              v-model="leaderInfo.courseYear"
+              v-model="leaderInfo.faculty"
               type="text"
-              required
-              placeholder="Khóa 11"
+              :readonly="!leaderEditable"
+              placeholder="Theo hồ sơ sinh viên"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
           </div>
 
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Số điện thoại <span class="text-rose-500">*</span>
+              Số điện thoại
             </label>
             <input
               v-model="leaderInfo.phone"
               type="tel"
-              required
+              :readonly="!leaderEditable"
               placeholder="0901234567"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
@@ -170,12 +188,12 @@
 
           <div>
             <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-              Email <span class="text-rose-500">*</span>
+              Email
             </label>
             <input
               v-model="leaderInfo.email"
               type="email"
-              required
+              :readonly="!leaderEditable"
               class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             />
           </div>
@@ -185,27 +203,27 @@
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-[#F8FBFF] p-3 rounded-xl border border-[#E4ECF7]">
           <div>
             <span class="text-[#4B5B7A] text-[11px] block">Họ và tên:</span>
-            <span class="font-bold text-[#0B1F4B]">{{ leaderInfo?.fullName || 'Đặng Tấn Kiệt' }}</span>
+            <span class="font-bold text-[#0B1F4B]">{{ leaderInfo?.fullName || 'Chưa cập nhật' }}</span>
           </div>
           <div>
             <span class="text-[#4B5B7A] text-[11px] block">MSSV:</span>
-            <span class="font-bold text-[#0B1F4B]">{{ leaderInfo?.studentId || 'KTPM2311025' }}</span>
+            <span class="font-bold text-[#0B1F4B]">{{ leaderInfo?.studentId || 'Chưa cập nhật' }}</span>
           </div>
           <div>
             <span class="text-[#4B5B7A] text-[11px] block">Lớp:</span>
-            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.className || 'KTPM0123' }}</span>
+            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.className || 'Chưa cập nhật' }}</span>
           </div>
           <div>
-            <span class="text-[#4B5B7A] text-[11px] block">Khóa:</span>
-            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.courseYear || 'Khóa 11' }}</span>
+            <span class="text-[#4B5B7A] text-[11px] block">Khoa:</span>
+            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.faculty || 'Chưa cập nhật' }}</span>
           </div>
           <div>
             <span class="text-[#4B5B7A] text-[11px] block">Số điện thoại:</span>
-            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.phone || '0901234567' }}</span>
+            <span class="font-semibold text-[#0B1F4B]">{{ leaderInfo?.phone || 'Chưa cập nhật' }}</span>
           </div>
           <div>
             <span class="text-[#4B5B7A] text-[11px] block">Email:</span>
-            <span class="font-semibold text-[#0B1F4B] truncate block">{{ leaderInfo?.email || 'dtkietktpm2311025@student.ctuet.edu.vn' }}</span>
+            <span class="font-semibold text-[#0B1F4B] truncate block">{{ leaderInfo?.email || 'Chưa cập nhật' }}</span>
           </div>
         </div>
       </div>
@@ -237,6 +255,10 @@ defineProps({
   isEditing: {
     type: Boolean,
     default: false,
+  },
+  leaderEditable: {
+    type: Boolean,
+    default: true,
   },
   showAutoFillHint: {
     type: Boolean,

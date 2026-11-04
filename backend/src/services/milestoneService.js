@@ -259,6 +259,17 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
   await projectService.verifyProjectOwner(studentId, projectId);
 
   const currentStatus = resolveMilestoneStatus(milestone);
+  const submittedAt = new Date();
+  const previousEvidence = milestone.evidence?.submittedAt
+    ? {
+      submittedBy: milestone.evidence.submittedBy,
+      url: milestone.evidence.url,
+      note: milestone.evidence.note,
+      submittedAt: milestone.evidence.submittedAt,
+      isLate: milestone.evidence.isLate,
+    }
+    : null;
+
   if (currentStatus === MILESTONE_STATUS.PENDING) {
     throw createError(
       'Milestone chưa bắt đầu, không thể nộp minh chứng.',
@@ -275,15 +286,14 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
     );
   }
 
-  if (milestone.evidence && milestone.evidence.submittedAt) {
+  if (previousEvidence && submittedAt > new Date(milestone.dueDate)) {
     throw createError(
-      'Minh chứng cho milestone này đã được nộp.',
-      409,
-      'EVIDENCE_ALREADY_SUBMITTED'
+      'Minh chứng chỉ được cập nhật trước hạn nộp.',
+      400,
+      'EVIDENCE_UPDATE_DEADLINE_EXCEEDED'
     );
   }
 
-  const submittedAt = new Date();
   const isLate = submittedAt > new Date(milestone.dueDate);
 
   milestone.status = MILESTONE_STATUS.COMPLETED;
@@ -305,7 +315,7 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
     targetId: milestone._id.toString(),
     oldValues: {
       status: currentStatus,
-      evidence: null,
+      evidence: previousEvidence,
     },
     newValues: {
       projectId,

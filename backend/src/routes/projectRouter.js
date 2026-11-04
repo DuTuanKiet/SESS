@@ -3,7 +3,15 @@ const projectController = require('../controllers/projectController');
 const projectMemberController = require('../controllers/projectMemberController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
+const validate = require('../middlewares/validateMiddleware');
 const { USER_ROLES } = require('../utils/constants');
+const {
+  projectParamsSchema,
+  listProjectsQuerySchema,
+  createProjectBodySchema,
+  updateProjectBodySchema,
+  requestLeaveBodySchema,
+} = require('../validations/projectValidation');
 
 const router = express.Router();
 
@@ -11,16 +19,33 @@ const router = express.Router();
 router.use(authenticate);
 
 // FR03 - Quản lý dự án & lịch sử phiên bản
-router.get('/', projectController.getProjects);
-router.post('/', projectController.createProject);
-router.get('/:id', projectController.getProject);
-router.put('/:id', projectController.updateProject);
-router.post('/:id/submit', projectController.submitProject);
-router.get('/:id/revisions', projectController.getProjectRevisions);
-
-// FR04 - Quản lý thành viên dự án (khai báo route tĩnh trước route /:id để tránh xung đột)
+router.get('/', validate({ query: listProjectsQuerySchema }), projectController.getProjects);
+router.post('/', validate({ body: createProjectBodySchema }), projectController.createProject);
+router.get('/invitations', projectMemberController.getMyInvitations);
 router.post('/invitations/:invitationId/respond', projectMemberController.respondInvitation);
+router.get('/:id', validate({ params: projectParamsSchema }), projectController.getProject);
+router.put(
+  '/:id',
+  validate({ params: projectParamsSchema, body: updateProjectBodySchema }),
+  projectController.updateProject,
+);
+router.post('/:id/submit', validate({ params: projectParamsSchema }), projectController.submitProject);
+router.get('/:id/revisions', validate({ params: projectParamsSchema }), projectController.getProjectRevisions);
+
+// FR04 - Quản lý thành viên dự án
+router.get('/:id/members', validate({ params: projectParamsSchema }), projectMemberController.getProjectMembers);
 router.post('/:id/members/invite', projectMemberController.inviteMember);
+router.delete('/:id/members/invitations/:identifier', projectMemberController.cancelInvitation);
+router.post(
+  '/:id/members/leave-request',
+  validate({ params: projectParamsSchema, body: requestLeaveBodySchema }),
+  projectMemberController.requestLeaveProject,
+);
+router.delete(
+  '/:id/members/leave-request',
+  validate({ params: projectParamsSchema }),
+  projectMemberController.cancelLeaveRequest,
+);
 router.delete('/:id/members/:userId', projectMemberController.removeMember);
 router.post('/:id/members/transfer-ownership', projectMemberController.transferOwnership);
 router.post('/:id/members/leave', projectMemberController.leaveProject);

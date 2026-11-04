@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: { type: String, default: null },
 
+    /** Version được tăng trong transaction để tuần tự hóa việc kiểm tra quota project. */
+    activeProjectQuotaVersion: { type: Number, default: 0, select: false },
+
     // --- Mật khẩu ---
     // `password` là trường chính của FR01-FR04 (hash bằng bcrypt ở pre('save'))
     password: {

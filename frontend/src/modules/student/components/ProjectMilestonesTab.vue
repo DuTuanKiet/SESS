@@ -28,7 +28,7 @@
             {{ project.advisorInfo?.fullName || 'Chưa phân công' }}
           </h4>
           <p class="text-xs text-[#4B5B7A] truncate">
-            {{ project.advisorInfo?.unit || project.faculty || 'Đang chờ phân công' }}
+            {{ project.advisorInfo?.department || project.advisorInfo?.unit || project.faculty || 'Đang chờ phân công' }}
           </p>
         </div>
       </div>

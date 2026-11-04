@@ -2,7 +2,11 @@ const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const ProjectRevision = require('../models/ProjectRevision');
 const ProjectMember = require('../models/ProjectMember');
+const ProjectMilestone = require('../models/ProjectMilestone');
+const ProjectCancellationRequest = require('../models/ProjectCancellationRequest');
+const ProjectMemberChangeRequest = require('../models/ProjectMemberChangeRequest');
 const User = require('../models/User');
+const whitelistService = require('./whitelistService');
 const MentorAssignment = require('../models/MentorAssignment');
 const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
@@ -19,6 +23,11 @@ const {
   PROJECT_CODE_PREFIX,
   PROJECT_MEMBER_ROLES,
   PROJECT_MEMBER_STATUS,
+  FINISHED_PROJECT_STATUSES,
+  MAX_ACTIVE_PROJECTS,
+  PROJECT_CANCELLATION_STATUS,
+  MEMBER_CHANGE_REQUEST_STATUS,
+  MEMBER_CHANGE_REQUEST_TYPE,
   MENTORSHIP_ELIGIBLE_STATUSES,
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
@@ -32,6 +41,19 @@ const {
   assertEnum,
 } = require('../utils/validation');
 const projectStateMachine = require('../utils/projectStateMachine');
+
+const runTransaction = async (callback) => {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      result = await callback(session);
+    });
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
 
 /**
  * MongoDB standalone (bản cài local/dev) KHÔNG hỗ trợ transaction:
@@ -364,18 +386,26 @@ async function verifyProjectAccess(userId, projectId, userRole) {
 
 
 /** Trường cốt lõi bắt buộc phải có trước khi nộp dự án (fail fast) */
-const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract', 'solution'];
+const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract'];
 
 /** Các trường được ghi vào snapshot khi nộp dự án */
 const SNAPSHOT_FIELDS = [
   'title',
   'code',
   'category',
+  'faculty',
+  'objectives',
   'abstract',
   'problemStatement',
   'solution',
   'businessModel',
   'attachmentUrl',
+  'advisorInfo',
+  'leaderInfo',
+  'competitionId',
+  'competitionTitle',
+  'currentRound',
+  'submissionRounds',
   'milestones',
 ];
 
@@ -398,14 +428,57 @@ const assertMilestones = (value) => {
   }));
 };
 
+const assertAdvisorInfo = (value) => {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw ApiError.badRequest('"advisorInfo" phải là đối tượng', 'INVALID_FIELD');
+  }
+
+  return {
+    hasAdvisor: value.hasAdvisor === true,
+    fullName: assertOptionalString(value.fullName, 'advisorInfo.fullName', 200) ?? '',
+    email: assertOptionalString(value.email, 'advisorInfo.email', 254)?.toLowerCase() ?? '',
+    phone: assertOptionalString(value.phone, 'advisorInfo.phone', 30) ?? '',
+    department: assertOptionalString(value.department ?? value.unit, 'advisorInfo.department', 200) ?? '',
+    academicRank: assertOptionalString(value.academicRank, 'advisorInfo.academicRank', 100) ?? '',
+  };
+};
+
+const assertSubmissionRounds = (value) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 20) {
+    throw ApiError.badRequest('"submissionRounds" phải là mảng tối đa 20 phần tử', 'INVALID_FIELD');
+  }
+
+  return value.map((round) => ({
+    roundNumber: Number.isInteger(Number(round?.roundNumber)) ? Number(round.roundNumber) : undefined,
+    title: assertOptionalString(round?.title, 'submissionRounds[].title', 200) ?? '',
+    status: assertOptionalString(round?.status, 'submissionRounds[].status', 50) ?? '',
+    submittedAt: round?.submittedAt ? new Date(round.submittedAt) : null,
+    feedback: assertOptionalString(round?.feedback, 'submissionRounds[].feedback', 4000) ?? '',
+  }));
+};
+
 const FIELD_VALIDATORS = {
   title: (value) => assertRequired(value, 'title'),
   category: (value) => assertOptionalString(value, 'category', 120) ?? '',
+  objectives: (value) => assertOptionalString(value, 'objectives', 2000) ?? '',
   abstract: (value) => assertOptionalString(value, 'abstract', 2000) ?? '',
   problemStatement: (value) => assertOptionalString(value, 'problemStatement', 4000) ?? '',
   solution: (value) => assertOptionalString(value, 'solution', 4000) ?? '',
   businessModel: (value) => assertOptionalString(value, 'businessModel', 2000) ?? '',
   attachmentUrl: (value) => assertOptionalUrl(value, 'attachmentUrl'),
+  advisorInfo: assertAdvisorInfo,
+  competitionId: (value) => assertOptionalString(String(value), 'competitionId', 100) ?? '',
+  competitionTitle: (value) => assertOptionalString(value, 'competitionTitle', 200) ?? '',
+  currentRound: (value) => {
+    const round = Number(value);
+    if (!Number.isInteger(round) || round < 1) {
+      throw ApiError.badRequest('"currentRound" phải là số nguyên lớn hơn 0', 'INVALID_FIELD');
+    }
+    return round;
+  },
+  submissionRounds: assertSubmissionRounds,
   milestones: assertMilestones,
 };
 
@@ -417,29 +490,35 @@ const buildProjectData = (payload = {}) =>
   }, {});
 
 /** Sinh mã dự án dạng SESS-<năm>-<số thứ tự 3 chữ số>, VD: SESS-2026-001 */
-const generateProjectCode = async () => {
+const generateProjectCode = async (session) => {
   const year = new Date().getFullYear();
   const prefix = `${PROJECT_CODE_PREFIX}-${year}-`;
 
-  const latestProject = await Project.findOne({ code: new RegExp(`^${prefix}`) })
+  const latestProjectQuery = Project.findOne({ code: new RegExp(`^${prefix}`) })
     .sort({ code: -1 })
     .select('code')
     .lean();
+  if (session) latestProjectQuery.session(session);
+  const latestProject = await latestProjectQuery;
 
   const nextNumber = latestProject ? Number.parseInt(latestProject.code.slice(prefix.length), 10) + 1 : 1;
   return `${prefix}${String(nextNumber).padStart(3, '0')}`;
 };
 
 /** Tạo dự án kèm mã tự sinh; tự thử lại nếu mã bị trùng */
-const createWithGeneratedCode = async (data) => {
+const createWithGeneratedCode = async (data, { session } = {}) => {
   for (let attempt = 0; attempt < MAX_CODE_RETRY; attempt += 1) {
-    const code = await generateProjectCode();
+    const code = await generateProjectCode(session);
 
     try {
+      if (session) {
+        const [project] = await Project.create([{ ...data, code }], { session });
+        return project;
+      }
       return await Project.create({ ...data, code });
     } catch (error) {
       // Trùng mã dự án -> sinh mã khác; lỗi khác đẩy cho Error Middleware xử lý
-      if (error?.code !== 11000) throw error;
+      if (error?.code !== 11000 || session) throw error;
     }
   }
 
@@ -477,33 +556,74 @@ const createProject = async ({ owner, payload = {}, req } = {}) => {
     throw ApiError.badRequest('Thiếu thông tin bắt buộc: "title"', 'MISSING_FIELD');
   }
 
-  // Ràng buộc: chỉ được tham gia 1 dự án đang hoạt động
-  await projectMemberService.assertNoActiveProject(owner._id);
+  const writableData = buildProjectData(payload);
+  const whitelistStudent = await whitelistService.findStudentByEmail(owner.email);
+  const faculty = String(whitelistStudent?.faculty ?? owner.faculty ?? '').trim();
+  const leaderInfo = {
+    fullName: whitelistStudent?.fullName || owner.fullName || '',
+    studentId: whitelistStudent?.studentId || owner.studentId || '',
+    className: whitelistStudent?.className || owner.className || '',
+    faculty,
+    email: whitelistStudent?.email || owner.email || '',
+    phone: whitelistStudent?.phone || owner.phoneNumber || '',
+  };
 
-  const project = await createWithGeneratedCode({
-    ...buildProjectData(payload),
-    status: PROJECT_STATUS.DRAFT,
-    ownerId: owner._id,
-    version: 1,
-  });
+  let project;
+  for (let attempt = 0; attempt < MAX_CODE_RETRY; attempt += 1) {
+    try {
+      project = await runTransaction(async (session) => {
+        await projectMemberService.assertCanJoinActiveProject({ userId: owner._id, session });
+        const createdProject = await createWithGeneratedCode(
+          {
+            ...writableData,
+            faculty,
+            leaderInfo,
+            status: PROJECT_STATUS.DRAFT,
+            ownerId: owner._id,
+            version: 1,
+          },
+          { session },
+        );
 
-  await ProjectMember.create({
-    projectId: project._id,
-    userId: owner._id,
-    email: owner.email,
-    role: PROJECT_MEMBER_ROLES.OWNER,
-    status: PROJECT_MEMBER_STATUS.ACCEPTED,
-    joinedAt: new Date(),
-  });
+        await ProjectMember.create(
+          [{
+            projectId: createdProject._id,
+            userId: owner._id,
+            email: owner.email,
+            role: PROJECT_MEMBER_ROLES.OWNER,
+            status: PROJECT_MEMBER_STATUS.ACCEPTED,
+            joinedAt: new Date(),
+          }],
+          { session },
+        );
 
-  await logAuditAction({
-    actor: owner,
-    action: AUDIT_ACTIONS.CREATE_PROJECT,
-    targetEntity: AUDIT_TARGETS.PROJECT,
-    targetId: project._id,
-    newValues: { code: project.code, title: project.title, status: project.status, version: project.version },
-    req,
-  });
+        const syncedProject = await projectMemberService.syncProjectEmbeddedMembers({
+          projectId: createdProject._id,
+          session,
+        });
+        await logAuditAction({
+          actor: owner,
+          action: AUDIT_ACTIONS.CREATE_PROJECT,
+          targetEntity: AUDIT_TARGETS.PROJECT,
+          targetId: createdProject._id,
+          newValues: {
+            code: createdProject.code,
+            title: createdProject.title,
+            status: createdProject.status,
+            version: createdProject.version,
+          },
+          req,
+          session,
+        });
+        return syncedProject;
+      });
+      break;
+    } catch (error) {
+      const duplicateProjectCode = error?.code === 11000 &&
+        (error?.keyValue?.code || String(error?.message ?? '').includes('code_1'));
+      if (!duplicateProjectCode || attempt === MAX_CODE_RETRY - 1) throw error;
+    }
+  }
 
   return { project };
 };
@@ -535,74 +655,93 @@ const updateProject = async ({ projectId, userId, payload = {} }) => {
  * cho phiên bản hiện tại, chuyển trạng thái SUBMITTED và tăng version lên 1.
  */
 const submitProject = async ({ projectId, actor, req } = {}) => {
-  const { project } = await projectMemberService.assertProjectMember(projectId, actor.id);
+  const submitted = await runTransaction(async (session) => {
+    const { project } = await projectMemberService.assertProjectMember(projectId, actor.id, { session });
+    projectMemberService.assertProjectEditable(project);
 
-  // Đóng băng dự án: đã nộp/đang xét duyệt thì không nộp lại
-  projectMemberService.assertProjectEditable(project);
+    const missingFields = REQUIRED_SUBMIT_FIELDS.filter((field) => !isNonEmptyString(project[field]));
+    if (!isNonEmptyString(project.objectives) && !isNonEmptyString(project.solution)) {
+      missingFields.push('objectives or solution');
+    }
+    if (missingFields.length) {
+      throw ApiError.badRequest(
+        `Dự án chưa đủ thông tin để nộp. Vui lòng bổ sung: ${missingFields.join(', ')}`,
+        'MISSING_REQUIRED_FIELDS',
+        { missingFields },
+      );
+    }
 
-  const missingFields = REQUIRED_SUBMIT_FIELDS.filter((field) => !isNonEmptyString(project[field]));
-  if (missingFields.length) {
-    throw ApiError.badRequest(
-      `Dự án chưa đủ thông tin để nộp. Vui lòng bổ sung: ${missingFields.join(', ')}`,
-      'MISSING_REQUIRED_FIELDS',
-      { missingFields },
+    const source = project.toObject();
+    const snapshotData = SNAPSHOT_FIELDS.reduce((snapshot, field) => {
+      snapshot[field] = source[field] ?? null;
+      return snapshot;
+    }, {});
+    const previousStatus = project.status;
+    const previousVersion = project.version;
+    const submittedAt = new Date();
+    const receipt = digitalReceiptService.createDigitalReceipt({
+      projectCode: project.code,
+      version: project.version,
+      snapshotData,
+    });
+
+    const [revision] = await ProjectRevision.create(
+      [{
+        projectId: project._id,
+        versionNumber: project.version,
+        snapshotData,
+        submittedAt,
+        submittedBy: actor.id,
+        digitalReceipt: receipt,
+      }],
+      { session },
     );
-  }
 
-  const snapshotData = SNAPSHOT_FIELDS.reduce((snapshot, field) => {
-    snapshot[field] = project[field];
-    return snapshot;
-  }, {});
+    project.status = PROJECT_STATUS.SUBMITTED;
+    project.version += 1;
+    project.lastSubmittedAt = revision.submittedAt;
+    project.digitalReceiptHash = receipt.hash;
+    project.digitalReceiptTimestamp = receipt.timestamp;
+    await project.save({ session });
 
-  const revision = await ProjectRevision.create({
-    projectId: project._id,
-    versionNumber: project.version,
-    snapshotData,
-    submittedAt: new Date(),
-    submittedBy: actor.id,
+    await logAuditAction({
+      actor,
+      action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS,
+      targetEntity: AUDIT_TARGETS.PROJECT,
+      targetId: project._id,
+      oldValues: { status: previousStatus, version: previousVersion },
+      newValues: {
+        status: project.status,
+        version: project.version,
+        revisionId: revision._id,
+        digitalReceiptHash: receipt.hash,
+        digitalReceiptTimestamp: receipt.timestamp,
+      },
+      req,
+      session,
+    });
+
+    return { project, revision, receipt };
   });
 
-  const previousStatus = project.status;
-  const previousVersion = project.version;
-
-  // Sinh biên nhận số (Digital Receipt)
-  const receipt = digitalReceiptService.createDigitalReceipt({
-    projectCode: project.code,
-    version: project.version,
-  });
-
-  project.status = PROJECT_STATUS.SUBMITTED;
-  project.version += 1;
-  project.lastSubmittedAt = revision.submittedAt;
-  project.digitalReceiptHash = receipt.hash;
-  project.digitalReceiptTimestamp = receipt.timestamp;
-  await project.save();
-
-  // Lấy email Owner để gửi biên nhận số
+  const { project, revision, receipt } = submitted;
   const ownerUser = project.ownerId ? await User.findById(project.ownerId).select('email').lean() : null;
-  const ownerEmail = ownerUser?.email ?? '';
-
-  // Lấy danh sách email thành viên dự án để gửi biên nhận
   const memberships = await ProjectMember.find({
     projectId: project._id,
     status: PROJECT_MEMBER_STATUS.ACCEPTED,
   }).select('userId').lean();
+  const memberUsers = memberships.length
+    ? await User.find({ _id: { $in: memberships.map((membership) => membership.userId) } }).select('email').lean()
+    : [];
+  const memberEmails = memberUsers.map((user) => user.email).filter(Boolean);
 
-  const memberEmails = [];
-  for (const m of memberships) {
-    const user = await User.findById(m.userId).select('email').lean();
-    if (user?.email) memberEmails.push(user.email);
-  }
-
-  // Gửi email biên nhận số qua BullMQ (fallback inline khi không có Redis).
-  // Tác vụ nền: không chặn request nộp bài, không làm nghẽn MongoDB.
   try {
     await queueService.enqueueDigitalReceiptEmail({
-      to: ownerEmail,
+      to: ownerUser?.email ?? '',
       payload: {
         projectCode: project.code,
         projectTitle: project.title,
-        version: receipt.version ? receipt.version : project.version - 1,
+        version: revision.versionNumber,
         receiptHash: receipt.hash,
         receiptTimestamp: receipt.timestamp,
         submittedAt: revision.submittedAt,
@@ -612,22 +751,6 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
   } catch (emailError) {
     console.error('[DigitalReceipt] Gửi email biên nhận thất bại:', emailError.message);
   }
-
-  await logAuditAction({
-    actor,
-    action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS,
-    targetEntity: AUDIT_TARGETS.PROJECT,
-    targetId: project._id,
-    oldValues: { status: previousStatus, version: previousVersion },
-    newValues: {
-      status: project.status,
-      version: project.version,
-      revisionId: revision._id,
-      digitalReceiptHash: receipt.hash,
-      digitalReceiptTimestamp: receipt.timestamp,
-    },
-    req,
-  });
 
   return { project, revision, digitalReceipt: receipt };
 };
@@ -639,26 +762,117 @@ const getProjectRevisions = async ({ projectId, userId }) => {
   return { project, revisions };
 };
 
-/** Lấy danh sách dự án của user (phân trang, lọc status) */
+const isCompletedMilestone = (status) => ['Completed', MILESTONE_STATUS.DONE, MILESTONE_STATUS.COMPLETED].includes(status);
+
+/** Làm giàu dữ liệu sinh viên bằng vai trò, tiến độ và trạng thái yêu cầu phía server. */
+const enrichProjectsForUser = async ({ projects = [], userId }) => {
+  if (!projects.length) return [];
+
+  const projectIds = projects.map((project) => project._id ?? project.id);
+  const [memberships, actualMilestones, pendingCancellations, pendingLeaveRequests] = await Promise.all([
+    ProjectMember.find({ projectId: { $in: projectIds }, userId, status: PROJECT_MEMBER_STATUS.ACCEPTED })
+      .select('projectId role')
+      .lean(),
+    ProjectMilestone.find({ projectId: { $in: projectIds } }).select('projectId status').lean(),
+    ProjectCancellationRequest.find({
+      projectId: { $in: projectIds },
+      status: PROJECT_CANCELLATION_STATUS.PENDING,
+    }).sort({ createdAt: -1 }).lean(),
+    ProjectMemberChangeRequest.find({
+      projectId: { $in: projectIds },
+      requesterId: userId,
+      targetUserId: userId,
+      type: MEMBER_CHANGE_REQUEST_TYPE.REMOVE,
+      status: MEMBER_CHANGE_REQUEST_STATUS.PENDING,
+    }).sort({ createdAt: -1 }).lean(),
+  ]);
+
+  const membershipByProject = new Map(memberships.map((membership) => [String(membership.projectId), membership]));
+  const actualMilestonesByProject = new Map();
+  for (const milestone of actualMilestones) {
+    const key = String(milestone.projectId);
+    if (!actualMilestonesByProject.has(key)) actualMilestonesByProject.set(key, []);
+    actualMilestonesByProject.get(key).push(milestone);
+  }
+  const cancellationByProject = new Map();
+  for (const request of pendingCancellations) {
+    const key = String(request.projectId);
+    if (!cancellationByProject.has(key)) cancellationByProject.set(key, request);
+  }
+  const leaveRequestByProject = new Map();
+  for (const request of pendingLeaveRequests) {
+    const key = String(request.projectId);
+    if (!leaveRequestByProject.has(key)) leaveRequestByProject.set(key, request);
+  }
+
+  return projects.map((project) => {
+    const key = String(project._id ?? project.id);
+    const membership = membershipByProject.get(key);
+    const actual = actualMilestonesByProject.get(key) ?? [];
+    const milestones = actual.length
+      ? actual
+      : (project.milestones ?? []).map((milestone) => ({ status: milestone.status }));
+    const completed = milestones.filter((milestone) => isCompletedMilestone(milestone.status)).length;
+    const total = milestones.length;
+    const cancellationRequest = cancellationByProject.get(key) ?? null;
+    const leaveRequest = leaveRequestByProject.get(key) ?? null;
+
+    return {
+      ...project,
+      userRole: membership?.role ?? (String(project.ownerId) === String(userId) ? PROJECT_MEMBER_ROLES.OWNER : PROJECT_MEMBER_ROLES.MEMBER),
+      progress: {
+        percent: total ? Math.round((completed / total) * 100) : 0,
+        completed,
+        total,
+      },
+      cancellationRequest: {
+        hasPending: Boolean(cancellationRequest),
+        requestInfo: cancellationRequest,
+      },
+      hasPendingLeaveRequest: Boolean(leaveRequest),
+      leaveRequestInfo: leaveRequest ? { reason: leaveRequest.reason, createdAt: leaveRequest.createdAt } : null,
+    };
+  });
+};
+
+/** Lấy danh sách dự án của user (phân trang, lọc status và quota gốc). */
 const getProjects = async ({ userId, page = 1, limit = 10, status }) => {
-  const userMemberships = await ProjectMember.find({ userId, status: PROJECT_MEMBER_STATUS.ACCEPTED }).select('projectId').lean();
+  const userMemberships = await ProjectMember.find({ userId, status: PROJECT_MEMBER_STATUS.ACCEPTED })
+    .select('projectId role')
+    .lean();
   const projectIds = userMemberships.map((m) => m.projectId);
+  const quotaQuery = projectIds.length
+    ? Project.countDocuments({
+      _id: { $in: projectIds },
+      parentId: null,
+      status: { $nin: FINISHED_PROJECT_STATUSES },
+    })
+    : Promise.resolve(0);
+  const activeProjectCount = await quotaQuery;
+  const quota = {
+    activeProjectCount,
+    maxActiveProjects: MAX_ACTIVE_PROJECTS,
+    remaining: Math.max(0, MAX_ACTIVE_PROJECTS - activeProjectCount),
+  };
 
   if (!projectIds.length) {
-    return { projects: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    return { projects: [], pagination: { page, limit, total: 0, totalPages: 0 }, quota };
   }
 
   const filter = { _id: { $in: projectIds } };
-  if (status) filter.status = status;
+  if (status === 'ACTIVE') filter.status = { $nin: FINISHED_PROJECT_STATUSES };
+  else if (status) filter.status = status;
 
   const skip = (page - 1) * limit;
-  const [projects, total] = await Promise.all([
+  const [rawProjects, total] = await Promise.all([
     Project.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
     Project.countDocuments(filter),
   ]);
+  const projects = await enrichProjectsForUser({ projects: rawProjects, userId });
 
   return {
     projects,
+    quota,
     pagination: {
       page,
       limit,
@@ -671,7 +885,43 @@ const getProjects = async ({ userId, page = 1, limit = 10, status }) => {
 /** Lấy chi tiết dự án (chỉ thành viên đã chấp nhận) */
 const getProject = async ({ projectId, userId }) => {
   const { project, membership } = await projectMemberService.assertProjectMember(projectId, userId);
-  return { project, membership };
+  const embeddedMemberships = await ProjectMember.find({
+    projectId: project._id,
+    status: PROJECT_MEMBER_STATUS.ACCEPTED,
+  }).sort({ joinedAt: 1 }).lean();
+  const memberUsers = embeddedMemberships.length
+    ? await User.find({ _id: { $in: embeddedMemberships.map((item) => item.userId) } })
+      .select('fullName email studentId className phoneNumber')
+      .lean()
+    : [];
+  const userById = new Map(memberUsers.map((user) => [String(user._id), user]));
+  const projectData = project.toObject();
+  projectData.members = embeddedMemberships.map((item) => {
+    const user = userById.get(String(item.userId)) ?? {};
+    return {
+      userId: item.userId,
+      fullName: user.fullName ?? '',
+      email: user.email ?? item.email ?? '',
+      studentId: user.studentId ?? '',
+      className: user.className ?? '',
+      phone: user.phoneNumber ?? '',
+      role: item.role,
+      projectRole: item.role === PROJECT_MEMBER_ROLES.OWNER ? 'Owner' : 'Member',
+      joinedAt: item.joinedAt,
+    };
+  });
+  const [enrichedProject] = await enrichProjectsForUser({ projects: [projectData], userId });
+  const cancellationRequest = enrichedProject.cancellationRequest;
+  return {
+    project: enrichedProject,
+    membership: {
+      ...membership.toObject(),
+      role: membership.role,
+      hasPendingLeaveRequest: enrichedProject.hasPendingLeaveRequest,
+      leaveRequestInfo: enrichedProject.leaveRequestInfo,
+    },
+    cancellationRequest,
+  };
 };
 
 module.exports = {
@@ -681,6 +931,7 @@ module.exports = {
   getProjectRevisions,
   getProjects,
   getProject,
+  enrichProjectsForUser,
   // Guard dùng chung được định nghĩa ở projectMemberService (tránh circular dependency)
   assertProjectEditable: projectMemberService.assertProjectEditable,
   assertNoActiveProject: projectMemberService.assertNoActiveProject,

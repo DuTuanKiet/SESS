@@ -22,6 +22,34 @@ const inviteMember = async (req, res) => {
   });
 };
 
+/** GET /projects/:id/members - thành viên đã chấp nhận và lời mời đang chờ */
+const getProjectMembers = async (req, res) => {
+  const data = await projectMemberService.getProjectMembers({
+    projectId: req.params.id,
+    userId: req.user.id,
+  });
+  res.status(200).json({
+    success: true,
+    message: 'Lấy danh sách thành viên dự án thành công.',
+    data,
+  });
+};
+
+/** DELETE /projects/:id/members/invitations/:identifier - thu hồi lời mời đang chờ */
+const cancelInvitation = async (req, res) => {
+  const { project, invitation } = await projectMemberService.cancelInvitation({
+    projectId: req.params.id,
+    requester: req.user,
+    identifier: req.params.identifier,
+    req,
+  });
+  res.status(200).json({
+    success: true,
+    message: `Đã thu hồi lời mời tham gia dự án ${project.code}.`,
+    data: { invitation },
+  });
+};
+
 /** POST /projects/invitations/:invitationId/respond - sinh viên chấp nhận/từ chối lời mời */
 const respondInvitation = async (req, res) => {
   const { project, invitation } = await projectMemberService.respondInvitation({
@@ -37,6 +65,16 @@ const respondInvitation = async (req, res) => {
       ? `Bạn đã tham gia dự án ${project.code}.`
       : `Bạn đã từ chối lời mời tham gia dự án ${project.code}.`,
     data: { invitation },
+  });
+};
+
+/** GET /projects/invitations - lời mời đang chờ của sinh viên hiện tại */
+const getMyInvitations = async (req, res) => {
+  const data = await projectMemberService.getMyInvitations({ userId: req.user.id });
+  res.status(200).json({
+    success: true,
+    message: 'Lấy lời mời tham gia dự án thành công.',
+    data,
   });
 };
 
@@ -84,6 +122,32 @@ const leaveProject = async (req, res) => {
     message: `Bạn đã rời khỏi dự án ${project.code}.`,
     data: { projectId: project.id },
   });
+};
+
+/** POST /projects/:id/members/leave-request - gửi yêu cầu rời nhóm chờ Admin duyệt */
+const requestLeaveProject = async (req, res) => {
+  const { project, changeRequest } = await projectMemberService.requestLeaveProject({
+    projectId: req.params.id,
+    requester: req.user,
+    reason: req.body.reason,
+    req,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Đã gửi yêu cầu rời nhóm. Yêu cầu đang chờ Ban Quản trị xem xét.',
+    data: { project, changeRequest },
+  });
+};
+
+/** DELETE /projects/:id/members/leave-request - rút yêu cầu đang chờ */
+const cancelLeaveRequest = async (req, res) => {
+  const data = await projectMemberService.cancelLeaveRequest({
+    projectId: req.params.id,
+    userId: req.user.id,
+    req,
+  });
+  res.status(200).json({ success: true, message: 'Đã hủy yêu cầu rời nhóm.', data });
 };
 
 /** POST /projects/:id/members/change-request - OWNER gửi yêu cầu thêm/bớt thành viên */
@@ -163,10 +227,15 @@ const getMemberChangeRequests = async (req, res) => {
 
 module.exports = {
   inviteMember,
+  getProjectMembers,
+  cancelInvitation,
   respondInvitation,
+  getMyInvitations,
   removeMember,
   transferOwnership,
   leaveProject,
+  requestLeaveProject,
+  cancelLeaveRequest,
   requestMemberChange,
   respondMemberChangeRequest,
   emergencyTransferOwnership,

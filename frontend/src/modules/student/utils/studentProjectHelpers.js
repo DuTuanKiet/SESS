@@ -168,7 +168,28 @@ export function extractProjectYear(code = '') {
  * @param {string} projectId
  * @returns {{ competitionTitle: string, competitionLevel: string, currentRound: number }}
  */
-export function getProjectCompetitionMeta(projectId) {
+export function getProjectCompetitionMeta(projectOrId) {
+  const defaultMeta = {
+    competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+    competitionLevel: 'Cấp Trường',
+    currentRound: 1,
+  };
+  if (projectOrId && typeof projectOrId === 'object') {
+    const storedMeta = getStoredCompetitionMeta(projectOrId._id ?? projectOrId.id);
+    return {
+      ...defaultMeta,
+      ...storedMeta,
+      competitionId: projectOrId.competitionId ?? '',
+      competitionTitle: projectOrId.competitionTitle || storedMeta.competitionTitle || defaultMeta.competitionTitle,
+      competitionLevel: projectOrId.level ?? storedMeta.competitionLevel ?? defaultMeta.competitionLevel,
+      currentRound: projectOrId.currentRound ?? 1,
+      submissionRounds: projectOrId.submissionRounds ?? [],
+    };
+  }
+  return getStoredCompetitionMeta(projectOrId);
+}
+
+function getStoredCompetitionMeta(projectId) {
   const defaultMeta = {
     competitionTitle: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
     competitionLevel: 'Cấp Trường',

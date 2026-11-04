@@ -18,7 +18,7 @@
         </div>
 
         <button
-          v-if="isOwner && (project.status === 'DRAFT' || project.status === 'NEED_REVISION') && !isEditingProposal"
+          v-if="canEditProposal && !isEditingProposal"
           type="button"
           @click="handleStartEditProposal"
           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-[#F1F7FF] text-[#1E56D9] hover:bg-[#1E56D9] hover:text-white border border-[#C7D7F5] transition-colors cursor-pointer self-start sm:self-auto shrink-0"
@@ -77,18 +77,10 @@
 
           <div class="lg:col-span-3">
             <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">
-              Khoa chuyên môn <span v-if="isEditingProposal" class="text-rose-500">*</span>
+              Khoa chuyên môn
             </label>
-            <input
-              v-if="isEditingProposal"
-              v-model="proposalForm.faculty"
-              type="text"
-              required
-              maxlength="150"
-              class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
-            />
-            <p v-else class="text-xs font-semibold text-[#0B1F4B] px-3.5 py-2 bg-[#F8FBFF] border border-[#E4ECF7] rounded-xl">
-              {{ project.faculty || 'Khoa Công nghệ Thông tin' }}
+            <p class="text-xs font-semibold text-[#0B1F4B] px-3.5 py-2 bg-[#F8FBFF] border border-[#E4ECF7] rounded-xl">
+              {{ project.faculty || 'Chưa cập nhật theo hồ sơ sinh viên' }}
             </p>
           </div>
         </div>
@@ -101,6 +93,7 @@
         :isEditing="isEditingProposal"
         :showAutoFillHint="false"
         :showNoteForOtherMembers="false"
+        :leaderEditable="false"
       >
         <template #members-table>
           <!-- B. Bảng danh sách các thành viên tham gia (Chuẩn bảng Phụ lục 1) -->
@@ -129,7 +122,7 @@
                     <td class="py-2.5 px-3 text-center font-bold text-[#0B1F4B]">{{ idx + 1 }}</td>
                     <td class="py-2.5 px-3 font-semibold text-[#0B1F4B]">{{ m.fullName }}</td>
                     <td class="py-2.5 px-3 font-mono font-medium text-[#0B1F4B]">{{ m.studentId || '--' }}</td>
-                    <td class="py-2.5 px-3">{{ m.className || 'KTPM0123' }}</td>
+                    <td class="py-2.5 px-3">{{ m.className || '--' }}</td>
                     <td class="py-2.5 px-3">{{ m.phone || '--' }}</td>
                     <td class="py-2.5 px-3 text-right">
                       <span
@@ -162,13 +155,12 @@
 
         <div>
           <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">
-            1. Mục tiêu ý tưởng / Dự án <span v-if="isEditingProposal" class="text-rose-500">*</span>
+            1. Mục tiêu ý tưởng / Dự án
           </label>
           <textarea
             v-if="isEditingProposal"
             v-model="proposalForm.objectives"
             rows="3"
-            required
             maxlength="2000"
             class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           ></textarea>
@@ -179,13 +171,12 @@
 
         <div>
           <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">
-            2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng <span v-if="isEditingProposal" class="text-rose-500">*</span>
+            2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng
           </label>
           <textarea
             v-if="isEditingProposal"
             v-model="proposalForm.abstract"
             rows="4"
-            required
             maxlength="2000"
             class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           ></textarea>
@@ -195,23 +186,52 @@
         </div>
       </div>
 
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">3. Vấn đề cần giải quyết</label>
+          <textarea v-if="isEditingProposal" v-model="proposalForm.problemStatement" rows="3" maxlength="4000" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]"></textarea>
+          <p v-else class="text-xs sm:text-sm text-[#4B5B7A] p-3.5 bg-[#F8FBFF] border border-[#E4ECF7] rounded-xl leading-relaxed whitespace-pre-line">{{ project.problemStatement || 'Chưa có thông tin.' }}</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">4. Giải pháp dự kiến</label>
+          <textarea v-if="isEditingProposal" v-model="proposalForm.solution" rows="3" maxlength="4000" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]"></textarea>
+          <p v-else class="text-xs sm:text-sm text-[#4B5B7A] p-3.5 bg-[#F8FBFF] border border-[#E4ECF7] rounded-xl leading-relaxed whitespace-pre-line">{{ project.solution || 'Chưa có thông tin.' }}</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#0B1F4B] mb-1.5">5. Mô hình kinh doanh dự kiến</label>
+          <textarea v-if="isEditingProposal" v-model="proposalForm.businessModel" rows="3" maxlength="2000" class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]"></textarea>
+          <p v-else class="text-xs sm:text-sm text-[#4B5B7A] p-3.5 bg-[#F8FBFF] border border-[#E4ECF7] rounded-xl leading-relaxed whitespace-pre-line">{{ project.businessModel || 'Chưa có thông tin.' }}</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-[#F8FBFF] border border-[#E4ECF7] space-y-2 text-xs">
+        <h3 class="font-bold text-[#0B1F4B]">Cuộc thi và vòng tham gia</h3>
+        <p><span class="font-semibold">Mã cuộc thi:</span> {{ project.competitionId || 'Chưa cập nhật' }}</p>
+        <p><span class="font-semibold">Tên cuộc thi:</span> {{ project.competitionTitle || 'Chưa cập nhật' }}</p>
+        <p><span class="font-semibold">Vòng hiện tại:</span> {{ project.currentRound || 1 }}</p>
+        <ul v-if="project.submissionRounds?.length" class="list-disc pl-5 space-y-1">
+          <li v-for="(round, index) in project.submissionRounds" :key="round.roundNumber || index">
+            {{ round.title || `Vòng ${round.roundNumber || index + 1}` }} — {{ round.status || 'Chưa cập nhật' }}
+          </li>
+        </ul>
+      </div>
+
       <!-- 4. ĐƯỜNG DẪN TÀI LIỆU THUYẾT MINH ĐẦY ĐỦ (BẮT BUỘC THEO BIỂU MẪU) -->
       <div class="p-5 bg-[#F1F7FF] rounded-2xl border border-[#C7D7F5] space-y-2.5">
         <div class="flex items-center justify-between">
           <label class="block text-xs font-bold text-[#0B1F4B]">
-            Đường dẫn tài liệu thuyết minh đầy đủ<span class="text-rose-500"> *</span>
+            Đường dẫn tài liệu thuyết minh đầy đủ
           </label>
         </div>
 
         <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
-          Tài liệu thuyết minh hoàn chỉnh bao gồm Business Model Canvas và 7 nội dung chi tiết theo mẫu 158-TB/ĐHKTCN.
+            Có thể bổ sung hoặc cập nhật đường dẫn tài liệu sau khi lưu bản nháp.
         </p>
 
         <div v-if="isEditingProposal">
           <input
             v-model="proposalForm.attachmentUrl"
             type="url"
-            required
             placeholder="https://docs.google.com/document/d/... hoặc https://drive.google.com/..."
             class="w-full px-3.5 py-2 text-xs rounded-xl bg-white border border-[#C7D7F5] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -296,68 +316,74 @@ const toastStore = useToastStore();
 
 const isEditingProposal = ref(false);
 const isSubmitting = ref(false);
+const canEditProposal = computed(() => {
+  const role = String(props.project.userRole || '').toUpperCase();
+  return (role === 'OWNER' || role === 'MEMBER' || (!role && props.isOwner))
+    && ['DRAFT', 'NEED_REVISION'].includes(props.project.status);
+});
 
 const proposalForm = ref({
   title: '',
   category: '',
   faculty: '',
   advisorInfo: {
+    hasAdvisor: false,
     fullName: '',
-    unit: '',
+    department: '',
     phone: '',
     email: '',
+    academicRank: '',
   },
   leaderInfo: {
     fullName: '',
     studentId: '',
     className: '',
-    courseYear: '',
+    faculty: '',
     phone: '',
     email: '',
   },
   objectives: '',
   abstract: '',
+  problemStatement: '',
+  solution: '',
+  businessModel: '',
   attachmentUrl: '',
 });
 
 // Danh sách thành viên hiển thị trong bảng
 const memberList = computed(() => {
   if (props.members && props.members.length > 0) {
-    return props.members;
+    return props.members.filter((member) => member.status !== 'INVITED' && member.status !== 'REJECTED');
   }
-  // Mặc định ít nhất có Trưởng nhóm
-  return [
-    {
-      fullName: props.project.leaderInfo?.fullName || 'Đặng Tấn Kiệt',
-      studentId: props.project.leaderInfo?.studentId || 'KTPM2311025',
-      className: props.project.leaderInfo?.className || 'KTPM0123',
-      phone: props.project.leaderInfo?.phone || '0901234567',
-      role: 'OWNER',
-    },
-  ];
+  return [];
 });
 
 function syncProposalForm(p = {}) {
   proposalForm.value = {
     title: p.title || '',
     category: p.category || '',
-    faculty: p.faculty || 'Khoa Công nghệ Thông tin',
+    faculty: p.faculty || '',
     advisorInfo: {
+      hasAdvisor: Boolean(p.advisorInfo?.hasAdvisor ?? p.advisorInfo?.fullName),
       fullName: p.advisorInfo?.fullName || '',
-      unit: p.advisorInfo?.unit || '',
+      department: p.advisorInfo?.department || p.advisorInfo?.unit || '',
       phone: p.advisorInfo?.phone || '',
       email: p.advisorInfo?.email || '',
+      academicRank: p.advisorInfo?.academicRank || '',
     },
     leaderInfo: {
       fullName: p.leaderInfo?.fullName || '',
       studentId: p.leaderInfo?.studentId || '',
       className: p.leaderInfo?.className || '',
-      courseYear: p.leaderInfo?.courseYear || '',
+      faculty: p.leaderInfo?.faculty || p.faculty || '',
       phone: p.leaderInfo?.phone || '',
       email: p.leaderInfo?.email || '',
     },
     objectives: p.objectives || '',
     abstract: p.abstract || '',
+    problemStatement: p.problemStatement || '',
+    solution: p.solution || '',
+    businessModel: p.businessModel || '',
     attachmentUrl: p.attachmentUrl || '',
   };
 }
@@ -385,21 +411,12 @@ function cancelEditProposal() {
 
 // Lưu chỉnh sửa Thuyết minh
 async function handleSaveProposal() {
-  const url = (proposalForm.value.attachmentUrl || '').trim();
-  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-    toastStore.add({
-      message: 'Vui lòng nhập đường dẫn tài liệu thuyết minh',
-      type: 'warning',
-    });
-    return;
-  }
-
   isSubmitting.value = true;
   try {
     const res = await projectService.updateProject(props.projectId, proposalForm.value);
     if (res?.success) {
       toastStore.add({ message: 'Đã lưu thay đổi hồ sơ thuyết minh!', type: 'success' });
-      emit('saved', { ...proposalForm.value });
+      emit('saved', res.data?.project || { ...proposalForm.value });
       isEditingProposal.value = false;
     }
   } catch (error) {

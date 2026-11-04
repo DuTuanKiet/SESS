@@ -102,25 +102,19 @@ function closeModal() {
 
 const preSubmissionChecklist = computed(() => ({
   basicInfo: {
-    label: '1. Phần 1. Thông tin cơ bản (Đề tài, Giảng viên hỗ trợ, Trưởng nhóm)',
+    label: '1. Tên đề tài và lĩnh vực dự thi',
     passed: Boolean(
       props.project.title?.trim() &&
-      props.project.category?.trim() &&
-      props.project.advisorInfo?.fullName?.trim() &&
-      props.project.leaderInfo?.fullName?.trim()
+      props.project.category?.trim()
     ),
   },
-  objectives: {
-    label: '2. Tóm tắt ý tưởng: 1. Mục tiêu ý tưởng/dự án',
-    passed: Boolean(props.project.objectives && props.project.objectives.trim().length > 0),
+  objectiveOrSolution: {
+    label: '2. Có mục tiêu hoặc giải pháp dự kiến',
+    passed: Boolean(props.project.objectives?.trim() || props.project.solution?.trim()),
   },
   abstract: {
-    label: '3. Tóm tắt ý tưởng: 2. Mô tả ngắn gọn sản phẩm/dịch vụ & giá trị',
-    passed: Boolean(props.project.abstract && props.project.abstract.trim().length > 0),
-  },
-  attachmentUrl: {
-    label: '4. Đường dẫn (link) tài liệu thuyết minh đầy đủ theo mẫu Phụ lục 1',
-    passed: Boolean(props.project.attachmentUrl && props.project.attachmentUrl.trim().startsWith('http')),
+    label: '3. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị',
+    passed: Boolean(props.project.abstract?.trim()),
   },
 }));
 

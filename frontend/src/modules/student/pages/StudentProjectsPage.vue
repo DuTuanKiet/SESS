@@ -20,10 +20,10 @@
             type="button"
             disabled
             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-xs sm:text-sm bg-white text-[#4B5B7A] border border-[#C7D7F5] cursor-not-allowed select-none"
-            title="Bạn đang tham gia 02 đề tài trong kỳ"
+            :title="eligibility.reason"
           >
             <Lock class="w-4 h-4 text-[#1E56D9]" />
-            <span>Đang tham gia 02 đề tài trong kỳ</span>
+            <span>Đang tham gia {{ eligibility.activeProjectCount }}/{{ eligibility.maxActiveProjects }} đề tài</span>
           </button>
 
           <button
@@ -112,11 +112,11 @@
             <div class="space-y-1.5 p-2.5 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7]">
               <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#0B1F4B]">
                 <Trophy class="w-3.5 h-3.5 text-[#1E56D9] shrink-0" />
-                <span class="truncate">{{ getProjectCompetitionMeta(project._id).competitionTitle }}</span>
+                <span class="truncate">{{ getProjectCompetitionMeta(project).competitionTitle }}</span>
               </div>
               <div class="flex items-center justify-between text-[10px] text-[#4B5B7A] pt-1 border-t border-slate-100">
                 <span class="font-semibold text-[#1E56D9]">
-                  {{ getRoundLabel(getProjectCompetitionMeta(project._id).currentRound) }}
+                  {{ getRoundLabel(getProjectCompetitionMeta(project).currentRound) }}
                 </span>
                 <span class="text-emerald-700 font-medium">Cửa sổ nộp: Đang mở</span>
               </div>
@@ -240,7 +240,7 @@ const toastStore = useToastStore();
 
 // --- Trạng thái hiển thị & dữ liệu ---
 const projects = ref([]);
-const allProjectsCache = ref([]); // Dùng tính toán quota đề tài active
+const activeProjectQuota = ref({ activeProjectCount: 0, maxActiveProjects: 2, remaining: 2 });
 const isLoading = ref(false);
 const isCreateModalOpen = ref(false);
 const preselectedCompetitionId = computed(() => route.query.registerCompetitionId || null);
@@ -249,10 +249,15 @@ const preselectedCompetitionId = computed(() => route.query.registerCompetitionI
 const cooldownSeconds = ref(0);
 let cooldownTimer = null;
 
-// Tính toán điều kiện quota đăng ký đề tài mới (Tối đa 02 đề tài)
-const eligibility = computed(() =>
-  projectService.evaluateProjectEligibility(allProjectsCache.value)
-);
+// Backend là nguồn chuẩn cho quota, không suy ra giới hạn từ số project đang hiển thị.
+const eligibility = computed(() => ({
+  canRegister: activeProjectQuota.value.remaining > 0,
+  activeProjectCount: activeProjectQuota.value.activeProjectCount,
+  maxActiveProjects: activeProjectQuota.value.maxActiveProjects,
+  reason: activeProjectQuota.value.remaining > 0
+    ? ''
+    : `Bạn đã đạt giới hạn ${activeProjectQuota.value.maxActiveProjects} đề tài đang hoạt động.`,
+}));
 
 // --- Hàm gọi dữ liệu chính: CHỈ LẤY ĐỀ TÀI ĐANG HOẠT ĐỘNG ---
 async function fetchProjects() {
@@ -266,6 +271,7 @@ async function fetchProjects() {
 
     if (res?.success && res.data) {
       projects.value = res.data.projects || [];
+      if (res.data.quota) activeProjectQuota.value = res.data.quota;
     }
   } catch (error) {
     if (error.response?.status === 429) {
@@ -278,13 +284,11 @@ async function fetchProjects() {
   }
 }
 
-// Lấy toàn bộ đề tài để tính toán quota
+// Lấy quota authoritative từ server; số project trả về không tham gia phép tính.
 async function fetchAllForEligibility() {
   try {
-    const res = await projectService.getProjects({ page: 1, limit: 100 });
-    if (res?.success && res.data?.projects) {
-      allProjectsCache.value = res.data.projects;
-    }
+    const res = await projectService.getProjects({ status: 'ACTIVE', page: 1, limit: 1 });
+    if (res?.success && res.data?.quota) activeProjectQuota.value = res.data.quota;
   } catch {
     // Fail-safe
   }
@@ -313,9 +317,10 @@ async function handleProjectCreated(createdProject) {
   }
 }
 
-// Lấy tiến độ % theo từng dự án
+// Tiến độ do backend tính; không trộn milestones từ API với mốc nhúng cũ.
 function getProjectProgress(projectId) {
-  return projectService.calculateProjectProgress(projectId);
+  return projects.value.find((project) => project._id === projectId)?.progress
+    || { percent: 0, completed: 0, total: 0 };
 }
 
 // --- Quản lý Lời mời tham gia đề tài gửi đến sinh viên ---

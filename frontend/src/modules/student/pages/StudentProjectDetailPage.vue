@@ -22,7 +22,7 @@
             </span>
           </div>
 
-          <div v-if="isOwner && (project.status === 'DRAFT' || project.status === 'NEED_REVISION') && !hasPendingCancellationRequest">
+          <div v-if="canEditProject && (project.status === 'DRAFT' || project.status === 'NEED_REVISION') && !hasPendingCancellationRequest">
             <button
               type="button"
               @click="handleOpenSubmitChecklistModal"
@@ -220,7 +220,7 @@ const projectId = computed(() => route.params.id);
 const activeTab = ref(route.query.tab ? String(route.query.tab).toUpperCase() : 'PROPOSAL'); // 'PROPOSAL' | 'MEMBERS' | 'MILESTONES' | 'ROUNDS_SUBMISSION' | 'REVISIONS'
 
 // Lấy thông tin cuộc thi và vòng thi của đề tài
-const projectCompetition = computed(() => getProjectCompetitionMeta(projectId.value));
+const projectCompetition = computed(() => getProjectCompetitionMeta(project.value));
 
 // Dữ liệu Đề tài
 const project = ref({});
@@ -228,6 +228,7 @@ const milestones = ref([]);
 const revisions = ref([]);
 const members = ref([]);
 const isOwner = ref(true);
+const canEditProject = computed(() => ['OWNER', 'MEMBER'].includes(String(project.value.userRole || '').toUpperCase()));
 
 // Trạng thái đơn xin rời nhóm của thành viên
 const hasPendingLeaveRequest = ref(false);
@@ -248,6 +249,7 @@ async function fetchProjectDetails() {
     if (res?.success && res.data?.project) {
       project.value = res.data.project;
       isOwner.value = res.data.membership?.role === 'OWNER';
+      members.value = Array.isArray(res.data.project.members) ? res.data.project.members : [];
       hasPendingLeaveRequest.value = Boolean(res.data.membership?.hasPendingLeaveRequest);
       leaveRequestInfo.value = res.data.membership?.leaveRequestInfo || null;
 
@@ -285,18 +287,26 @@ async function fetchRevisions() {
 }
 
 async function fetchMembers() {
+  const embeddedMembers = Array.isArray(project.value?.members)
+    ? project.value.members.map((member) => ({ ...member, status: member.status || 'ACCEPTED' }))
+    : [];
+
   try {
-    const res = await projectService.getProjectMembers(projectId.value);
-    if (res?.success && res.data?.members) {
-      members.value = res.data.members;
+    const response = await projectService.getProjectMembers(projectId.value);
+    if (response?.success && Array.isArray(response.data?.members)) {
+      members.value = response.data.members;
+      return;
     }
   } catch {
-    // Fail-safe
+    // Keep the accepted-member snapshot returned with the project details.
   }
+
+  if (!members.value.length) members.value = embeddedMembers;
 }
 
 function handleProposalSaved(updatedFields) {
-  Object.assign(project.value, updatedFields);
+  if (updatedFields?._id || updatedFields?.id) project.value = updatedFields;
+  else Object.assign(project.value, updatedFields);
 }
 
 async function handleRefreshProjectAndMembers() {
@@ -317,10 +327,7 @@ async function handleConfirmFinalSubmit() {
     if (res?.success) {
       toastStore.add({ message: 'Nộp hồ sơ chính thức thành công!', type: 'success' });
       isSubmitChecklistModalOpen.value = false;
-      project.value.status = 'SUBMITTED';
-      project.value.version = (project.value.version || 1) + 1;
-      project.value.digitalReceiptHash = res.data?.digitalReceipt?.hash;
-      project.value.digitalReceiptTimestamp = res.data?.digitalReceipt?.timestamp;
+      if (res.data?.project) project.value = res.data.project;
 
       // Chuyển sang Tab Lịch sử & Biên nhận số để xem kết quả nộp
       activeTab.value = 'REVISIONS';

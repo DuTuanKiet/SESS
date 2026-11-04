@@ -29,8 +29,9 @@ const validatePagination = (page, limit, maxLimit = MAX_PAGE_LIMIT) => {
 const validateProjectStatus = (status) => {
   if (status === undefined || status === null || status === '') return undefined;
   const allowed = Object.values(PROJECT_STATUS);
+  if (status === 'ACTIVE') return status;
   if (!allowed.includes(status)) {
-    throw ApiError.badRequest(`"status" không hợp lệ. Chỉ chấp nhận: ${allowed.join(', ')}`, 'INVALID_STATUS');
+    throw ApiError.badRequest(`"status" không hợp lệ. Chỉ chấp nhận: ${allowed.join(', ')}, ACTIVE`, 'INVALID_STATUS');
   }
   return status;
 };
@@ -40,7 +41,7 @@ const getProjects = async (req, res) => {
   const { page, limit } = validatePagination(req.query.page, req.query.limit);
   const status = validateProjectStatus(req.query.status);
 
-  const { projects, pagination } = await projectService.getProjects({
+  const { projects, pagination, quota } = await projectService.getProjects({
     userId: req.user.id,
     page,
     limit,
@@ -50,13 +51,13 @@ const getProjects = async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Lấy danh sách dự án thành công.',
-    data: { projects, pagination },
+    data: { projects, pagination, quota },
   });
 };
 
 /** GET /projects/:id - chi tiết dự án */
 const getProject = async (req, res) => {
-  const { project, membership } = await projectService.getProject({
+  const { project, membership, cancellationRequest } = await projectService.getProject({
     projectId: req.params.id,
     userId: req.user.id,
   });
@@ -64,7 +65,7 @@ const getProject = async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Lấy chi tiết dự án thành công.',
-    data: { project, membership },
+    data: { project, membership, cancellationRequest },
   });
 };
 

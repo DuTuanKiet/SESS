@@ -12,6 +12,41 @@ const milestoneSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const advisorInfoSchema = new mongoose.Schema(
+  {
+    hasAdvisor: { type: Boolean, default: false },
+    fullName: { type: String, trim: true, default: '', maxlength: 200 },
+    email: { type: String, lowercase: true, trim: true, default: '', maxlength: 254 },
+    phone: { type: String, trim: true, default: '', maxlength: 30 },
+    department: { type: String, trim: true, default: '', maxlength: 200 },
+    academicRank: { type: String, trim: true, default: '', maxlength: 100 },
+  },
+  { _id: false },
+);
+
+const leaderInfoSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, trim: true, default: '', maxlength: 200 },
+    studentId: { type: String, trim: true, default: '', maxlength: 50 },
+    className: { type: String, trim: true, default: '', maxlength: 100 },
+    faculty: { type: String, trim: true, default: '', maxlength: 200 },
+    email: { type: String, lowercase: true, trim: true, default: '', maxlength: 254 },
+    phone: { type: String, trim: true, default: '', maxlength: 30 },
+  },
+  { _id: false },
+);
+
+const submissionRoundSchema = new mongoose.Schema(
+  {
+    roundNumber: { type: Number, min: 1 },
+    title: { type: String, trim: true, default: '', maxlength: 200 },
+    status: { type: String, trim: true, default: '', maxlength: 50 },
+    submittedAt: { type: Date, default: null },
+    feedback: { type: String, trim: true, default: '', maxlength: 4000 },
+  },
+  { _id: false },
+);
+
 /**
  * Dự án khởi nghiệp của sinh viên - hợp nhất 2 nhánh:
  * - FR01-FR04 (FR03/FR04): title/code/category/abstract/problemStatement/solution/businessModel/
@@ -30,18 +65,27 @@ const projectSchema = new mongoose.Schema(
     code: { type: String, unique: true, sparse: true, trim: true, index: true },
     category: { type: String, trim: true, default: '', maxlength: 120 },
     abstract: { type: String, trim: true, default: '', maxlength: 2000 },
+    faculty: { type: String, trim: true, default: '', maxlength: 200 },
+    objectives: { type: String, trim: true, default: '', maxlength: 2000 },
     problemStatement: { type: String, trim: true, default: '', maxlength: 4000 },
     solution: { type: String, trim: true, default: '', maxlength: 4000 },
     businessModel: { type: String, trim: true, default: '', maxlength: 2000 },
     attachmentUrl: { type: String, trim: true, default: '' },
     /** Các mốc tiến độ của dự án */
     milestones: { type: [milestoneSchema], default: [] },
+    advisorInfo: { type: advisorInfoSchema, default: () => ({}) },
+    /** Luôn được làm giàu từ hồ sơ sinh viên trong StudentWhitelist. */
+    leaderInfo: { type: leaderInfoSchema, default: () => ({}) },
+    competitionId: { type: String, trim: true, default: '' },
+    competitionTitle: { type: String, trim: true, default: '', maxlength: 200 },
+    currentRound: { type: Number, min: 1, default: 1 },
+    submissionRounds: { type: [submissionRoundSchema], default: [] },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
     version: { type: Number, default: 1, min: 1 },
     lastSubmittedAt: { type: Date, default: null },
 
     // --- Biên nhận số (Digital Receipt) - Enterprise Edition ---
-    /** Mã hash biên nhận nộp bài (SHA-256 của projectCode + version + timestamp + random) */
+    /** Hash SHA-256 liên kết metadata lần nộp với snapshot phiên bản. */
     digitalReceiptHash: { type: String, trim: true, default: '' },
     /** Thời điểm sinh biên nhận (mili-giây) */
     digitalReceiptTimestamp: { type: Date, default: null },
@@ -119,17 +163,21 @@ const projectSchema = new mongoose.Schema(
  * Nhờ đó dự án tạo từ API FR03 vẫn hiển thị/tìm kiếm được bằng API FR05-FR08 và ngược lại.
  */
 projectSchema.pre('validate', function syncBranchFields() {
-  if (!this.name && this.title) this.name = this.title;
-  if (!this.title && this.name) this.title = this.name;
+  const syncAlias = (primary, alias) => {
+    const primaryModified = this.isModified(primary);
+    const aliasModified = this.isModified(alias);
 
-  if (!this.field && this.category) this.field = this.category;
-  if (!this.category && this.field) this.category = this.field;
+    if (primaryModified && !aliasModified) this[alias] = this[primary];
+    else if (aliasModified && !primaryModified) this[primary] = this[alias];
+    else if (primaryModified && aliasModified) this[alias] = this[primary];
+    else if (!this[primary] && this[alias]) this[primary] = this[alias];
+    else if (!this[alias] && this[primary]) this[alias] = this[primary];
+  };
 
-  if (!this.description && this.abstract) this.description = this.abstract;
-  if (!this.abstract && this.description) this.abstract = this.description;
-
-  if (this.isModified('version') && !this.isModified('currentVersion')) this.currentVersion = this.version;
-  if (this.isModified('currentVersion') && !this.isModified('version')) this.version = this.currentVersion;
+  syncAlias('title', 'name');
+  syncAlias('category', 'field');
+  syncAlias('abstract', 'description');
+  syncAlias('version', 'currentVersion');
 });
 
 module.exports = mongoose.model('Project', projectSchema);

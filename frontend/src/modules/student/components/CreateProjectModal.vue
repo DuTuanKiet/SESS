@@ -113,15 +113,15 @@
 
             <div>
               <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-                Khoa chuyên môn <span class="text-rose-500">*</span>
+                Khoa chuyên môn
               </label>
               <input
                 v-model="newProjectForm.faculty"
                 type="text"
-                required
                 maxlength="150"
-                placeholder="Ví dụ: Khoa Công nghệ Thông tin"
-                class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+                readonly
+                placeholder="Chưa có khoa trong hồ sơ sinh viên"
+                class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-100 border border-[#E4ECF7] text-slate-500"
               />
             </div>
           </div>
@@ -134,6 +134,7 @@
           :isEditing="true"
           :showAutoFillHint="true"
           :showNoteForOtherMembers="true"
+          :leaderEditable="false"
         />
 
         <!-- KHỐI 3: TÓM TẮT Ý TƯỞNG / DỰ ÁN (THEO PHỤ LỤC 1) -->
@@ -146,12 +147,11 @@
 
           <div>
             <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              1. Mục tiêu ý tưởng / Dự án <span class="text-rose-500">*</span>
+              1. Mục tiêu ý tưởng / Dự án
             </label>
             <textarea
               v-model="newProjectForm.objectives"
               rows="2"
-              required
               maxlength="2000"
               placeholder="Nêu rõ mục tiêu cốt lõi mà ý tưởng/dự án mong muốn đạt được (Ví dụ: Giảm chi phí, giải quyết vấn đề ô nhiễm, tối ưu quy trình...)"
               class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
@@ -160,12 +160,11 @@
 
           <div>
             <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng <span class="text-rose-500">*</span>
+              2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng
             </label>
             <textarea
               v-model="newProjectForm.abstract"
               rows="3"
-              required
               maxlength="2000"
               placeholder="Mô tả tóm tắt tính năng chính của sản phẩm/dịch vụ và giá trị mang lại cho người dùng..."
               class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
@@ -173,18 +172,32 @@
           </div>
         </div>
 
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">3. Vấn đề cần giải quyết</label>
+            <textarea v-model="newProjectForm.problemStatement" rows="3" maxlength="4000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">4. Giải pháp dự kiến</label>
+            <textarea v-model="newProjectForm.solution" rows="3" maxlength="4000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">5. Mô hình kinh doanh dự kiến</label>
+            <textarea v-model="newProjectForm.businessModel" rows="3" maxlength="2000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
+          </div>
+        </div>
+
         <!-- KHỐI 4: LINK TÀI LIỆU THUYẾT MINH ĐẦY ĐỦ THEO BIỂU MẪU (BẮT BUỘC) -->
         <div class="p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5] space-y-2">
           <label class="block text-xs font-bold text-[#0B1F4B]">
-            Đường dẫn tài liệu thuyết minh <span class="text-rose-500">*</span>
+              Đường dẫn tài liệu thuyết minh <span class="text-slate-400">(có thể bổ sung sau)</span>
           </label>
           <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
-            Hồ sơ dự thi bắt buộc phải có tài liệu thuyết minh hoàn chỉnh.
+            Có thể bổ sung đường dẫn tài liệu sau khi lưu bản nháp.
           </p>
           <input
             v-model="newProjectForm.attachmentUrl"
             type="url"
-            required
             placeholder="https://docs.google.com/document/d/... hoặc https://drive.google.com/..."
             class="w-full px-3.5 py-2 text-xs rounded-xl bg-white border border-[#C7D7F5] focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -287,21 +300,26 @@ const newProjectForm = ref({
   competitionTitle: '',
   currentRound: 1,
   advisorInfo: {
+    hasAdvisor: false,
     fullName: '',
-    unit: '',
+    department: '',
     phone: '',
     email: '',
+    academicRank: '',
   },
   leaderInfo: {
     fullName: '',
     studentId: '',
     className: '',
-    courseYear: '',
+    faculty: '',
     phone: '',
     email: '',
   },
   objectives: '',
   abstract: '',
+  problemStatement: '',
+  solution: '',
+  businessModel: '',
   attachmentUrl: '',
 });
 
@@ -319,26 +337,31 @@ function initializeForm() {
   newProjectForm.value = {
     title: '',
     category: '',
-    faculty: user.faculty || 'Khoa Công nghệ Thông tin',
+    faculty: user.faculty || '',
     competitionId: selectedCompetitionId.value,
     competitionTitle: selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
     currentRound: 1,
     advisorInfo: {
+      hasAdvisor: false,
       fullName: '',
-      unit: user.faculty || 'Khoa Công nghệ Thông tin',
+      department: '',
       phone: '',
       email: '',
+      academicRank: '',
     },
     leaderInfo: {
-      fullName: user.fullName || 'Đặng Tấn Kiệt',
-      studentId: user.studentId || 'KTPM2311025',
-      className: user.className || 'KTPM0123',
-      courseYear: 'Khóa 11',
-      phone: user.phone || '0901234567',
-      email: user.email || 'dtkietktpm2311025@student.ctuet.edu.vn',
+      fullName: user.fullName || '',
+      studentId: user.studentId || '',
+      className: user.className || '',
+      faculty: user.faculty || '',
+      phone: user.phoneNumber || user.phone || '',
+      email: user.email || '',
     },
     objectives: '',
     abstract: '',
+    problemStatement: '',
+    solution: '',
+    businessModel: '',
     attachmentUrl: '',
   };
 }
@@ -378,16 +401,6 @@ async function handleCreateProject() {
   if (!selectedCompetitionId.value) {
     toastStore.add({
       message: 'Vui lòng chọn cuộc thi khởi nghiệp mà bạn muốn đăng ký tham gia.',
-      type: 'warning',
-    });
-    return;
-  }
-
-  // Validate bắt buộc link thuyết minh
-  const url = (newProjectForm.value.attachmentUrl || '').trim();
-  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-    toastStore.add({
-      message: 'Vui lòng nhập đường dẫn (link) tài liệu thuyết minh hợp lệ bắt đầu bằng https://',
       type: 'warning',
     });
     return;

@@ -79,6 +79,9 @@ const LOCKED_PROJECT_STATUSES = Object.freeze([
 /** Trạng thái dự án được coi là "đã kết thúc" (không tính là dự án đang hoạt động) */
 const FINISHED_PROJECT_STATUSES = Object.freeze([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED]);
 
+/** Mỗi sinh viên được tham gia tối đa hai dự án gốc chưa kết thúc. */
+const MAX_ACTIVE_PROJECTS = 2;
+
 /**
  * Cấp thi của dự án (thi đấu đa cấp - Master Blueprint Enterprise Edition).
  * Thứ tự là thứ tự quyền lực: cấp sau chỉ được xét khi dự án đã đạt cấp trước đó.
@@ -162,6 +165,7 @@ const AUDIT_ACTIONS = Object.freeze({
   CHANGE_USER_ROLE: 'CHANGE_USER_ROLE',
   CREATE_USER: 'CREATE_USER',
   INVITE_PROJECT_MEMBER: 'INVITE_PROJECT_MEMBER',
+  CANCEL_PROJECT_INVITATION: 'CANCEL_PROJECT_INVITATION',
   REMOVE_PROJECT_MEMBER: 'REMOVE_PROJECT_MEMBER',
   ACCEPT_NDA: 'ACCEPT_NDA',
   REQUEST_MEMBER_CHANGE: 'REQUEST_MEMBER_CHANGE',
@@ -266,9 +270,9 @@ const STORAGE_PUBLIC_DOMAIN = process.env.STORAGE_PUBLIC_DOMAIN || '';
 const OWNER_MUST_TRANSFER_MESSAGE =
   'Bạn là Trưởng nhóm. Vui lòng chuyển quyền Trưởng nhóm cho thành viên khác trước khi rời dự án.';
 
-/** Ràng buộc: mỗi sinh viên chỉ được tham gia 1 dự án đang hoạt động (FR04) */
+/** Ràng buộc: mỗi sinh viên chỉ được tham gia tối đa hai dự án đang hoạt động (FR04) */
 const USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE =
-  'Bạn đang tham gia một dự án khác đang hoạt động, không thể tạo hoặc tham gia dự án mới.';
+  `Bạn đã đạt giới hạn ${MAX_ACTIVE_PROJECTS} dự án đang hoạt động, không thể tạo hoặc tham gia dự án mới.`;
 
 /** Trạng thái yêu cầu thay đổi thành viên (PENDING -> APPROVED/REJECTED) */
 const MEMBER_CHANGE_REQUEST_STATUS = Object.freeze({
@@ -313,6 +317,7 @@ module.exports = {
   EDITABLE_PROJECT_STATUSES,
   LOCKED_PROJECT_STATUSES,
   FINISHED_PROJECT_STATUSES,
+  MAX_ACTIVE_PROJECTS,
   MILESTONE_STATUS,
   MENTOR_STATUS,
   MENTOR_DEFAULT_MAX_PROJECTS,
