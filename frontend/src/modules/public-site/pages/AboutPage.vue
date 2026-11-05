@@ -1,39 +1,28 @@
 ﻿<template>
-  <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-    <div class="text-center mb-12">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F1F7FF] text-[#1E56D9] text-xs font-semibold uppercase tracking-wider mb-4">
-        Giới thiệu
-      </div>
-      <h1 class="text-3xl sm:text-4xl font-bold text-[#0B1F4B] leading-tight mb-4">Cuộc thi khởi nghiệp sinh viên</h1>
-      <div class="w-12 h-[3px] bg-[#1E56D9] rounded-full mx-auto"></div>
-      <p class="mt-5 text-sm text-[#4B5B7A] leading-relaxed max-w-[560px] mx-auto">SESS - Student Entrepreneurship Support System</p>
+  <section class="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+    <div class="mb-10 text-center sm:mb-12">
+      <p class="mb-3 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-700 ring-1 ring-inset ring-indigo-200/70">Giới thiệu</p>
+      <h1 class="text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">Cuộc thi khởi nghiệp sinh viên</h1>
+      <p class="mx-auto mt-3 max-w-[560px] text-sm leading-relaxed text-slate-500">SESS - Hệ thống hỗ trợ khởi nghiệp sinh viên (Student Entrepreneurship Support System).</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-      <div class="space-y-6">
-        <div class="rounded-xl border border-[#E4ECF7] bg-white p-6 shadow-sm">
-          <h3 class="text-sm font-semibold text-[#0B1F4B] uppercase tracking-wider mb-3">Về SESS</h3>
-          <p class="text-sm text-[#4B5B7A] leading-relaxed">
-            SESS là hệ thống hỗ trợ sinh viên khởi nghiệp, giúp quản lý dự án, theo dõi tiến độ, phân công cố vấn và đánh giá theo quy trình rõ ràng.
-          </p>
+    <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div class="space-y-4 lg:col-span-7">
+        <div class="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)]">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Về SESS</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-600">SESS là hệ thống hỗ trợ sinh viên khởi nghiệp, giúp quản lý dự án, theo dõi tiến độ, phân công cố vấn và đánh giá theo quy trình rõ ràng, minh bạch.</p>
         </div>
-        <div class="rounded-xl border border-[#E4ECF7] bg-white p-6 shadow-sm">
-          <h3 class="text-sm font-semibold text-[#0B1F4B] uppercase tracking-wider mb-3">Mục tiêu</h3>
-          <p class="text-sm text-[#4B5B7A] leading-relaxed">
-            Kết nối sinh viên với cố vấn, giảng viên và chuyên gia, tạo điều kiện phát triển ý tưởng sáng tạo thành dự án thực tế.
-          </p>
+        <div class="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)]">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Mục tiêu</h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-600">Kết nối sinh viên với cố vấn, giảng viên và chuyên gia, tạo điều kiện phát triển ý tưởng sáng tạo thành dự án thực tế có tác động.</p>
         </div>
       </div>
-      <div class="rounded-2xl border border-[#E4ECF7] bg-[#0F2A63] p-8 text-white shadow-md relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-[60px] -mt-6 -mr-6"></div>
-        <h2 class="text-xl font-bold leading-tight mb-4">Hãy bắt đầu hành trình khởi nghiệp của bạn ngay hôm nay</h2>
-        <p class="text-sm text-white/80 leading-relaxed mb-6">
-          Mỗi ý tưởng đều có giá trị và xứng đáng được lắng nghe, hỗ trợ và phát triển.
-        </p>
-        <router-link to="/competitions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#0F2A63] rounded-full hover:bg-[#F8FBFF] font-medium text-sm transition-colors active:scale-95">
-          Tham gia ngay
-          <ArrowRight class="w-4 h-4" />
-        </router-link>
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f172a] via-slate-900 to-indigo-950 p-7 text-white shadow-[0_24px_50px_-24px_rgba(15,23,42,0.55)] lg:col-span-5">
+        <div class="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-indigo-400/20 blur-3xl"></div>
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-indigo-200">Bắt đầu ngay</p>
+        <h2 class="mt-3 text-xl font-bold leading-tight tracking-tight">Hãy bắt đầu hành trình khởi nghiệp của bạn hôm nay</h2>
+        <p class="mt-3 text-sm leading-relaxed text-slate-300">Mỗi ý tưởng đều có giá trị và xứng đáng được lắng nghe, hỗ trợ và phát triển.</p>
+        <router-link to="/competitions" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-[#0f172a] transition hover:-translate-y-px hover:bg-slate-50">Tham gia ngay <ArrowRight class="h-4 w-4" /></router-link>
       </div>
     </div>
   </section>

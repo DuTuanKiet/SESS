@@ -50,6 +50,16 @@ const evaluationSubmissionSchema = new mongoose.Schema(
     comment: { type: String, trim: true, default: '', maxlength: 2000 },
 
     submittedAt: { type: Date, default: Date.now, index: true },
+
+    /** Đánh dấu bản ghi cũ đã được migrate sang HumanEvaluation (Unified Pipeline) */
+    migratedToHumanEval: { type: Boolean, default: false, index: true },
+    migratedAt: { type: Date, default: null },
+    migratedHumanEvaluationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'HumanEvaluation',
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,

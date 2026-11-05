@@ -18,11 +18,11 @@ defineProps({
 <template>
   <div class="flex flex-col items-center text-center pb-3 border-b border-slate-100">
     <!-- Logo trường CTUT -->
-    <div class="w-12 h-12 mb-1.5 p-0.5 rounded-full bg-white border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
+    <div class="mb-2 flex items-center justify-center">
       <img
         :src="logoCtut"
         alt="Logo CTUT"
-        class="w-full h-full object-contain"
+        class="h-14 w-14 object-contain"
         loading="eager"
       />
     </div>
@@ -33,7 +33,7 @@ defineProps({
     </p>
 
     <!-- Tên hệ thống / Cổng đăng nhập -->
-    <h1 class="mt-1 text-[13px] sm:text-[14.5px] font-bold text-blue-900 tracking-tight whitespace-nowrap">
+    <h1 class="mt-1 text-[13px] sm:text-[14.5px] font-bold text-[#1e3a8a] tracking-tight whitespace-nowrap">
       {{ systemTitle }}
     </h1>
   </div>

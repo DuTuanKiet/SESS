@@ -1,18 +1,39 @@
 const authService = require('../services/authService');
+const mailerService = require('../services/mailerService');
+const { USER_ROLES } = require('../utils/constants');
 
 /** Thông tin phiên đăng nhập đi kèm refresh token để quản lý thiết bị */
 const getSessionMeta = (req) => ({ userAgent: req.get('user-agent') ?? '', ip: req.ip ?? '' });
 
+/** Xác định trang đích sau đăng nhập theo vai trò người dùng */
+const redirectPathByRole = (role) => {
+  const r = String(role || '').toLowerCase();
+  const map = {
+    [USER_ROLES.JUDGE]: '/judge/assignments',
+    [USER_ROLES.TEACHER]: '/advisor',
+    [USER_ROLES.MENTOR]: '/advisor',
+    [USER_ROLES.STUDENT]: '/student',
+    [USER_ROLES.ADMIN]: '/admin',
+  };
+  return map[r] || '/';
+};
+
 const verifyOtp = async (req, res) => {
   const data = await authService.verifyOtp({ ...req.body, sessionMeta: getSessionMeta(req) });
+
+  const userRole = data.user?.role || data.user?.systemRole || '';
+  data.redirectPath = redirectPathByRole(userRole);
+
   res.status(200).json({ success: true, message: 'Xác thực email thành công.', data });
 };
 
-
-const mailerService = require('../services/mailerService');
-
 const login = async (req, res) => {
   const data = await authService.login({ ...req.body, sessionMeta: getSessionMeta(req) });
+
+  // Thêm redirectPath để frontend điều hướng tự động sau khi đăng nhập
+  const userRole = data.user?.role || data.user?.systemRole || '';
+  data.redirectPath = redirectPathByRole(userRole);
+
   // Non-blocking login notification email
   (async () => {
     try {
@@ -22,8 +43,11 @@ const login = async (req, res) => {
         text: `Xin chào ${data.user.fullName || ''},\nThời gian: ${new Date().toISOString()}\nIP: ${req.ip}\nThiết bị: ${req.get('user-agent')}\nNếu không phải bạn, liên hệ quản trị viên.`,
         html: `<p>Xin chào ${data.user.fullName || ''},</p><p>Thời gian: ${new Date().toISOString()}</p><p>IP: ${req.ip}</p><p>Thiết bị: ${req.get('user-agent')}</p><p>Nếu không phải bạn, liên hệ quản trị viên hoặc đổi mật khẩu ngay.</p>`,
       });
-    } catch (e) { console.error('Login notify email failed:', e.message); }
+    } catch (e) {
+      console.error('Login notify email failed:', e.message);
+    }
   })();
+
   res.status(200).json({ success: true, message: 'Đăng nhập thành công.', data });
 };
 

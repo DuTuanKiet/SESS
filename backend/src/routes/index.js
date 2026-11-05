@@ -12,17 +12,21 @@ const fr05ProjectRoutes = require('./projectRoutes');
 const authRouter = require('./authRouter');
 const userRouter = require('./userRouter');
 const adminRouter = require('./adminRouter');
+const adminEvaluationRoutes = require('./adminEvaluationRoutes');
 const projectRouter = require('./projectRouter');
 const judgeWhitelistRouter = require('./judgeWhitelistRouter');
 const cloudUploadRouter = require('./cloudUploadRouter');
 const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
 const votingRouter = require('./votingRouter');
+const newsRouter = require('./newsRouter');
+const notificationRouter = require('./notificationRoutes');
 
 // --- Routes vòng đời nâng cao (Enterprise Edition) ---
 const projectCancellationRoutes = require('./projectCancellationRoutes');
 const projectHierarchyRoutes = require('./projectHierarchyRoutes');
 const evaluationRoutes = require('./evaluationRoutes');
+const evaluatorRoutes = require('./evaluatorRoutes');
 const queueService = require('../services/queueService');
 
 const router = express.Router();
@@ -80,12 +84,15 @@ router.use('/projects/:projectId/feedbacks', feedbackRoutes);
 // ---------------------------------------------------------------------------
 router.use('/auth', authRouter);
 router.use('/users', userRouter);
+router.use('/admin/evaluations', adminEvaluationRoutes);
 router.use('/admin', adminRouter);
 router.use('/admin/judge-whitelist', judgeWhitelistRouter);
 router.use('/cloud-upload', cloudUploadRouter);
 router.use('/score-overrides', scoreOverrideRoutes);
 router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
 router.use('/public/votes', votingRouter);
+router.use('/news', newsRouter);
+router.use('/notifications', notificationRouter);
 
 // ---------------------------------------------------------------------------
 // /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)
@@ -98,6 +105,7 @@ router.use('/public/votes', votingRouter);
 router.use('/projects', projectCancellationRoutes);
 router.use('/projects', projectHierarchyRoutes);
 router.use('/projects', evaluationRoutes);
+router.use('/evaluator', evaluatorRoutes);
 router.use('/projects', fr05ProjectRoutes);
 router.use('/projects', projectRouter);
 

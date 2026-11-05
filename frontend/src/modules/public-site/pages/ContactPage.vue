@@ -1,19 +1,11 @@
 ﻿<template>
-  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-    <div class="text-center mb-12">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F1F7FF] text-[#1E56D9] text-xs font-semibold uppercase tracking-wider mb-4">
-        Liên hệ
-      </div>
-      <h1 class="text-3xl sm:text-4xl font-bold text-[#0B1F4B] leading-tight mb-4">Liên hệ</h1>
-      <div class="w-12 h-[3px] bg-[#1E56D9] rounded-full mx-auto"></div>
-      <p class="mt-5 text-sm text-[#4B5B7A] leading-relaxed max-w-[560px] mx-auto">Thông tin liên hệ ban tổ chức sẽ được cập nhật.</p>
+  <section class="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+    <div class="mb-10 text-center sm:mb-12">
+      <p class="mb-3 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-700 ring-1 ring-inset ring-indigo-200/70">Liên hệ</p>
+      <h1 class="text-3xl font-bold tracking-tight text-[#0f172a] sm:text-4xl">Liên hệ ban tổ chức</h1>
+      <p class="mx-auto mt-3 max-w-[560px] text-sm leading-relaxed text-slate-500">Thông tin liên hệ sẽ được cập nhật khi có thông báo chính thức.</p>
     </div>
-
-    <div class="rounded-xl border border-[#E4ECF7] bg-white p-6 sm:p-8 shadow-sm">
-      <p class="text-sm text-[#4B5B7A] leading-relaxed">
-        Vui lòng theo dõi thông báo chính thức trên website.
-      </p>
-    </div>
+    <div class="mx-auto max-w-3xl rounded-2xl border border-slate-200/60 bg-white p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] sm:p-8"><p class="text-sm leading-relaxed text-slate-600">Vui lòng theo dõi thông báo chính thức trên website.</p></div>
   </section>
 </template>
 

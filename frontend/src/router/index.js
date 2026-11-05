@@ -22,6 +22,14 @@ import NotFoundPage from '@/modules/public-site/pages/NotFoundPage.vue';
 import LoginView from '@/modules/auth/pages/LoginView.vue';
 import AdminLoginView from '@/modules/auth/pages/AdminLoginView.vue';
 
+import EvaluatorAssignmentsView from '@/views/EvaluatorAssignmentsView.vue';
+import EvaluatorWorkspaceView from '@/views/EvaluatorWorkspaceView.vue';
+import JudgeDashboardView from '@/modules/judging/pages/JudgeDashboardView.vue';
+import JudgeEvaluationsView from '@/modules/judging/pages/JudgeEvaluationsView.vue';
+import JudgeHistoryView from '@/modules/judging/pages/JudgeHistoryView.vue';
+import JudgeNotificationsView from '@/modules/judging/pages/JudgeNotificationsView.vue';
+import JudgeProfileView from '@/modules/judging/pages/JudgeProfileView.vue';
+
 const ROUTE_PATHS = {
   LOGIN: '/auth/login',
   STUDENT: '/student',
@@ -109,7 +117,14 @@ const routes = [
     component: JudgeLayout,
     meta: { roles: ['judge', 'JUDGE'], requiresAuth: true },
     children: [
-      { path: '', name: 'judge-dashboard', component: () => import('@/modules/judging/pages/JudgeDashboardPage.vue') },
+      { path: '', redirect: { name: 'judge-dashboard' } },
+      { path: 'dashboard', name: 'judge-dashboard', component: JudgeDashboardView },
+      { path: 'assignments', name: 'judge-assignments', component: EvaluatorAssignmentsView },
+      { path: 'evaluations', name: 'judge-evaluations', component: JudgeEvaluationsView },
+      { path: 'evaluations/:evaluationId', name: 'judge-workspace', component: EvaluatorWorkspaceView },
+      { path: 'history', name: 'judge-history', component: JudgeHistoryView },
+      { path: 'notifications', name: 'judge-notifications', component: JudgeNotificationsView },
+      { path: 'account', name: 'judge-account', component: JudgeProfileView },
     ],
   },
   {
@@ -148,6 +163,49 @@ router.beforeEach((to, from) => {
   } catch (e) {
     // ignore
   }
+
+  const routeTitle = {
+    home: 'Trang chủ | Cổng thông tin SESS - CTUT',
+    about: 'Giới thiệu | Cổng thông tin SESS - CTUT',
+    competitions: 'Cuộc thi | Cổng thông tin SESS - CTUT',
+    rules: 'Thể lệ | Cổng thông tin SESS - CTUT',
+    criteria: 'Tiêu chí đánh giá | Cổng thông tin SESS - CTUT',
+    news: 'Tin tức & Sự kiện | Cổng thông tin SESS - CTUT',
+    'news-detail': 'Tin tức | Cổng thông tin SESS - CTUT',
+    contact: 'Liên hệ | Cổng thông tin SESS - CTUT',
+    support: 'Hỗ trợ | Cổng thông tin SESS - CTUT',
+    resources: 'Tài nguyên | Cổng thông tin SESS - CTUT',
+    login: 'Đăng nhập | Cổng thông tin SESS - CTUT',
+    'admin-login': 'Đăng nhập Quản trị | Cổng thông tin SESS - CTUT',
+    'student-dashboard': 'Tổng quan Sinh viên | SESS - CTUT',
+    'advisor-dashboard': 'Tổng quan Cố vấn | SESS - CTUT',
+    'advisor-projects': 'Dự án phụ trách | SESS - CTUT',
+    'advisor-timeline-global': 'Tiến độ | SESS - CTUT',
+    'advisor-project-timeline': 'Tiến độ dự án | SESS - CTUT',
+    'advisor-mentoring-global': 'Đánh giá & Cố vấn | SESS - CTUT',
+    'advisor-project-mentoring': 'Đánh giá dự án | SESS - CTUT',
+    'advisor-notifications': 'Thông báo | SESS - CTUT',
+    'advisor-send-email': 'Gửi email | SESS - CTUT',
+    'advisor-profile': 'Hồ sơ cố vấn | SESS - CTUT',
+    'advisor-guidelines': 'Hướng dẫn | SESS - CTUT',
+    'advisor-criteria': 'Tiêu chí | SESS - CTUT',
+    'advisor-account': 'Tài khoản | SESS - CTUT',
+    'judge-dashboard': 'Tổng quan Ban Giám Khảo | SESS - CTUT',
+    'judge-assignments': 'Dự án phân công | SESS - CTUT',
+    'judge-evaluations': 'Phiếu chấm điểm | SESS - CTUT',
+    'judge-workspace': 'Chấm điểm dự án | SESS - CTUT',
+    'judge-history': 'Lịch sử đánh giá | SESS - CTUT',
+    'judge-notifications': 'Thông báo | SESS - CTUT',
+    'judge-account': 'Tài khoản & Bảo mật | SESS - CTUT',
+    'admin-dashboard': 'Tổng quan Quản trị | SESS - CTUT',
+    'not-found': 'Không tìm thấy trang | SESS - CTUT',
+  };
+  const portalTitle = to.path.startsWith('/admin') ? 'Quản trị | SESS - CTUT'
+    : to.path.startsWith('/judge') ? 'Ban Giám Khảo | SESS - CTUT'
+    : to.path.startsWith('/advisor') ? 'Giảng viên Cố vấn | SESS - CTUT'
+    : to.path.startsWith('/student') ? 'Sinh viên | SESS - CTUT'
+    : 'Cổng thông tin SESS - CTUT';
+  document.title = routeTitle[to.name] || portalTitle;
 
   const currentUser = authStore.user;
   const userRole = (currentUser?.role || currentUser?.systemRole || '').toLowerCase();
