@@ -102,7 +102,17 @@ const confirmUpload = async (req, res) => {
 /** GET /api/v1/cloud-upload/files/:projectId - danh sách file đã upload của dự án */
 const listProjectFiles = async (req, res) => {
   const { projectId } = req.params;
-  const files = await CloudFileUpload.find({ projectId, uploadedBy: req.user.id })
+  const project = await Project.findById(projectId);
+  if (!project) throw ApiError.notFound('Không tìm thấy dự án', 'PROJECT_NOT_FOUND');
+
+  // Phân quyền: Mentor phải được phân công dự án (MentorAssignment ASSIGNED)
+  const MentorAssignment = require('../models/MentorAssignment');
+  const assignment = await MentorAssignment.findOne({ projectId, mentorId: req.user.id, status: 'ASSIGNED' }).lean();
+  if (!assignment && req.user.role !== 'admin') {
+    throw ApiError.forbidden('Không có quyền xem file của dự án này', 'FORBIDDEN_PROJECT_FILES');
+  }
+
+  const files = await CloudFileUpload.find({ projectId, status: 'completed' })
     .sort({ createdAt: -1 })
     .lean();
   res.status(200).json({

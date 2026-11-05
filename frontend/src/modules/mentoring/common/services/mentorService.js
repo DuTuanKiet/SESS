@@ -1,79 +1,53 @@
 import httpClient from '@/services/http/httpClient';
 
-const mockProjects = [
-  { id: 1, title: "Smart Agri - Nông nghiệp thông minh", code: "SA-01", teamName: "Nhóm A", members: ["Nguyễn Văn A", "Trần Thị B"], category: "IoT", status: "Đang triển khai" },
-];
-
-const mockNotifications = [
-  { id: 1, title: "Nhắc nhở nộp báo cáo tiến độ", content: "Vui lòng nộp báo cáo tuần 5 trước 17:00 Thứ Sáu.", createdAt: new Date().toISOString(), read: false },
-];
-
 export const mentorService = {
   async getAssignedProjects(params = {}) {
-    try {
-      const res = await httpClient.get('/mentors/assigned-projects', { params });
-      return res.data;
-    } catch (e) {
-      return mockProjects;
-    }
+    const res = await httpClient.get('/mentors/me/assigned-projects', { params });
+    return res.data;
   },
   async getProjectMilestones(projectId) {
-    try {
-      const res = await httpClient.get(`/projects/${projectId}/milestones`);
-      return res.data;
-    } catch (e) { return []; }
+    const res = await httpClient.get(`/projects/${projectId}/milestones`);
+    return res.data;
   },
   async createMilestone(projectId, payload) {
-    try {
-      const res = await httpClient.post(`/projects/${projectId}/milestones`, payload);
-      return res.data;
-    } catch (e) { return null; }
+    const res = await httpClient.post(`/projects/${projectId}/milestones`, payload);
+    return res.data;
   },
   async addMilestoneFeedback(projectId, milestoneId, payload) {
-    try {
-      const res = await httpClient.post(`/projects/${projectId}/milestones/${milestoneId}/comments`, payload);
-      return res.data;
-    } catch (e) { return null; }
+    const res = await httpClient.post(`/projects/${projectId}/milestones/${milestoneId}/comments`, payload);
+    return res.data;
   },
   async getMentorNotifications(params = {}) {
-    try {
-      const res = await httpClient.get('/mentors/notifications', { params });
-      return res.data;
-    } catch (e) {
-      return mockNotifications;
-    }
+    const res = await httpClient.get('/mentors/me/notifications', { params });
+    return res.data;
   },
   async sendBulkEmail(payload) {
-    try {
-      const res = await httpClient.post('/mentors/send-email', payload);
-      return res.data;
-    } catch (e) {
-      return { success: true, message: "Gửi email thành công (mock)" };
-    }
+    const res = await httpClient.post('/mentors/me/send-email', payload);
+    return res.data;
   },
   async requestCancelAssignment(payload) {
-    try {
-      const res = await httpClient.post('/mentors/request-cancel-assignment', payload);
-      return res.data;
-    } catch (e) { return null; }
+    const res = await httpClient.post('/mentors/me/request-cancel-assignment', payload);
+    return res.data;
   },
   async getMentorProfile() {
-    try {
-      const res = await httpClient.get('/mentors/profile');
-      return res.data;
-    } catch (e) { return null; }
+    const res = await httpClient.get('/mentors/me/profile');
+    return res.data;
   },
   async updateMentorProfile(data) {
-    try {
-      const res = await httpClient.put('/mentors/profile', data);
-      return res.data;
-    } catch (e) { return null; }
+    const res = await httpClient.put('/mentors/me/profile', data);
+    return res.data;
   },
   async getMentorHonorHistory(params = {}) {
-    try {
-      const res = await httpClient.get('/mentors/honor-history', { params });
-      return res.data;
-    } catch (e) { return []; }
+    const res = await httpClient.get('/mentors/me/honor-history', { params });
+    return res.data;
+  },
+  async getProjectFeedbacks(projectId) {
+    const res = await httpClient.get(`/projects/${projectId}/feedbacks`);
+    return res.data;
+  },
+  async createProjectFeedback(projectId, payload) {
+    const res = await httpClient.post(`/projects/${projectId}/feedbacks`, payload);
+    return res.data;
   },
 };
 

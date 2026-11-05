@@ -68,29 +68,14 @@
             <RouterLink to="/advisor/notifications" class="text-xs text-[#0F4C81] hover:underline">Tất cả ›</RouterLink>
           </div>
           <div class="p-5 space-y-4">
-            <div class="border-l-2 border-slate-200 pl-4 py-1">
+            <div v-if="notifLoading" class="text-sm text-slate-500">Đang tải...</div>
+            <div v-else-if="notifications.length === 0" class="text-sm text-slate-500">Chưa có thông báo mới.</div>
+            <div v-else v-for="n in notifications.slice(0,5)" :key="n._id || n.id" class="border-l-2 border-slate-200 pl-4 py-1">
               <div class="flex items-center gap-2">
-                <span class="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded">Tiến độ</span>
-                <span class="text-[10px] text-slate-400">Hôm nay</span>
+                <span class="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded">{{ n.read ? 'Đã đọc' : 'Mới' }}</span>
+                <span class="text-[10px] text-slate-400">{{ formatDate(n.createdAt) }}</span>
               </div>
-              <p class="text-sm text-slate-700 mt-1">Rà soát kế hoạch thực hiện (Timeline) của các nhóm sinh viên</p>
-              <RouterLink to="/advisor/timeline" class="text-xs text-[#0F4C81] hover:underline mt-1 inline-block">Kiểm tra ngay ›</RouterLink>
-            </div>
-            <div class="border-l-2 border-slate-200 pl-4 py-1">
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Đánh giá</span>
-                <span class="text-[10px] text-slate-400">Tuần này</span>
-              </div>
-              <p class="text-sm text-slate-700 mt-1">Gửi nhận xét chuyên môn định kỳ trước hạn báo cáo giữa kỳ</p>
-              <RouterLink to="/advisor/mentoring" class="text-xs text-[#0F4C81] hover:underline mt-1 inline-block">Vào sổ đánh giá ›</RouterLink>
-            </div>
-            <div class="border-l-2 border-slate-200 pl-4 py-1">
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded">Hồ sơ</span>
-                <span class="text-[10px] text-slate-400">Đang chờ</span>
-              </div>
-              <p class="text-sm text-slate-700 mt-1">Cập nhật thông tin học hàm, học vị và lĩnh vực cố vấn</p>
-              <RouterLink to="/advisor/profile" class="text-xs text-[#0F4C81] hover:underline mt-1 inline-block">Cập nhật ›</RouterLink>
+              <p class="text-sm text-slate-700 mt-1">{{ n.title || n.content }}</p>
             </div>
           </div>
         </section>
@@ -128,7 +113,10 @@ import mentorService from "../common/services/mentorService"
 
 const authStore = useAuthStore()
 const projects = ref([])
+const notifications = ref([])
+const profile = ref({})
 const loading = ref(false)
+const notifLoading = ref(false)
 
 const user = computed(() => authStore.user || {})
 const displayName = computed(() => {
@@ -141,10 +129,10 @@ const initials = computed(() => {
   const name = user.value?.fullName || user.value?.name || "GV"
   return name.charAt(0).toUpperCase()
 })
-const employeeId = computed(() => user.value?.code || user.value?.employeeId || "CTUT-M089")
-const department = computed(() => user.value?.department || user.value?.faculty || "Khoa Công nghệ - Khởi nghiệp")
-const email = computed(() => user.value?.email || "seed.mentor@ctut.edu.vn")
-const phone = computed(() => user.value?.phone || user.value?.phoneNumber || "(+84) 912 345 678")
+const employeeId = computed(() => profile.value?.staffCode || profile.value?.code || authStore.user?.code || "")
+const department = computed(() => profile.value?.faculty || profile.value?.department || authStore.user?.department || "")
+const email = computed(() => profile.value?.email || authStore.user?.email || "")
+const phone = computed(() => profile.value?.phone || profile.value?.phoneNumber || authStore.user?.phone || "")
 
 const teamNameOf = (p) => p.teamName || (p.team ? p.team.name : p.groupName || "Chưa cập nhật")
 
@@ -167,5 +155,35 @@ const fetchData = async () => {
   }
 }
 
-onMounted(fetchData)
+const fetchNotifications = async () => {
+  notifLoading.value = true
+  try {
+    const res = await mentorService.getMentorNotifications()
+    notifications.value = normalizeList(res)
+  } catch (e) {
+    notifications.value = []
+  } finally {
+    notifLoading.value = false
+  }
+}
+
+const formatDate = (d) => {
+  if (!d) return ""
+  try { return new Date(d).toLocaleString("vi-VN") } catch { return "" }
+}
+
+const fetchProfile = async () => {
+  try {
+    const res = await mentorService.getMentorProfile()
+    profile.value = res?.data || res || {}
+  } catch (e) {
+    profile.value = {}
+  }
+}
+
+onMounted(() => {
+  fetchData()
+  fetchNotifications()
+  fetchProfile()
+})
 </script>

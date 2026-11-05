@@ -16,7 +16,7 @@
         </div>
       </div>
       <div class="mt-7 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <ProfileStat label="Mã cán bộ / giảng viên" :value='profile.code || profile.mentorCode || profile.employeeId || "—"' />
+        <ProfileStat label="Mã cán bộ / giảng viên" :value='profile.staffCode || profile.code || profile.mentorCode || profile.employeeId || "—"' />
         <ProfileStat label="Email trường" :value='profile.email || "—"' />
         <ProfileStat label="Khoa / Bộ môn" :value='profile.department || profile.faculty || profile.major || "—"' />
         <ProfileStat label="Số điện thoại" :value='profile.phone || profile.phoneNumber || "—"' />

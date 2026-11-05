@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const mentorRoutes = require('./mentorRoutes');
 const rubricRoutes = require('./rubricRoutes');
 const milestoneRoutes = require('./milestoneRoutes');
+const feedbackRoutes = require('./feedbackRoutes');
 const fr05ProjectRoutes = require('./projectRoutes');
 
 // --- Routes của nhánh FR01-FR04 (auth, user, admin, project FR03/FR04) ---
@@ -72,6 +73,7 @@ router.get('/ready', async (_req, res) => {
 router.use('/', mentorRoutes);
 router.use('/evaluation-rubrics', rubricRoutes);
 router.use('/projects/:projectId/milestones', milestoneRoutes);
+router.use('/projects/:projectId/feedbacks', feedbackRoutes);
 
 // ---------------------------------------------------------------------------
 // Nhánh FR01-FR04

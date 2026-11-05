@@ -1,5 +1,6 @@
 const express = require('express');
 const authController = require('../controllers/authController');
+const authMiddleware = require('../middlewares/authMiddleware');
 const { authLimiter } = require('../middlewares/rateLimitMiddleware');
 const { requireRecaptcha } = require('../middlewares/recaptchaMiddleware');
 
@@ -15,6 +16,10 @@ router.post('/login', requireRecaptcha({ expectedAction: 'login' }), authControl
 router.post('/google', requireRecaptcha({ expectedAction: 'login' }), authController.loginWithGoogle);
 router.post('/refresh-token', authController.refreshToken);
 // Logout xác thực bằng refresh token nên không cần access token còn hiệu lực
+
+
+// ...
 router.post('/logout', authController.logout);
+router.get('/me', authMiddleware, authController.getMe);
 
 module.exports = router;

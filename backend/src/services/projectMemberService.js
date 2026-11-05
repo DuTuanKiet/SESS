@@ -4,7 +4,7 @@ const ProjectMemberChangeRequest = require('../models/ProjectMemberChangeRequest
 const User = require('../models/User');
 const ApiError = require('../utils/apiError');
 const whitelistService = require('./whitelistService');
-const queueService = require('./queueService');
+const mailerService = require('./mailerService');
 const {
   USER_STATUS,
   PROJECT_MEMBER_ROLES,
@@ -137,14 +137,11 @@ const assertActivatedStudent = async (email) => {
 /** Gửi email mời tham gia dự án qua BullMQ (lỗi gửi mail không làm hỏng lời mời đã tạo) */
 const notifyInvitation = async ({ project, inviter, invitee }) => {
   try {
-    await queueService.enqueueProjectInvitationEmail({
+    await mailerService.sendMail({
       to: invitee.email,
-      payload: {
-        projectTitle: project.title,
-        projectCode: project.code,
-        inviterName: inviter.fullName || inviter.email,
-        inviteeName: invitee.fullName,
-      },
+      subject: `[SESS] Lời mời tham gia dự án ${project.title || project.name || ''}`,
+      text: `Bạn được mời tham gia dự án ${project.title || project.name || ''} bởi ${inviter.fullName || inviter.email}.`,
+      html: `<p>Bạn được mời tham gia dự án <strong>${project.title || project.name || ''}</strong> bởi ${inviter.fullName || inviter.email}.</p>`,
     });
   } catch (error) {
     console.error(`[Project] Không gửi được email mời dự án tới ${invitee.email}: ${error.message}`);

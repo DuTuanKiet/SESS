@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { authApi } from '@/services/api/authApi';
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
@@ -100,6 +101,20 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    async fetchUser() {
+      try {
+        const res = await authApi.getMe();
+        const user = res.data?.data || res.data?.user || null;
+        this.user = user;
+        if (user) {
+          try { localStorage.setItem(USER_KEY, JSON.stringify(user)); } catch {}
+        }
+        return user;
+      } catch (e) {
+        this.clearAuth();
+        throw e;
+      }
+    },
     initAuth() {
       const accessToken = getStoredToken();
       const user = getStoredUser();

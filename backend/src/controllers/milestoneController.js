@@ -7,25 +7,17 @@ async function handleCreateMilestone(req, res, next) {
     const { projectId } = req.params;
     const mentorId = req.user.id;
     const { title, description, startDate, dueDate } = req.body;
-
-    const data = await milestoneService.createMilestone({
-      projectId,
-      mentorId,
-      title,
-      description,
-      startDate,
-      dueDate,
-    });
-
-    return res.status(201).json({
-      success: true,
-      code: 'MILESTONE_CREATED',
-      message: 'Tạo milestone thành công.',
-      data,
-    });
-  } catch (error) {
-    next(error);
-  }
+    const deadline = dueDate || req.body.deadline;
+    const deadlineDate = new Date(deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    deadlineDate.setHours(0, 0, 0, 0);
+    if (!deadline || deadlineDate < today) {
+      return res.status(400).json({ success: false, message: "Hạn chót cột mốc không được nhỏ hơn ngày hôm nay!" });
+    }
+    const data = await milestoneService.createMilestone({ projectId, mentorId, title, description, startDate, dueDate: deadline });
+    return res.status(201).json({ success: true, code: 'MILESTONE_CREATED', message: 'Tạo milestone thành công.', data });
+  } catch (error) { next(error); }
 }
 
 //Cập nhật milestone. Chỉ Mentor được phép khi milestone ở Pending. Ghi audit log.

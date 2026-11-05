@@ -130,13 +130,14 @@
             </div>
             <div>
               <label class="block text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider mb-2">Thời hạn *</label>
-              <input type="date" v-model="newMilestone.dueDate" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" />
+<input type="date" v-model="newMilestone.dueDate" :min="tomorrowStr" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" />
+<p v-if="dueDateError" class="text-xs text-red-600 mt-1">Hạn chót phải là một ngày trong tương lai</p>
             </div>
           </div>
         </div>
         <div class="px-7 pt-5 pb-7 border-t border-[#E4ECF7] flex justify-end gap-3">
           <button @click="openCreateModal = false" class="rounded-xl px-5 py-2.5 text-sm font-medium text-[#6B7B9A] bg-white border border-[#E4ECF7] transition-all hover:bg-[#F8FAFC]">Hủy</button>
-          <button @click="createMilestone" :disabled="creating || !newMilestone.title || !newMilestone.dueDate" class="rounded-xl px-5 py-2.5 text-sm font-bold text-white bg-[#1E56D9] shadow-[0_4px_12px_rgba(30,86,217,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#1d4ed8] active:scale-95">Tạo cột mốc</button>
+<button @click="createMilestone" :disabled="creating || !newMilestone.title || !newMilestone.dueDate || dueDateError" class="rounded-xl px-5 py-2.5 text-sm font-bold text-white bg-[#1E56D9] shadow-[0_4px_12px_rgba(30,86,217,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#1d4ed8] active:scale-95">Tạo cột mốc</button>
         </div>
       </div>
     </div>
@@ -144,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, watch } from "vue"
 import {
   Loader2,
   AlertCircle,
@@ -167,6 +168,22 @@ const milestonesError = ref("")
 const openCreateModal = ref(false)
 const creating = ref(false)
 const newMilestone = ref({ title: "", description: "", startDate: "", dueDate: "" })
+const tomorrowStr = computed(() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+})
+const dueDateError = computed(() => {
+  if (!newMilestone.value.dueDate) return false
+  const d = new Date(newMilestone.value.dueDate)
+  d.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return d <= today
+})
 
 const normalizeList = (res) => {
   if (Array.isArray(res)) return res
@@ -228,8 +245,8 @@ const createMilestone = async () => {
 }
 
 const statusLabel = (s) => {
-  if (!s) return "Chờ xử lý"
-  const map = { PENDING: "Đang chờ", IN_PROGRESS: "Đang thực hiện", COMPLETED: "Hoàn thành", OVERDUE: "Quá hạn" }
+  if (!s) return "Sắp tới"
+  const map = { PENDING: "Sắp tới", IN_PROGRESS: "Đang thực hiện", COMPLETED: "Hoàn thành", OVERDUE: "Quá hạn" }
   return map[s] || s
 }
 
@@ -249,4 +266,5 @@ const formatDate = (d) => {
 }
 
 onMounted(fetchProjects)
+watch(selectedProjectId, (newId) => { if (newId) fetchMilestones() })
 </script>

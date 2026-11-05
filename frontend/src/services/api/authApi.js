@@ -6,6 +6,7 @@ export const authApi = {
   loginWithGoogle: (data) => httpClient.post('/auth/google', data),
   refreshToken: (data) => httpClient.post('/auth/refresh-token', data),
   logout: (data) => httpClient.post('/auth/logout', data),
+  getMe: () => httpClient.get('/auth/me'),
 };
 
 export default authApi;

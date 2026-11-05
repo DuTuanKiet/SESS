@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const ProjectRevision = require('../models/ProjectRevision');
 const ProjectMember = require('../models/ProjectMember');
 const User = require('../models/User');
+const StudentWhitelist = require('../models/StudentWhitelist');
 const MentorAssignment = require('../models/MentorAssignment');
 const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
@@ -364,7 +365,7 @@ async function verifyProjectAccess(userId, projectId, userRole) {
 
 
 /** Trường cốt lõi bắt buộc phải có trước khi nộp dự án (fail fast) */
-const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract', 'solution'];
+const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract', 'objectives'];
 
 /** Các trường được ghi vào snapshot khi nộp dự án */
 const SNAPSHOT_FIELDS = [
@@ -671,6 +672,55 @@ const getProjects = async ({ userId, page = 1, limit = 10, status }) => {
 /** Lấy chi tiết dự án (chỉ thành viên đã chấp nhận) */
 const getProject = async ({ projectId, userId }) => {
   const { project, membership } = await projectMemberService.assertProjectMember(projectId, userId);
+  // Đồng bộ danh sách thành viên từ bảng ProjectMember (nguồn dữ liệu chính thức FR04)
+  // vào trường members của object project trả về, đảm bảo API không bao giờ trả mảng rỗng khi DB có dữ liệu.
+  const projectMembers = await ProjectMember.find({ projectId: project._id, status: 'ACCEPTED' })
+    .populate('userId', 'fullName email studentId')
+    .lean();
+  if (projectMembers.length) {
+    project.members = projectMembers.map((pm) => ({
+      _id: pm._id,
+      userId: pm.userId,
+      fullName: pm.userId ? pm.userId.fullName : '',
+      email: pm.userId ? pm.userId.email : (pm.email || ''),
+      studentId: pm.userId ? pm.userId.studentId : '',
+      studentCode: pm.userId ? pm.userId.studentId : '',
+      role: pm.role,
+      status: pm.status,
+    }));
+  } else if (Array.isArray(project.members)) {
+    // Giữ nguyên mảng members nhúng sẵn trong document Project khi ProjectMember trống
+    project.members = project.members.map((m) => ({
+      _id: m._id || m.userId,
+      userId: m.userId || m._id,
+      fullName: m.fullName || (m.userId && m.userId.fullName) || '',
+      email: m.email || (m.userId && m.userId.email) || '',
+      studentId: m.studentId || (m.userId && m.userId.studentId) || m.studentCode || '',
+      studentCode: m.studentCode || m.studentId || (m.userId && m.userId.studentId) || '',
+      role: m.role || '',
+      status: m.status || '',
+    }));
+  }
+
+  // Enrich Nhóm trưởng từ collection users hoặc student_whitelists dựa trên leaderEmail
+  if (project.leaderEmail) {
+    let leaderDoc = await User.findOne({ email: project.leaderEmail }).select('fullName email studentId phoneNumber role').lean();
+    if (!leaderDoc) {
+      leaderDoc = await StudentWhitelist.findOne({ email: project.leaderEmail }).select('fullName email studentId phone advisorEmail').lean();
+    }
+    if (leaderDoc) {
+      project.leader = {
+        _id: leaderDoc._id,
+        fullName: leaderDoc.fullName || '',
+        email: leaderDoc.email || '',
+        studentId: leaderDoc.studentId || '',
+        studentCode: leaderDoc.studentId || '',
+        phone: leaderDoc.phoneNumber || leaderDoc.phone || '',
+        role: leaderDoc.role || 'Thành viên',
+      };
+    }
+  }
+
   return { project, membership };
 };
 

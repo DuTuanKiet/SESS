@@ -1,4 +1,5 @@
 const express = require('express');
+const { SYSTEM_ROLES } = require('../utils/constants');
 const router = express.Router();
 
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -19,8 +20,23 @@ const {
   handleReassignMentor,
   handleGetProjectAssignmentHistory,
   handleGetAuditHistory,
+  handleGetMyMentorProfile,
+  handleGetMyAssignedProjects,
+  handleGetMyNotifications,
+  handleSendEmail,
+  handleRequestCancelAssignment,
+  handleGetHonorHistory,
+  handleUpdateMyMentorProfile,
 } = require('../controllers/mentorController');
-const { SYSTEM_ROLES } = require('../utils/constants');
+
+// Self-service mentor routes
+router.get('/mentors/me/profile', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleGetMyMentorProfile);
+router.put('/mentors/me/profile', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleUpdateMyMentorProfile);
+router.get('/mentors/me/assigned-projects', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleGetMyAssignedProjects);
+router.get('/mentors/me/notifications', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleGetMyNotifications);
+router.post('/mentors/me/send-email', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleSendEmail);
+router.post('/mentors/me/request-cancel-assignment', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleRequestCancelAssignment);
+router.get('/mentors/me/honor-history', authMiddleware, authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.TEACHER), handleGetHonorHistory);
 
 /**
  * GET /api/v1/mentors
