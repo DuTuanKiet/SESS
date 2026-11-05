@@ -10,8 +10,22 @@ const {
   listProjectsQuerySchema,
   createProjectBodySchema,
   updateProjectBodySchema,
-  requestLeaveBodySchema,
 } = require('../validations/projectValidation');
+const {
+  projectParamsSchema: projectMemberParamsSchema,
+  invitationParamsSchema,
+  changeRequestParamsSchema,
+  memberParamsSchema,
+  invitationIdentifierParamsSchema,
+  inviteMemberBodySchema,
+  respondInvitationBodySchema,
+  transferOwnershipBodySchema,
+  requestLeaveBodySchema,
+  memberChangeBodySchema,
+  respondMemberChangeBodySchema,
+  emergencyTransferBodySchema,
+  memberChangeQuerySchema,
+} = require('../validations/projectMemberValidation');
 
 const router = express.Router();
 
@@ -21,8 +35,14 @@ router.use(authenticate);
 // FR03 - Quản lý dự án & lịch sử phiên bản
 router.get('/', validate({ query: listProjectsQuerySchema }), projectController.getProjects);
 router.post('/', validate({ body: createProjectBodySchema }), projectController.createProject);
+router.get('/invitations/me', projectMemberController.getMyInvitations);
+// Giữ route cũ cho các client chưa chuyển sang /invitations/me.
 router.get('/invitations', projectMemberController.getMyInvitations);
-router.post('/invitations/:invitationId/respond', projectMemberController.respondInvitation);
+router.post(
+  '/invitations/:invitationId/respond',
+  validate({ params: invitationParamsSchema, body: respondInvitationBodySchema }),
+  projectMemberController.respondInvitation,
+);
 router.get('/:id', validate({ params: projectParamsSchema }), projectController.getProject);
 router.put(
   '/:id',
@@ -33,36 +53,70 @@ router.post('/:id/submit', validate({ params: projectParamsSchema }), projectCon
 router.get('/:id/revisions', validate({ params: projectParamsSchema }), projectController.getProjectRevisions);
 
 // FR04 - Quản lý thành viên dự án
-router.get('/:id/members', validate({ params: projectParamsSchema }), projectMemberController.getProjectMembers);
-router.post('/:id/members/invite', projectMemberController.inviteMember);
-router.delete('/:id/members/invitations/:identifier', projectMemberController.cancelInvitation);
+router.get(
+  '/:id/members',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.getProjectMembers,
+);
+router.post(
+  '/:id/members/invite',
+  validate({ params: projectMemberParamsSchema, body: inviteMemberBodySchema }),
+  projectMemberController.inviteMember,
+);
+router.delete(
+  '/:id/members/invitations/:identifier',
+  validate({ params: invitationIdentifierParamsSchema }),
+  projectMemberController.cancelInvitation,
+);
 router.post(
   '/:id/members/leave-request',
-  validate({ params: projectParamsSchema, body: requestLeaveBodySchema }),
+  validate({ params: projectMemberParamsSchema, body: requestLeaveBodySchema }),
   projectMemberController.requestLeaveProject,
 );
 router.delete(
   '/:id/members/leave-request',
-  validate({ params: projectParamsSchema }),
+  validate({ params: projectMemberParamsSchema }),
   projectMemberController.cancelLeaveRequest,
 );
-router.delete('/:id/members/:userId', projectMemberController.removeMember);
-router.post('/:id/members/transfer-ownership', projectMemberController.transferOwnership);
-router.post('/:id/members/leave', projectMemberController.leaveProject);
+router.delete(
+  '/:id/members/:userId',
+  validate({ params: memberParamsSchema }),
+  projectMemberController.removeMember,
+);
+router.post(
+  '/:id/members/transfer-ownership',
+  validate({ params: projectMemberParamsSchema, body: transferOwnershipBodySchema }),
+  projectMemberController.transferOwnership,
+);
+router.post(
+  '/:id/members/leave',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.leaveProject,
+);
 
 // FR05 - Member Change Request (yêu cầu thay đổi thành viên)
-router.post('/:id/members/change-request', projectMemberController.requestMemberChange);
+router.post(
+  '/:id/members/change-request',
+  validate({ params: projectMemberParamsSchema, body: memberChangeBodySchema }),
+  projectMemberController.requestMemberChange,
+);
 router.post(
   '/change-requests/:requestId/respond',
   authorizeRoles(USER_ROLES.ADMIN),
+  validate({ params: changeRequestParamsSchema, body: respondMemberChangeBodySchema }),
   projectMemberController.respondMemberChangeRequest,
 );
-router.get('/:id/members/change-requests', projectMemberController.getMemberChangeRequests);
+router.get(
+  '/:id/members/change-requests',
+  validate({ params: projectMemberParamsSchema, query: memberChangeQuerySchema }),
+  projectMemberController.getMemberChangeRequests,
+);
 
 // FR05 - Emergency transfer ownership (Admin ép chuyển quyền)
 router.post(
   '/:id/members/emergency-transfer-ownership',
   authorizeRoles(USER_ROLES.ADMIN),
+  validate({ params: projectMemberParamsSchema, body: emergencyTransferBodySchema }),
   projectMemberController.emergencyTransferOwnership,
 );
 

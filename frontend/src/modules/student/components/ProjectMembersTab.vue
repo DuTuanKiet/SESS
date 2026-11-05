@@ -16,12 +16,15 @@
       <div class="space-y-1">
         <p class="font-bold text-sm">Đơn xin rút khỏi nhóm của bạn đang chờ Ban Quản trị phê duyệt</p>
         <p>Lý do: <span class="italic">"{{ leaveRequestInfo?.reason }}"</span></p>
+        <p v-if="leaveRequestInfo?.createdAt">
+          Gửi lúc: {{ formatDateTimeVi(leaveRequestInfo.createdAt) }}
+        </p>
       </div>
       <button
         type="button"
         @click="handleCancelLeaveRequest"
-        :disabled="isCancellingLeave"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+        :disabled="isCancellingLeave || isSubmitting"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer disabled:opacity-50 shrink-0 self-start sm:self-auto"
       >
         <Loader2 v-if="isCancellingLeave" class="w-3.5 h-3.5 animate-spin" />
         <span>{{ isCancellingLeave ? 'Đang hủy...' : 'Hủy đơn xin rời nhóm' }}</span>
@@ -39,6 +42,7 @@
       <button
         type="button"
         @click="handleOpenLeaveModal"
+        :disabled="isSubmitting"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
       >
         <LogOut class="w-3.5 h-3.5" />
@@ -58,6 +62,7 @@
         <input
           v-model="inviteEmailInput"
           type="email"
+          :disabled="isSubmitting"
           placeholder="Nhập email sinh viên trường (@student.ctuet.edu.vn)..."
           class="flex-1 px-4 py-2 text-xs rounded-full bg-white border border-[#E4ECF7] focus:outline-hidden focus:border-[#1E56D9]"
           @keyup.enter="handleInviteMember"
@@ -100,6 +105,12 @@
                 </span>
               </div>
               <p class="text-[11px] text-[#4B5B7A]">{{ member.email }} - MSSV: {{ member.studentId }}</p>
+              <p v-if="member.className || member.faculty" class="text-[11px] text-[#4B5B7A]">
+                <span v-if="member.className">Lớp: {{ member.className }}</span>
+          <span v-if="member.faculty">
+            {{ member.className ? ' • ' : '' }}Khoa: {{ member.faculty }}
+          </span>
+              </p>
             </div>
           </div>
 
@@ -115,7 +126,8 @@
               v-if="isOwner && member.role !== 'OWNER' && (project.status === 'DRAFT' || project.status === 'NEED_REVISION')"
               type="button"
               @click="handleOpenTransferModal(member)"
-              class="text-xs font-medium text-[#1E56D9] hover:underline px-2 py-1 cursor-pointer"
+              :disabled="isSubmitting"
+              class="text-xs font-medium text-[#1E56D9] hover:underline px-2 py-1 cursor-pointer disabled:opacity-50"
             >
               Chuyển vai trò Trưởng nhóm
             </button>
@@ -124,7 +136,8 @@
               v-if="isOwner && member.role !== 'OWNER' && (project.status === 'DRAFT' || project.status === 'NEED_REVISION')"
               type="button"
               @click="handleRemoveMember(member.userId)"
-              class="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline px-2 py-1 cursor-pointer"
+              :disabled="isSubmitting"
+              class="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline px-2 py-1 cursor-pointer disabled:opacity-50"
             >
               <Trash2 class="w-3.5 h-3.5" />
               <span>Xóa</span>
@@ -159,7 +172,8 @@
               v-if="isOwner && (project.status === 'DRAFT' || project.status === 'NEED_REVISION')"
               type="button"
               @click="handleCancelInvitation(inv.email || inv.userId)"
-              class="text-xs font-medium text-rose-600 hover:underline cursor-pointer"
+              :disabled="isSubmitting"
+              class="text-xs font-medium text-rose-600 hover:underline cursor-pointer disabled:opacity-50"
             >
               Thu hồi
             </button>
@@ -192,6 +206,7 @@ import {
 } from 'lucide-vue-next';
 import projectService from '@/services/projectService';
 import { useToastStore } from '@/stores/toast';
+import { formatDateTimeVi } from '@/modules/student/utils/studentProjectHelpers';
 import MemberActionModals from '@/modules/student/components/MemberActionModals.vue';
 
 /**
@@ -224,7 +239,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['refresh-members', 'refresh-all']);
+const emit = defineEmits(['refresh-members', 'refresh-all', 'ownership-transferred']);
 
 const toastStore = useToastStore();
 
@@ -241,7 +256,7 @@ const pendingInvites = computed(() => props.members.filter((m) => m.status === '
 // Quản lý thành viên: Mời bạn học cùng trường
 async function handleInviteMember() {
   const targetEmail = (inviteEmailInput.value || '').trim();
-  if (!targetEmail) return;
+  if (!targetEmail || isSubmitting.value) return;
   isSubmitting.value = true;
   try {
     const res = await projectService.inviteMember(props.projectId, targetEmail);
@@ -263,7 +278,9 @@ async function handleInviteMember() {
 }
 
 async function handleRemoveMember(userId) {
+  if (isSubmitting.value) return;
   if (!confirm('Bạn có chắc chắn muốn xóa thành viên này khỏi nhóm?')) return;
+  isSubmitting.value = true;
   try {
     const res = await projectService.removeMember(props.projectId, userId);
     if (res?.success) {
@@ -272,6 +289,8 @@ async function handleRemoveMember(userId) {
     }
   } catch (error) {
     toastStore.add({ message: error.message || 'Lỗi xóa thành viên', type: 'error' });
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
@@ -282,7 +301,7 @@ function handleOpenTransferModal(member) {
 }
 
 async function handleConfirmTransferOwnership() {
-  if (!targetMemberToTransfer.value) return;
+  if (!targetMemberToTransfer.value || isSubmitting.value) return;
   isSubmitting.value = true;
   try {
     const res = await projectService.transferOwnership(
@@ -296,6 +315,7 @@ async function handleConfirmTransferOwnership() {
       });
       isTransferModalOpen.value = false;
       targetMemberToTransfer.value = null;
+      emit('ownership-transferred', res.data?.project);
       emit('refresh-all');
     }
   } catch (error) {
@@ -307,7 +327,9 @@ async function handleConfirmTransferOwnership() {
 
 // Thu hồi lời mời
 async function handleCancelInvitation(identifier) {
+  if (isSubmitting.value) return;
   if (!confirm('Bạn có chắc chắn muốn thu hồi lời mời tham gia đề tài này?')) return;
+  isSubmitting.value = true;
   try {
     const res = await projectService.cancelInvitation(props.projectId, identifier);
     if (res?.success) {
@@ -316,6 +338,8 @@ async function handleCancelInvitation(identifier) {
     }
   } catch (error) {
     toastStore.add({ message: error.message || 'Lỗi thu hồi lời mời', type: 'error' });
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
@@ -325,6 +349,7 @@ function handleOpenLeaveModal() {
 }
 
 async function handleSubmitLeaveRequest(reason) {
+  if (isSubmitting.value) return;
   isSubmitting.value = true;
   try {
     const res = await projectService.requestLeaveProject(props.projectId, {
@@ -347,8 +372,10 @@ async function handleSubmitLeaveRequest(reason) {
 
 // Hủy đơn xin rời nhóm
 async function handleCancelLeaveRequest() {
+  if (isSubmitting.value || isCancellingLeave.value) return;
   if (!confirm('Bạn có chắc chắn muốn hủy đơn xin rời nhóm này?')) return;
   isCancellingLeave.value = true;
+  isSubmitting.value = true;
   try {
     const res = await projectService.cancelLeaveRequest(props.projectId);
     if (res?.success) {
@@ -362,6 +389,7 @@ async function handleCancelLeaveRequest() {
     toastStore.add({ message: error.message || 'Lỗi hủy đơn xin rời nhóm', type: 'error' });
   } finally {
     isCancellingLeave.value = false;
+    isSubmitting.value = false;
   }
 }
 </script>

@@ -87,6 +87,25 @@ export function normalizeProjectRevisionFromBackend(revision = {}) {
   };
 }
 
+export function normalizeProjectMemberFromBackend(member = {}) {
+  const user = member.userId && typeof member.userId === 'object' ? member.userId : {};
+  const userId = user._id ?? (typeof user.id === 'string' ? user.id : member.userId) ?? '';
+
+  return {
+    ...member,
+    _id: member._id ?? member.id ?? '',
+    userId: typeof userId?.toString === 'function' ? userId.toString() : String(userId),
+    fullName: member.fullName ?? user.fullName ?? '',
+    email: member.email ?? user.email ?? '',
+    studentId: member.studentId ?? user.studentId ?? '',
+    className: member.className ?? user.className ?? '',
+    faculty: member.faculty ?? user.faculty ?? '',
+    role: String(member.role ?? member.projectRole ?? 'MEMBER').toUpperCase(),
+    status: String(member.status ?? 'ACCEPTED').toUpperCase(),
+    joinedAt: member.joinedAt ?? null,
+  };
+}
+
 const normalizeProjectResponse = (responseBody) => {
   if (!responseBody?.data?.project) return responseBody;
   return {
@@ -473,88 +492,6 @@ const MOCK_REVISIONS = {
   ],
 };
 
-// Danh sách thành viên mẫu (đáp ứng đúng chỉ đạo của Yu: KHÔNG lưu người đã từ chối để tránh rối)
-const MOCK_MEMBERS = {
-  '671f0001a1b2c3d4e5f60001': [
-    {
-      userId: '671f0000user0001',
-      fullName: 'Đặng Tấn Kiệt',
-      email: 'dtkietktpm2311025@student.ctuet.edu.vn',
-      studentId: 'KTPM2311025',
-      role: 'OWNER',
-      status: 'ACCEPTED',
-      joinedAt: '2026-03-10T02:00:00.000Z',
-    },
-    {
-      userId: '671f0000user0002',
-      fullName: 'Trần Văn Nam',
-      email: 'tvnamktpm2311026@student.ctuet.edu.vn',
-      studentId: 'KTPM2311026',
-      role: 'MEMBER',
-      status: 'ACCEPTED',
-      joinedAt: '2026-03-12T05:00:00.000Z',
-      leavePending: false,
-    },
-  ],
-  '671f0001a1b2c3d4e5f60009': [
-    {
-      userId: '671f0000user0006',
-      fullName: 'Lê Hoàng Phúc',
-      email: 'lhphuc2311030@student.ctuet.edu.vn',
-      studentId: 'KTPM2311030',
-      role: 'OWNER',
-      status: 'ACCEPTED',
-      joinedAt: '2026-03-15T02:00:00.000Z',
-    },
-  ],
-};
-
-// Danh sách lời mời mẫu phục vụ kịch bản kiểm thử của Yu
-const MOCK_INVITATIONS = [
-  // 1. Gửi cho bạn Mai (Sinh viên tự do - chưa có đề tài) -> Chấp nhận thành công 100%
-  {
-    _id: 'inv_mock_mai_01',
-    targetEmail: 'ntmai2311040@student.ctuet.edu.vn',
-    projectId: '671f0001a1b2c3d4e5f60001',
-    projectCode: 'SESS-2026-004',
-    projectTitle: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
-    category: 'Nông nghiệp công nghệ cao',
-    level: 'FACULTY',
-    inviterName: 'Đặng Tấn Kiệt',
-    inviterEmail: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    createdAt: '2026-03-28T04:30:00.000Z',
-  },
-  // 2. Gửi cho bạn Hùng (Sinh viên tự do - sẽ bấm Từ chối) -> Từ chối, xóa khỏi nhóm, Kiệt nhận thông báo
-  {
-    _id: 'inv_mock_hung_02',
-    targetEmail: 'vthung2311041@student.ctuet.edu.vn',
-    projectId: '671f0001a1b2c3d4e5f60001',
-    projectCode: 'SESS-2026-004',
-    projectTitle: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
-    category: 'Nông nghiệp công nghệ cao',
-    level: 'FACULTY',
-    inviterName: 'Đặng Tấn Kiệt',
-    inviterEmail: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    createdAt: '2026-03-28T05:00:00.000Z',
-  },
-  // 3. Gửi cho bạn Phúc (Sinh viên ĐÃ CÓ ĐỀ TÀI ACTIVE SESS-2026-009) -> Bấm Đồng ý sẽ BỊ CHẶN LẠI
-  {
-    _id: 'inv_mock_phuc_03',
-    targetEmail: 'lhphuc2311030@student.ctuet.edu.vn',
-    projectId: '671f0001a1b2c3d4e5f60001',
-    projectCode: 'SESS-2026-004',
-    projectTitle: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
-    category: 'Nông nghiệp công nghệ cao',
-    level: 'FACULTY',
-    inviterName: 'Đặng Tấn Kiệt',
-    inviterEmail: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    createdAt: '2026-03-28T05:30:00.000Z',
-  },
-];
-
-// Danh sách yêu cầu xin rời nhóm chờ Admin duyệt
-const MOCK_LEAVE_REQUESTS = [];
-
 // Danh sách yêu cầu xin hủy đề tài chờ Admin duyệt
 const MOCK_CANCELLATION_REQUESTS = [];
 
@@ -681,8 +618,17 @@ export async function submitEvidenceApi(projectId, milestoneId, payload) {
  * 8. Quản lý thành viên: Lấy danh sách thành viên (CHỈ HIỂN THỊ THÀNH VIÊN VÀ LỜI MỜI CHỜ, LOẠI BỎ NGƯỜI TỪ CHỐI)
  */
 export async function getProjectMembersApi(projectId) {
-  const response = await httpClient.get('/projects/' + projectId + '/members');
-  return response.data;
+  const response = await httpClient.get(`/projects/${projectId}/members`);
+  const body = response.data;
+  if (!Array.isArray(body?.data?.members)) return body;
+
+  return {
+    ...body,
+    data: {
+      ...body.data,
+      members: body.data.members.map(normalizeProjectMemberFromBackend),
+    },
+  };
 }
 
 /**
@@ -744,7 +690,7 @@ export async function cancelLeaveRequestApi(projectId) {
  * 15. Lấy danh sách các lời mời tham gia đề tài gửi đến sinh viên (FR04)
  */
 export async function getMyInvitationsApi() {
-  const response = await httpClient.get('/projects/invitations');
+  const response = await httpClient.get('/projects/invitations/me');
   return response.data;
 }
 

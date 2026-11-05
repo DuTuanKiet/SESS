@@ -114,7 +114,8 @@ const transferOwnership = async (req, res) => {
 const leaveProject = async (req, res) => {
   const { project } = await projectMemberService.leaveProject({
     projectId: req.params.id,
-    userId: req.user.id,
+    requester: req.user,
+    req,
   });
 
   res.status(200).json({
@@ -144,7 +145,7 @@ const requestLeaveProject = async (req, res) => {
 const cancelLeaveRequest = async (req, res) => {
   const data = await projectMemberService.cancelLeaveRequest({
     projectId: req.params.id,
-    userId: req.user.id,
+    requester: req.user,
     req,
   });
   res.status(200).json({ success: true, message: 'Đã hủy yêu cầu rời nhóm.', data });

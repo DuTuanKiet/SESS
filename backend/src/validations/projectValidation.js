@@ -80,10 +80,6 @@ const updateProjectBodySchema = projectBodySchema.refine((data) => Object.keys(d
   message: 'Cần có ít nhất một trường cần cập nhật.',
 });
 
-const requestLeaveBodySchema = z.object({
-  reason: z.string().trim().min(10).max(1000),
-}).strict();
-
 // Schema query lọc danh sách dự án chưa được phân công mentor
 const getUnassignedProjectsQuerySchema = z.object({
   page: z
@@ -130,7 +126,6 @@ module.exports = {
   listProjectsQuerySchema,
   createProjectBodySchema,
   updateProjectBodySchema,
-  requestLeaveBodySchema,
   getUnassignedProjectsQuerySchema,
   updateProjectStatusParamsSchema,
   updateProjectStatusBodySchema,

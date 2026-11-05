@@ -157,6 +157,7 @@
         :leaveRequestInfo="leaveRequestInfo"
         @refresh-members="fetchMembers"
         @refresh-all="handleRefreshProjectAndMembers"
+        @ownership-transferred="handleOwnershipTransferred"
       />
 
       <ProjectMilestonesTab
@@ -194,7 +195,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   ArrowLeft,
   Send,
@@ -214,6 +215,7 @@ import ProjectRevisionsTab from '@/modules/student/components/ProjectRevisionsTa
 import PreSubmissionChecklistModal from '@/modules/student/components/PreSubmissionChecklistModal.vue';
 
 const route = useRoute();
+const router = useRouter();
 const toastStore = useToastStore();
 
 const projectId = computed(() => route.params.id);
@@ -227,7 +229,8 @@ const project = ref({});
 const milestones = ref([]);
 const revisions = ref([]);
 const members = ref([]);
-const isOwner = ref(true);
+const isOwner = ref(false);
+const hasLostProjectAccess = ref(false);
 const canEditProject = computed(() => ['OWNER', 'MEMBER'].includes(String(project.value.userRole || '').toUpperCase()));
 
 // Trạng thái đơn xin rời nhóm của thành viên
@@ -243,13 +246,27 @@ const isSubmitting = ref(false);
 const isSubmitChecklistModalOpen = ref(false);
 
 // --- Tải Dữ liệu ---
+function handleProjectAccessError(error) {
+  const status = error?.response?.status ?? error?.status;
+  if (![403, 404].includes(status)) return false;
+
+  if (!hasLostProjectAccess.value) {
+    hasLostProjectAccess.value = true;
+    toastStore.add({
+      message: 'Bạn không còn quyền truy cập đề tài này. Đang chuyển về danh sách đề tài.',
+      type: 'info',
+    });
+    router.replace({ name: 'student-projects' });
+  }
+  return true;
+}
+
 async function fetchProjectDetails() {
   try {
     const res = await projectService.getProjectById(projectId.value);
     if (res?.success && res.data?.project) {
       project.value = res.data.project;
       isOwner.value = res.data.membership?.role === 'OWNER';
-      members.value = Array.isArray(res.data.project.members) ? res.data.project.members : [];
       hasPendingLeaveRequest.value = Boolean(res.data.membership?.hasPendingLeaveRequest);
       leaveRequestInfo.value = res.data.membership?.leaveRequestInfo || null;
 
@@ -259,8 +276,10 @@ async function fetchProjectDetails() {
         cancellationRequestInfo.value = res.data.cancellationRequest.requestInfo || null;
       }
     }
-  } catch {
-    toastStore.add({ message: 'Không thể tải thông tin đề tài', type: 'error' });
+  } catch (error) {
+    if (!handleProjectAccessError(error)) {
+      toastStore.add({ message: 'Không thể tải thông tin đề tài', type: 'error' });
+    }
   }
 }
 
@@ -270,8 +289,8 @@ async function fetchMilestones() {
     if (res?.success && res.data?.milestones) {
       milestones.value = res.data.milestones;
     }
-  } catch {
-    // Fail-safe
+  } catch (error) {
+    handleProjectAccessError(error);
   }
 }
 
@@ -281,32 +300,49 @@ async function fetchRevisions() {
     if (res?.success && res.data?.revisions) {
       revisions.value = res.data.revisions;
     }
-  } catch {
-    // Fail-safe
+  } catch (error) {
+    handleProjectAccessError(error);
   }
 }
 
 async function fetchMembers() {
-  const embeddedMembers = Array.isArray(project.value?.members)
-    ? project.value.members.map((member) => ({ ...member, status: member.status || 'ACCEPTED' }))
-    : [];
-
   try {
     const response = await projectService.getProjectMembers(projectId.value);
     if (response?.success && Array.isArray(response.data?.members)) {
       members.value = response.data.members;
       return;
     }
-  } catch {
-    // Keep the accepted-member snapshot returned with the project details.
+    members.value = [];
+    toastStore.add({ message: 'Không thể tải danh sách thành viên của đề tài.', type: 'error' });
+  } catch (error) {
+    members.value = [];
+    if (!handleProjectAccessError(error)) {
+      toastStore.add({ message: 'Không thể tải danh sách thành viên của đề tài.', type: 'error' });
+    }
   }
-
-  if (!members.value.length) members.value = embeddedMembers;
 }
 
 function handleProposalSaved(updatedFields) {
   if (updatedFields?._id || updatedFields?.id) project.value = updatedFields;
   else Object.assign(project.value, updatedFields);
+}
+
+function handleOwnershipTransferred(updatedProject) {
+  const nextOwnerId = updatedProject?.ownerId;
+  if (nextOwnerId) {
+    members.value = members.value.map((member) => {
+      if (String(member.userId) === String(nextOwnerId)) return { ...member, role: 'OWNER' };
+      if (member.role === 'OWNER') return { ...member, role: 'MEMBER' };
+      return member;
+    });
+  }
+
+  project.value = {
+    ...project.value,
+    ownerId: nextOwnerId ?? project.value.ownerId,
+    userRole: 'MEMBER',
+  };
+  isOwner.value = false;
 }
 
 async function handleRefreshProjectAndMembers() {
