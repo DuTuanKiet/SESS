@@ -2,6 +2,8 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const EvaluationRubric = require('../models/EvaluationRubric');
 const EvaluationSubmission = require('../models/EvaluationSubmission');
+const EvaluationRound = require('../models/EvaluationRound');
+const HumanEvaluation = require('../models/HumanEvaluation');
 const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
 const { AUDIT_ACTIONS, AUDIT_ENTITIES, PROJECT_STATUS, RUBRIC_STATUS } = require('../utils/constants');
@@ -10,9 +12,20 @@ const judgeWhitelistService = require('./judgeWhitelistService');
 const projectService = require('./projectService');
 
 /**
- * EvaluationService - Vòng chấm điểm Rubric của Ban Giám khảo (Enterprise Edition).
+ * @deprecated LEGACY EvaluationService (project-centric, EvaluationSubmission).
  *
- * Mục tiêu: đưa trạng thái EVALUATED vào luồng nghiệp vụ thực tế:
+ * Unified Evaluation Pipeline (canonical): HumanEvaluation + EvaluationRound + EvaluationRubric
+ * - Admin assignment: backend/src/services/adminEvaluationService.js
+ *   -> POST /api/v1/admin/evaluations/assign (creates HumanEvaluation DRAFT)
+ * - Judge workspace: backend/src/services/evaluatorService.js
+ *   -> /api/v1/evaluator/assignments|workspace|submit|summary
+ * - Migration: backend/src/services/evaluationMigrationService.js
+ *   -> migrateLegacyEvaluationSubmissions({ dryRun: true|false })
+ *
+ * This legacy service remains as a compatibility adapter and is being deprecated gradually.
+ * Do not add new product features here; extend unified HumanEvaluation services instead.
+ *
+ * Mục tiêu cũ: đưa trạng thái EVALUATED vào luồng nghiệp vụ thực tế:
  *   UNDER_MENTORSHIP -> (100% giám khảo trong tiểu ban đã nộp phiếu) -> EVALUATED
  *   EVALUATED -> COMPLETED | REJECTED
  *
@@ -75,6 +88,42 @@ const assignJudge = async ({ projectId, judgeId, actor, req }) => {
     await project.save();
   }
 
+  // Unified pipeline adapter: keep legacy panel assignment but also ensure a HumanEvaluation
+  // DRAFT exists for the current active rubric/round so the Judge workspace can score it.
+  let humanEvaluation = null;
+  try {
+    const activeRubric = await EvaluationRubric.findOne({ status: RUBRIC_STATUS.ACTIVE }).sort({ updatedAt: -1, createdAt: -1 });
+    if (activeRubric) {
+      let round = await EvaluationRound.findOne({ rubricId: activeRubric._id, status: 'OPEN' }).sort({ updatedAt: -1, createdAt: -1 });
+      if (!round) {
+        round = await EvaluationRound.findOne({ rubricId: activeRubric._id }).sort({ updatedAt: -1, createdAt: -1 });
+      }
+      if (round) {
+        humanEvaluation = await HumanEvaluation.findOne({
+          evaluationRoundId: round._id,
+          projectId: project._id,
+          evaluatorId: judge._id,
+        });
+        if (!humanEvaluation) {
+          humanEvaluation = await HumanEvaluation.create({
+            evaluationRoundId: round._id,
+            projectId: project._id,
+            evaluatorId: judge._id,
+            rubricVersionId: activeRubric._id,
+            scores: [],
+            totalScore: 0,
+            generalFeedback: '',
+            status: 'DRAFT',
+            submittedAt: null,
+          });
+        }
+      }
+    }
+  } catch (syncError) {
+    // Do not fail legacy panel assignment if unified-assignment sync cannot run.
+    console.warn('[evaluationService.assignJudge] Unified HumanEvaluation sync failed:', syncError.message);
+  }
+
   await logAuditAction({
     actor,
     action: AUDIT_ACTIONS.ASSIGN_PROJECT_JUDGE,
@@ -84,16 +133,36 @@ const assignJudge = async ({ projectId, judgeId, actor, req }) => {
       judgeId: judge._id,
       judgeEmail: judge.email,
       panelSize: project.judges.length,
+      unifiedHumanEvaluationId: humanEvaluation?._id || null,
     },
     req,
   });
 
-  return { project, judge };
+  if (humanEvaluation) {
+    await logAuditAction({
+      actor,
+      action: AUDIT_ACTIONS.ASSIGN_JUDGE_EVALUATION,
+      targetEntity: AUDIT_ENTITIES.EVALUATION_SUBMISSIONS,
+      targetId: humanEvaluation._id,
+      newValues: {
+        projectId: project._id,
+        evaluatorId: judge._id,
+        evaluationRoundId: humanEvaluation.evaluationRoundId,
+        rubricVersionId: humanEvaluation.rubricVersionId,
+        status: humanEvaluation.status,
+        source: 'legacy_project_panel_adapter',
+      },
+      req,
+    });
+  }
+
+  return { project, judge, humanEvaluation };
 };
 
 /**
- * Giám khảo nộp phiếu chấm điểm cho 1 tiêu chí.
- * Khi 100% tiểu ban đã nộp đủ các tiêu chí -> tự động chuyển dự án sang EVALUATED.
+ * Legacy criterion-level score submission (EvaluationSubmission).
+ * Adapter: also syncs into HumanEvaluation (unified pipeline) for the same rubric,
+ * so judge workspace and legacy summary can stay consistent.
  */
 const submitScore = async ({ projectId, rubricId, criterionId, judgeId, score, comment, actor, req }) => {
   assertObjectId(projectId, 'projectId');
@@ -170,9 +239,82 @@ const submitScore = async ({ projectId, rubricId, criterionId, judgeId, score, c
       rubricId: rubric._id,
       criterionId: criterion._id,
       score: numericScore,
+      unifiedSync: 'attempted',
     },
     req,
   });
+
+  // Adapter sync to HumanEvaluation (unified workspace model)
+  let unifiedSync = { synced: false };
+  try {
+    let round = await EvaluationRound.findOne({ rubricId: rubric._id, status: 'OPEN' }).sort({ updatedAt: -1, createdAt: -1 });
+    if (!round) {
+      round = await EvaluationRound.findOne({ rubricId: rubric._id }).sort({ updatedAt: -1, createdAt: -1 });
+    }
+    if (round) {
+      let he = await HumanEvaluation.findOne({
+        evaluationRoundId: round._id,
+        projectId: project._id,
+        evaluatorId: judgeId,
+      });
+      if (!he) {
+        he = await HumanEvaluation.create({
+          evaluationRoundId: round._id,
+          projectId: project._id,
+          evaluatorId: judgeId,
+          rubricVersionId: rubric._id,
+          scores: [],
+          totalScore: 0,
+          generalFeedback: '',
+          status: 'DRAFT',
+        });
+      }
+
+      const scoreMap = new Map((he.scores || []).map((s) => [String(s.criterionId), s]));
+      scoreMap.set(String(criterion._id), {
+        criterionId: criterion._id,
+        score: numericScore,
+        comment: String(comment ?? '').trim(),
+      });
+
+      const criteriaById = new Map(rubric.criteria.map((c) => [String(c._id), c]));
+      const nextScores = Array.from(scoreMap.values());
+      const totalScore = Math.round(
+        nextScores.reduce((sum, item) => {
+          const c = criteriaById.get(String(item.criterionId));
+          if (!c) return sum;
+          return sum + (Number(item.score) * Number(c.weight || 0)) / 100;
+        }, 0) * 100,
+      ) / 100;
+
+      he.scores = nextScores;
+      he.totalScore = totalScore;
+      if (nextScores.length >= rubric.criteria.length) {
+        he.status = 'SUBMITTED';
+        he.submittedAt = new Date();
+      } else {
+        he.status = 'DRAFT';
+        he.submittedAt = null;
+      }
+      await he.save();
+
+      await EvaluationSubmission.updateOne(
+        { _id: submission._id },
+        { $set: { migratedToHumanEval: true, migratedAt: new Date(), migratedHumanEvaluationId: he._id } },
+      );
+
+      unifiedSync = {
+        synced: true,
+        humanEvaluationId: he._id,
+        evaluationRoundId: round._id,
+        status: he.status,
+        totalScore: he.totalScore,
+      };
+    }
+  } catch (syncError) {
+    unifiedSync = { synced: false, error: syncError.message };
+    console.warn('[evaluationService.submitScore] Unified HumanEvaluation sync failed:', syncError.message);
+  }
 
   const progress = await getEvaluationProgress({ projectId: project._id, rubricId: rubric._id });
 
@@ -187,7 +329,7 @@ const submitScore = async ({ projectId, rubricId, criterionId, judgeId, score, c
     evaluated = true;
   }
 
-  return { submission, progress, evaluated };
+  return { submission, progress, evaluated, unifiedSync };
 };
 
 /**

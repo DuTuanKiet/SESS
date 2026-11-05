@@ -1,9 +1,9 @@
 ﻿<template>
-  <div class="flex min-h-screen bg-[#E2E8F0] text-[#0F172A] antialiased">
+  <div class="flex min-h-screen bg-[#f8fafc] text-[#0f172a] antialiased">
     <MentorSidebar />
     <div class="pl-64 min-h-screen flex flex-col flex-1">
       <MentorHeader />
-      <main class="flex-1 max-w-[1400px] w-full mx-auto px-8 py-7">
+      <main class="flex-1 max-w-[1440px] w-full mx-auto px-6 lg:px-8 py-7">
         <router-view v-slot="{ Component, route }">
           <transition name="fade" mode="out-in">
             <component :is="Component" :key="route.fullPath" />

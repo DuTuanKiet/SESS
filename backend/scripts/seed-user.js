@@ -13,6 +13,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
 const User = require('../src/models/User');
+const JudgeWhitelist = require('../src/models/JudgeWhitelist');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const {
   USER_ROLES,
@@ -48,6 +49,13 @@ const DEFAULT_ACCOUNTS = {
     // Tài khoản do nhà trường cấp sẵn -> cần xác thực OTP ở lần đăng nhập đầu tiên
     isEmailVerified: false,
     studentId: process.env.STUDENT_ID || GLOBAL_TEST_STUDENT_ID,
+  },
+  [USER_ROLES.JUDGE]: {
+    email: 'tunkitdu76@gmail.com',
+    password: 'Tuankiet@7676',
+    isEmailVerified: true,
+    studentId: null,
+    fullName: 'Tuấn Kiệt',
   },
 };
 
@@ -106,6 +114,28 @@ const seedUser = async () => {
   } else {
     await User.create({ email, ...payload });
     console.log(`[Seed] Đã tạo ${role}: ${email}`);
+  }
+
+  // Nếu là vai trò JUDGE -> bắt buộc email có trong JudgeWhitelist mới đăng nhập được
+  // (xem assertJudgeEligible trong authService.login / verifyOtp / loginWithGoogle)
+  if (role === USER_ROLES.JUDGE) {
+    const judgeWhitelistPayload = {
+      fullName: args.fullName || payload.fullName || `Giám khảo ${email}`,
+      staffCode: String(args['staff-code'] || args.staffCode || 'JDG-' + Date.now()).toUpperCase(),
+      email,
+      phone: '',
+      faculty: '',
+      isImported: false,
+    };
+    const existingWhitelist = await JudgeWhitelist.findOne({ email });
+    if (existingWhitelist) {
+      existingWhitelist.set(judgeWhitelistPayload);
+      await existingWhitelist.save();
+      console.log(`[Seed] Đã cập nhật JudgeWhitelist: ${email}`);
+    } else {
+      await JudgeWhitelist.create(judgeWhitelistPayload);
+      console.log(`[Seed] Đã tạo JudgeWhitelist: ${email}`);
+    }
   }
 
   const verifyNote = payload.isEmailVerified ? '' : ' (chưa xác thực - lần đăng nhập đầu cần OTP)';

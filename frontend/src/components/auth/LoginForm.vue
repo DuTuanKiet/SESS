@@ -118,6 +118,13 @@ async function handleSubmitLogin() {
       duration: 4000,
     });
 
+    // Ưu tiên redirectPath từ API (backend đã tính toán theo vai trò, ví dụ JUDGE -> /judge/assignments)
+    const redirectPath = res.data.redirectPath;
+    if (redirectPath) {
+      router.push(redirectPath);
+      return;
+    }
+
     const user = res.data.user || {};
     const roleRaw = user.systemRole || user.role || user.userRole;
     const roleKey = typeof roleRaw === "string" ? roleRaw.toUpperCase() : "";
@@ -194,6 +201,13 @@ async function handleVerifyOtp(otpCode) {
       type: "success",
       duration: 4000,
     });
+
+    // Ưu tiên redirectPath từ API (backend đã tính toán theo vai trò, ví dụ JUDGE -> /judge/assignments)
+    const redirectPath = res.data.redirectPath;
+    if (redirectPath) {
+      router.push(redirectPath);
+      return;
+    }
 
     const user = res.data.user || {};
     const roleRaw = user.systemRole || user.role || user.userRole;
@@ -308,7 +322,7 @@ function handleForgotPasswordClick() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
           </div>
-          <input id="email" v-model="email" type="email" autocomplete="username" placeholder="Nhập email của bạn" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.email ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600'" @input="handleInputEmail" @blur="handleBlurEmail" />
+          <input id="email" v-model="email" type="email" autocomplete="username" placeholder="Nhập email của bạn" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.email ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputEmail" @blur="handleBlurEmail" />
         </div>
         <p v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">{{ fieldErrors.email }}</p>
       </div>
@@ -321,7 +335,7 @@ function handleForgotPasswordClick() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <input id="password" v-model="password" :type="isPasswordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="Nhập mật khẩu" :disabled="isLoading" class="block w-full pl-8 pr-9 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.password ? 'border-red-400 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-blue-600'" @input="handleInputPassword" @blur="handleBlurPassword" />
+          <input id="password" v-model="password" :type="isPasswordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="Nhập mật khẩu" :disabled="isLoading" class="block w-full pl-8 pr-9 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.password ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputPassword" @blur="handleBlurPassword" />
           <button type="button" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600 transition-colors" @click="handleTogglePasswordVisibility">
             <svg v-if="!isPasswordVisible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
             <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
@@ -332,13 +346,13 @@ function handleForgotPasswordClick() {
 
       <div class="flex items-center justify-between pt-0.5">
         <label class="flex items-center gap-1.5 cursor-pointer">
-          <input v-model="isRememberMe" type="checkbox" class="rounded border-slate-300 text-blue-700 focus:ring-blue-600" />
+          <input v-model="isRememberMe" type="checkbox" class="rounded border-slate-300 text-[#1e3a8a] focus:ring-[#1e3a8a]/30" />
           <span class="text-xs text-slate-700">Ghi nhớ tài khoản</span>
         </label>
-        <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-800 hover:underline" @click="handleForgotPasswordClick">Quên mật khẩu?</button>
+        <button type="button" class="text-xs font-medium text-[#1e3a8a] hover:text-[#172554] hover:underline" @click="handleForgotPasswordClick">Quên mật khẩu?</button>
       </div>
 
-      <button type="submit" :disabled="isLoading" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#0B1F4B] text-white rounded-lg hover:bg-[#152e68] focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-[#0B1F4B] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 text-sm font-semibold">
+      <button type="submit" :disabled="isLoading" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1e3a8a] text-white rounded-lg hover:bg-[#172554] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e3a8a]/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200 text-sm font-semibold">
         <svg v-if="isLoading" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <span>{{ isLoading ? "Đang xử lý..." : "Đăng nhập" }}</span>
       </button>
