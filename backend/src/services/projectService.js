@@ -12,6 +12,7 @@ const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
 const digitalReceiptService = require('./digitalReceiptService');
 const queueService = require('./queueService');
+const notificationService = require('./notificationService');
 const { createError } = require('../middlewares/errorHandler');
 const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
@@ -404,29 +405,10 @@ const SNAPSHOT_FIELDS = [
   'leaderInfo',
   'competitionId',
   'competitionTitle',
-  'currentRound',
-  'submissionRounds',
-  'milestones',
 ];
 
 /** Số lần thử lại khi mã dự án bị trùng (race condition) */
 const MAX_CODE_RETRY = 3;
-
-/** Validate danh sách mốc tiến độ */
-const assertMilestones = (value) => {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value)) throw ApiError.badRequest('"milestones" phải là mảng', 'INVALID_FIELD');
-  if (value.length > 20) throw ApiError.badRequest('"milestones" chỉ được tối đa 20 phần tử', 'INVALID_FIELD');
-
-  return value.map((milestone) => ({
-    name: assertRequired(milestone?.name, 'milestones[].name'),
-    description: assertOptionalString(milestone?.description, 'milestones[].description', 1000) ?? '',
-    dueDate: milestone?.dueDate ? new Date(milestone.dueDate) : null,
-    status: milestone?.status
-      ? assertEnum(milestone.status, Object.values(MILESTONE_STATUS), 'milestones[].status')
-      : MILESTONE_STATUS.PLANNED,
-  }));
-};
 
 const assertAdvisorInfo = (value) => {
   if (value === undefined) return undefined;
@@ -444,21 +426,6 @@ const assertAdvisorInfo = (value) => {
   };
 };
 
-const assertSubmissionRounds = (value) => {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value) || value.length > 20) {
-    throw ApiError.badRequest('"submissionRounds" phải là mảng tối đa 20 phần tử', 'INVALID_FIELD');
-  }
-
-  return value.map((round) => ({
-    roundNumber: Number.isInteger(Number(round?.roundNumber)) ? Number(round.roundNumber) : undefined,
-    title: assertOptionalString(round?.title, 'submissionRounds[].title', 200) ?? '',
-    status: assertOptionalString(round?.status, 'submissionRounds[].status', 50) ?? '',
-    submittedAt: round?.submittedAt ? new Date(round.submittedAt) : null,
-    feedback: assertOptionalString(round?.feedback, 'submissionRounds[].feedback', 4000) ?? '',
-  }));
-};
-
 const FIELD_VALIDATORS = {
   title: (value) => assertRequired(value, 'title'),
   category: (value) => assertOptionalString(value, 'category', 120) ?? '',
@@ -471,15 +438,6 @@ const FIELD_VALIDATORS = {
   advisorInfo: assertAdvisorInfo,
   competitionId: (value) => assertOptionalString(String(value), 'competitionId', 100) ?? '',
   competitionTitle: (value) => assertOptionalString(value, 'competitionTitle', 200) ?? '',
-  currentRound: (value) => {
-    const round = Number(value);
-    if (!Number.isInteger(round) || round < 1) {
-      throw ApiError.badRequest('"currentRound" phải là số nguyên lớn hơn 0', 'INVALID_FIELD');
-    }
-    return round;
-  },
-  submissionRounds: assertSubmissionRounds,
-  milestones: assertMilestones,
 };
 
 /** Chỉ nhận các trường được phép sửa và validate từng trường */
@@ -725,6 +683,7 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
   });
 
   const { project, revision, receipt } = submitted;
+  await notificationService.notifyProjectSubmitted({ project, revision });
   const ownerUser = project.ownerId ? await User.findById(project.ownerId).select('email').lean() : null;
   const memberships = await ProjectMember.find({
     projectId: project._id,

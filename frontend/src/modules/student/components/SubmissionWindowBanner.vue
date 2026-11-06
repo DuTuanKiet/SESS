@@ -25,7 +25,7 @@
         </div>
 
         <!-- Live Countdown Timer -->
-        <div class="flex items-center gap-2 sm:gap-3 shrink-0 self-center lg:self-auto">
+        <div v-if="closesAt" class="flex items-center gap-2 sm:gap-3 shrink-0 self-center lg:self-auto">
           <div class="flex flex-col items-center bg-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-black/10 shadow-xs min-w-[56px] sm:min-w-[64px]">
             <span class="text-lg sm:text-2xl font-black text-[#0B1F4B]">{{ countdown.days }}</span>
             <span class="text-[10px] font-bold uppercase text-slate-500">Ngày</span>
@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Lock, Trophy, CheckCircle2 } from 'lucide-vue-next';
 
 /**
@@ -112,20 +112,23 @@ const props = defineProps({
   },
   currentRound: {
     type: Object,
-    default: () => ({
-      id: 1,
-      code: 'Vòng 1',
-      title: 'Vòng 1: Vòng Loại (Sơ khảo)',
-      stage: 'Sơ khảo',
-    }),
+    default: () => ({}),
+  },
+  closesAt: {
+    type: [String, Date],
+    default: null,
   },
 });
 
 const emit = defineEmits(['window-expired']);
 
-// Đồng hồ đếm ngược (Countdown Timer) giả lập 2 ngày 14 giờ
-const remainingSeconds = ref(2 * 86400 + 14 * 3600 + 25 * 60 + 40);
+const now = ref(Date.now());
+const closesAtTimestamp = computed(() => props.closesAt ? new Date(props.closesAt).getTime() : null);
+const remainingSeconds = computed(() => closesAtTimestamp.value
+  ? Math.max(0, Math.floor((closesAtTimestamp.value - now.value) / 1000))
+  : 0);
 let timerInterval = null;
+let expiryEmitted = false;
 
 const countdown = computed(() => {
   const total = Math.max(0, remainingSeconds.value);
@@ -143,15 +146,19 @@ const isEmergencyUrgent = computed(() => remainingSeconds.value <= 24 * 3600);
 
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
+  expiryEmitted = false;
+  if (!closesAtTimestamp.value) return;
   timerInterval = setInterval(() => {
-    if (remainingSeconds.value > 0) {
-      remainingSeconds.value -= 1;
-    } else {
+    now.value = Date.now();
+    if (remainingSeconds.value === 0 && !expiryEmitted) {
+      expiryEmitted = true;
       emit('window-expired');
       clearInterval(timerInterval);
     }
   }, 1000);
 }
+
+watch(closesAtTimestamp, startTimer);
 
 onMounted(() => {
   startTimer();

@@ -1,17 +1,25 @@
 /**
- * Script dev: tạo / reset tài khoản để test (sinh viên KHÔNG tự đăng ký qua API).
- *
- * Ví dụ:
- *   npm run seed:admin     -> admin@ctuet.edu.vn / Admin@12345 (đã xác thực)
- *   npm run seed:student   -> dtkietktpm2311025@student.ctuet.edu.vn / Student@12345 (CHƯA xác thực -> cần OTP)
- *   node scripts/seed-user.js --role=teacher --email=gv01@ctuet.edu.vn --password=Teacher@123
- *   node scripts/seed-user.js --role=student --email=110122002@student.ctuet.edu.vn --student-id=110122002 --verified
+ * Tạo tài khoản fixture còn thiếu trong database test được allowlist.
+ * Tài khoản đã có không bị cập nhật, đặc biệt là mật khẩu.
  */
-const path = require('node:path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const { blockDotenvConfig, getTestMongoUri } = require('./testDatabaseGuard');
+blockDotenvConfig();
+
+const parseArgs = (argv) =>
+  argv.reduce((accumulator, argument) => {
+    if (!argument.startsWith('--')) return accumulator;
+    const [key, value] = argument.slice(2).split('=');
+    accumulator[key] = value === undefined ? true : value;
+    return accumulator;
+  }, {});
+
+const args = parseArgs(process.argv.slice(2));
+const target = String(args.target || 'integration');
+const mongoUri = getTestMongoUri(target);
+process.env.NODE_ENV = 'test';
+process.env.MONGO_URI = mongoUri;
 
 const mongoose = require('mongoose');
-const env = require('../src/config/env');
 const User = require('../src/models/User');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const {
@@ -42,6 +50,12 @@ const DEFAULT_ACCOUNTS = {
     isEmailVerified: true,
     studentId: null,
   },
+  [USER_ROLES.JUDGE]: {
+    email: 'judge01@ctuet.edu.vn',
+    password: 'Judge@12345',
+    isEmailVerified: true,
+    studentId: null,
+  },
   [USER_ROLES.STUDENT]: {
     email: process.env.STUDENT_EMAIL || GLOBAL_TEST_EMAIL,
     password: process.env.STUDENT_PASSWORD || 'Student@12345',
@@ -51,16 +65,7 @@ const DEFAULT_ACCOUNTS = {
   },
 };
 
-const parseArgs = (argv) =>
-  argv.reduce((accumulator, argument) => {
-    if (!argument.startsWith('--')) return accumulator;
-    const [key, value] = argument.slice(2).split('=');
-    accumulator[key] = value === undefined ? true : value;
-    return accumulator;
-  }, {});
-
 const seedUser = async () => {
-  const args = parseArgs(process.argv.slice(2));
   const role = String(args.role || USER_ROLES.ADMIN).toLowerCase();
 
   if (!Object.values(USER_ROLES).includes(role)) {
@@ -74,7 +79,7 @@ const seedUser = async () => {
 
   const email = String(args.email || defaults.email).toLowerCase();
 
-  await mongoose.connect(env.mongoUri);
+  await mongoose.connect(mongoUri);
 
   // Nếu email có trong danh sách sinh viên của trường -> đồng bộ dữ liệu chính thức (MSSV, họ tên, lớp, CVHT)
   const whitelistEntry = await StudentWhitelist.findOne({ email });
@@ -101,21 +106,20 @@ const seedUser = async () => {
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
-    existingUser.set(payload);
-    await existingUser.save();
-    console.log(`[Seed] Đã cập nhật ${role}: ${email}`);
-  } else {
-    await User.create({ email, ...payload });
-    console.log(`[Seed] Đã tạo ${role}: ${email}`);
+    console.log(`[Seed] Bỏ qua tài khoản đã tồn tại (${role}): ${email}`);
+    await mongoose.disconnect();
+    return;
   }
 
+  await User.create({ email, ...payload });
   const verifyNote = payload.isEmailVerified ? '' : ' (chưa xác thực - lần đăng nhập đầu cần OTP)';
-  console.log(`[Seed] Tài khoản: ${email} / ${payload.password}${verifyNote}`);
+  console.log(`[Seed] Đã tạo tài khoản ${role}: ${email}${verifyNote}`);
   if (payload.className) {
-    console.log(`[Seed] Dữ liệu từ danh sách nhà trường: MSSV ${payload.studentId} | Lớp ${payload.className} | CVHT ${payload.advisorEmail}`);
+    console.log(
+      `[Seed] Dữ liệu từ danh sách nhà trường: MSSV ${payload.studentId} ` +
+        `| Lớp ${payload.className} | CVHT ${payload.advisorEmail}`,
+    );
   }
-
-  if (env.isProduction) console.warn('[Seed] CẢNH BÁO: không nên chạy script này trên production!');
 
   await mongoose.disconnect();
 };

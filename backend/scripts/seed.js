@@ -1,110 +1,59 @@
-/**
- * Script seed dữ liệu sạch chuẩn cho môi trường dev/test.
- *
- * Các bước:
- *   1. Xoá dữ liệu phát sinh (dự án, phiên bản, thành viên, hồ sơ, OTP) để test lại từ đầu.
- *   2. Nạp danh sách sinh viên của trường (StudentWhitelist).
- *   3. Tạo tài khoản admin + sinh viên chính (CHƯA xác thực để test luồng Gmail OTP)
- *      + các sinh viên phụ (đã xác thực) phục vụ test FR03/FR04.
- *
- * Chạy: npm run seed
- */
+/** `npm run seed` chuẩn bị integration; `npm run seed:e2e` thêm fixture nghiệp vụ E2E an toàn. */
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const { blockDotenvConfig, getTestMongoUri } = require('./testDatabaseGuard');
 
-const mongoose = require('mongoose');
-const env = require('../src/config/env');
-const User = require('../src/models/User');
-const StudentWhitelist = require('../src/models/StudentWhitelist');
-const Otp = require('../src/models/Otp');
-const Project = require('../src/models/Project');
-const ProjectRevision = require('../src/models/ProjectRevision');
-const ProjectMember = require('../src/models/ProjectMember');
-const UserProfile = require('../src/models/UserProfile');
-const AuditLog = require('../src/models/AuditLog');
-const Mentor = require('../src/models/Mentor');
+blockDotenvConfig();
 
-/**
- * Các script seed con, chạy tuần tự.
- * - Tài khoản sinh viên CHÍNH (global test email) được tạo ở bước `--role=student`
- *   (CHƯA xác thực -> dùng để test luồng OTP). Email lấy từ biến môi trường
- *   STUDENT_EMAIL, mặc định dtkietktpm2311025@student.ctuet.edu.vn.
- * - Các bước còn lại tạo sinh viên PHỤ (đã xác thực) phục vụ test FR03/FR04
- *   (nhiều thành viên trong 1 dự án). Email này phải có trong StudentWhitelist.
- */
-const SEED_STEPS = [
-  { file: 'scripts/seed-whitelist.js', args: [] },
-  { file: 'scripts/seed-user.js', args: ['--role=admin'] },
-  { file: 'scripts/seed-user.js', args: ['--role=student'] },
-  { file: 'scripts/seed-user.js', args: ['--email=110122001@student.ctuet.edu.vn', '--role=student', '--verified'] },
-  { file: 'scripts/seed-user.js', args: ['--email=110122002@student.ctuet.edu.vn', '--role=student', '--verified'] },
-  { file: 'scripts/seed-user.js', args: ['--email=110122003@student.ctuet.edu.vn', '--role=student', '--verified'] },
+const parseArgs = (argv) =>
+  argv.reduce((result, argument) => {
+    if (!argument.startsWith('--')) return result;
+    const [key, value] = argument.slice(2).split('=');
+    result[key] = value === undefined ? true : value;
+    return result;
+  }, {});
+
+const args = parseArgs(process.argv.slice(2));
+const target = String(args.target || 'integration');
+const mongoUri = getTestMongoUri(target);
+
+process.env.NODE_ENV = 'test';
+process.env.MONGO_URI = mongoUri;
+
+const seedSteps = [
+  { file: 'seed-whitelist.js', args: [] },
+  { file: 'seed-user.js', args: ['--role=admin'] },
+  { file: 'seed-user.js', args: ['--role=student'] },
+  ...['110122001', '110122002', '110122003'].map((studentId) => ({
+    file: 'seed-user.js',
+    args: [
+      `--email=${studentId}@student.ctuet.edu.vn`,
+      `--student-id=${studentId}`,
+      '--role=student',
+      '--verified',
+    ],
+  })),
+  { file: 'seed-user.js', args: ['--email=gv01@ctuet.edu.vn', '--role=teacher'] },
+  { file: 'seed-user.js', args: ['--email=mentor01@ctuet.edu.vn', '--role=mentor'] },
+  { file: 'seed-user.js', args: ['--email=judge01@ctuet.edu.vn', '--role=judge'] },
 ];
 
-/** Xoá dữ liệu phát sinh để test lại từ trạng thái sạch */
-const resetDerivedData = async () => {
-  await mongoose.connect(env.mongoUri);
+if (target === 'e2e') {
+  seedSteps.push({ file: 'seed-student-e2e-fixtures.js', args: [] });
+}
+seedSteps.push({ file: 'seed-notification-fixtures.js', args: [] });
 
-  const [projects, revisions, members, profiles, otps, auditLogs, mentors] = await Promise.all([
-    Project.deleteMany({}),
-    ProjectRevision.deleteMany({}),
-    ProjectMember.deleteMany({}),
-    UserProfile.deleteMany({}),
-    Otp.deleteMany({}),
-    AuditLog.deleteMany({}),
-    Mentor.deleteMany({}),
-  ]);
-
-  console.log('[Seed] Đã dọn dữ liệu phát sinh:');
-  console.log(
-    `   - ${projects.deletedCount} dự án | ${revisions.deletedCount} phiên bản | ${members.deletedCount} thành viên`,
-  );
-  console.log(
-    `   - ${profiles.deletedCount} hồ sơ | ${otps.deletedCount} mã OTP | ${auditLogs.deletedCount} audit log | ${mentors.deletedCount} hồ sơ Mentor`,
-  );
-
-  await mongoose.disconnect();
-};
-
-/** Chạy các script seed con */
-const runChildSeeds = () => {
-  for (const step of SEED_STEPS) {
-    console.log(`\n[Seed] > node ${step.file} ${step.args.join(' ')}`.trim());
-    execFileSync('node', [step.file, ...step.args], {
+for (const step of seedSteps) {
+  console.log(`[Seed] Thêm fixture bằng ${step.file}.`);
+  execFileSync(
+    process.execPath,
+    [path.join(__dirname, step.file), ...step.args, `--target=${target}`],
+    {
       cwd: path.resolve(__dirname, '..'),
+      env: { ...process.env, MONGO_URI: mongoUri },
       stdio: 'inherit',
-    });
-  }
-};
+    },
+  );
+}
 
-/** In tổng hợp dữ liệu đã seed */
-const printSummary = async () => {
-  await mongoose.connect(env.mongoUri);
-
-  const users = await User.find({}).sort({ email: 1 }).lean();
-  const whitelistCount = await StudentWhitelist.countDocuments({});
-
-  console.log('\n================ TỔNG HỢP DỮ LIỆU SEED ================');
-  console.log(`Danh sách sinh viên của trường : ${whitelistCount} bản ghi`);
-  console.log(`Tài khoản hệ thống             : ${users.length}`);
-  for (const user of users) {
-    const verified = user.isEmailVerified ? 'đã xác thực' : 'CHƯA xác thực (test OTP)';
-    console.log(
-      `   - ${user.email} | ${user.role} | ${user.status} | ${verified} | MSSV ${user.studentId || '-'} | Lớp ${user.className || '-'}`,
-    );
-  }
-  console.log('========================================================\n');
-
-  await mongoose.disconnect();
-};
-
-(async () => {
-  await resetDerivedData();
-  runChildSeeds();
-  await printSummary();
-  console.log('[Seed] Hoàn tất. Mật khẩu sinh viên: Student@12345 | admin: Admin@12345');
-})().catch((error) => {
-  console.error(`[Seed] Thất bại: ${error.message}`);
-  process.exit(1);
-});
+console.log(`[Seed] Hoàn tất fixture cho database thử nghiệm ${target}.`);

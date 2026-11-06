@@ -66,6 +66,8 @@
           <ProjectAwardInfo
             v-if="hasFinalAward(project)"
             :project="project"
+            :reward-claim="rewardClaims[project._id] || null"
+            :can-claim="project.userRole === 'OWNER'"
             @open-claim="emit('open-reward-claim', project)"
           />
 
@@ -151,19 +153,16 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  rewardClaims: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
 const emit = defineEmits(['open-reward-claim']);
 
 function hasFinalAward(project) {
-  if (!project) return false;
-  return Boolean(
-    project.award &&
-      (project.award.stage === 'FINAL' ||
-        project.award.round?.toLowerCase().includes('chung kết') ||
-        project.status === 'COMPLETED' ||
-        project.award.prize)
-  );
+  return Boolean(project?.status === 'COMPLETED' && project.award?.rank && project.award?.prizeName);
 }
 </script>
 

@@ -2,6 +2,8 @@ const express = require('express');
 const cloudUploadController = require('../controllers/cloudUploadController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const validate = require('../middlewares/validateMiddleware');
+const devCloudUploadController = require('../controllers/devCloudUploadController');
+const { STORAGE_PROVIDER } = require('../utils/constants');
 const { z } = require('zod');
 
 const router = express.Router();
@@ -9,11 +11,12 @@ const router = express.Router();
 /** Schema body yêu cầu Presigned URL */
 const presignedUrlBodySchema = z.object({
   projectId: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: 'projectId không đúng định dạng ObjectId.' }),
-  originalName: z.string().min(1, 'Tên file gốc là bắt buộc.'),
+  originalName: z.string().trim().min(1, 'Tên file gốc là bắt buộc.').max(255),
   fileType: z.enum(['video', 'poster', 'document'], {
     errorMap: () => ({ message: 'fileType phải là video, poster hoặc document.' }),
   }),
   fileSize: z.number().int().nonnegative('fileSize phải là số nguyên không âm.'),
+  mimeType: z.string().trim().max(150).optional(),
 });
 
 /** Schema body xác nhận upload */
@@ -21,6 +24,16 @@ const confirmUploadBodySchema = z.object({
   objectKey: z.string().min(1, 'objectKey là bắt buộc.'),
   checksum: z.string().optional(),
 });
+
+const projectFilesParamsSchema = z.object({
+  projectId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'projectId không đúng định dạng ObjectId.'),
+});
+
+// URL giả lập chỉ được mount ở môi trường development với storage provider dev.
+if (STORAGE_PROVIDER === 'dev' && (process.env.NODE_ENV || 'development') === 'development') {
+  router.put(/^\/dev-mock\/(.+)$/, devCloudUploadController.uploadDevelopmentFile);
+  router.get(/^\/dev-mock\/(.+)$/, devCloudUploadController.readDevelopmentFile);
+}
 
 router.use(authenticate);
 
@@ -41,6 +54,7 @@ router.post(
 /** GET /api/v1/cloud-upload/files/:projectId */
 router.get(
   '/files/:projectId',
+  validate({ params: projectFilesParamsSchema }),
   cloudUploadController.listProjectFiles,
 );
 

@@ -17,6 +17,7 @@ const cloudUploadRouter = require('./cloudUploadRouter');
 const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
 const votingRouter = require('./votingRouter');
+const notificationRouter = require('./notificationRouter');
 
 // --- Routes vòng đời nâng cao (Enterprise Edition) ---
 const projectCancellationRoutes = require('./projectCancellationRoutes');
@@ -84,6 +85,7 @@ router.use('/cloud-upload', cloudUploadRouter);
 router.use('/score-overrides', scoreOverrideRoutes);
 router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
 router.use('/public/votes', votingRouter);
+router.use('/notifications', notificationRouter);
 
 // ---------------------------------------------------------------------------
 // /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)

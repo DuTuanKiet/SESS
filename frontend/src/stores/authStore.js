@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { useNotificationStore } from '@/stores/notificationStore';
 
 const REMEMBERED_EMAIL_KEY = 'sess_remembered_email';
 const ACCESS_TOKEN_KEY = 'accessToken';
@@ -32,6 +33,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Actions
   function setSession({ user: userData, tokens, portal = 'user' }) {
+    const previousUserId = user.value?._id ?? user.value?.id ?? '';
+    const nextUserId = userData?._id ?? userData?.id ?? '';
+    if (String(previousUserId) !== String(nextUserId)) {
+      useNotificationStore().clear();
+    }
+
     user.value = userData;
     if (userData) {
       localStorage.setItem(USER_KEY, JSON.stringify(userData));
@@ -49,6 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    useNotificationStore().clear();
     user.value = null;
     accessToken.value = null;
     refreshToken.value = null;

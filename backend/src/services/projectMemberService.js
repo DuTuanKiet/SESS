@@ -6,6 +6,7 @@ const User = require('../models/User');
 const ApiError = require('../utils/apiError');
 const whitelistService = require('./whitelistService');
 const queueService = require('./queueService');
+const notificationService = require('./notificationService');
 const {
   USER_STATUS,
   PROJECT_MEMBER_ROLES,
@@ -314,6 +315,8 @@ const inviteMember = async ({ projectId, inviter, email, req }) => {
     req,
   });
 
+  await notificationService.notifyInvitationCreated({ project, invitation, invitee });
+
   return { project, invitation, invitee };
 };
 
@@ -352,7 +355,7 @@ const cancelInvitation = async ({ projectId, requester, identifier, req }) => {
 const respondInvitation = async ({ invitationId, userId, response }) => {
   assertEnum(response, [ACCEPTED, MEMBER_REJECTED], 'response', 'INVALID_INVITATION_RESPONSE');
 
-  return runTransaction(async (session) => {
+  const result = await runTransaction(async (session) => {
     const invitation = await ProjectMember.findById(invitationId).session(session);
     if (!invitation) throw ApiError.notFound('Không tìm thấy lời mời tham gia dự án', 'INVITATION_NOT_FOUND');
 
@@ -379,6 +382,9 @@ const respondInvitation = async ({ invitationId, userId, response }) => {
     }
     return { project, invitation };
   });
+
+  await notificationService.notifyInvitationResponded(result);
+  return result;
 };
 
 /** Danh sách lời mời đang chờ sinh viên phản hồi; lời mời chưa ACCEPTED không giữ quota. */
@@ -797,7 +803,7 @@ const respondMemberChangeRequest = async ({
 }) => {
   assertEnum(response, [APPROVED, CHANGE_REQUEST_REJECTED], 'response', 'INVALID_RESPONSE');
 
-  return runTransaction(async (session) => {
+  const result = await runTransaction(async (session) => {
     const changeRequest = await ProjectMemberChangeRequest.findById(requestId).session(session);
     if (!changeRequest) {
       throw ApiError.notFound('Không tìm thấy yêu cầu thay đổi thành viên', 'CHANGE_REQUEST_NOT_FOUND');
@@ -910,6 +916,11 @@ const respondMemberChangeRequest = async ({
 
     return { project: projectResponse, changeRequest, executed };
   });
+
+  if (response === APPROVED && result.executed) {
+    await notificationService.notifyMemberChangeApproved(result);
+  }
+  return result;
 };
 
 /** Admin can thiệp ép chuyển quyền Owner kèm lý do bắt buộc (khẩn cấp) */

@@ -1,6 +1,8 @@
 const express = require('express');
 const projectController = require('../controllers/projectController');
 const projectMemberController = require('../controllers/projectMemberController');
+const projectSubmissionController = require('../controllers/projectSubmissionController');
+const rewardClaimController = require('../controllers/rewardClaimController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
 const validate = require('../middlewares/validateMiddleware');
@@ -26,6 +28,14 @@ const {
   emergencyTransferBodySchema,
   memberChangeQuerySchema,
 } = require('../validations/projectMemberValidation');
+const {
+  projectSubmissionParamsSchema,
+  updateProjectSubmissionsBodySchema,
+} = require('../validations/projectSubmissionValidation');
+const {
+  projectRewardClaimParamsSchema,
+  saveRewardClaimBodySchema,
+} = require('../validations/rewardClaimValidation');
 
 const router = express.Router();
 
@@ -51,6 +61,29 @@ router.put(
 );
 router.post('/:id/submit', validate({ params: projectParamsSchema }), projectController.submitProject);
 router.get('/:id/revisions', validate({ params: projectParamsSchema }), projectController.getProjectRevisions);
+router.get(
+  '/:id/submissions',
+  validate({ params: projectSubmissionParamsSchema }),
+  projectSubmissionController.getProjectSubmissions,
+);
+router.put(
+  '/:id/submissions',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectSubmissionParamsSchema, body: updateProjectSubmissionsBodySchema }),
+  projectSubmissionController.updateProjectSubmissions,
+);
+router.get(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema }),
+  rewardClaimController.getRewardClaim,
+);
+router.post(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema, body: saveRewardClaimBodySchema }),
+  rewardClaimController.saveRewardClaim,
+);
 
 // FR04 - Quản lý thành viên dự án
 router.get(

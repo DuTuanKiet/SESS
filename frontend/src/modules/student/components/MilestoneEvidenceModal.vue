@@ -39,6 +39,18 @@
         </div>
 
         <div>
+          <label class="block font-semibold text-[#0B1F4B] mb-1">Tên tệp minh chứng <span class="text-slate-400">(không bắt buộc)</span></label>
+          <input
+            v-model.trim="evidenceForm.fileName"
+            type="text"
+            maxlength="255"
+            placeholder="VD: bao-cao-tien-do.pdf"
+            class="w-full px-3.5 py-2 rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
+          />
+        </div>
+        <p class="text-[11px] text-[#4B5B7A]">Có thể gửi hoặc cập nhật minh chứng đến hết 3 ngày sau hạn nộp.</p>
+
+        <div>
           <label class="block font-semibold text-[#0B1F4B] mb-1">
             Ghi chú kết quả thực hiện <span class="text-rose-500">*</span>
           </label>
@@ -101,6 +113,7 @@ const emit = defineEmits(['update:isOpen', 'submit']);
 
 const evidenceForm = ref({
   fileUrl: '',
+  fileName: '',
   note: '',
 });
 
@@ -110,6 +123,7 @@ watch(
   (newMilestone) => {
     evidenceForm.value = {
       fileUrl: newMilestone?.evidence?.fileUrl || '',
+      fileName: newMilestone?.evidence?.fileName || '',
       note: newMilestone?.evidence?.note || '',
     };
   },

@@ -48,8 +48,9 @@
           <button
             v-if="notificationStore.unreadCount > 0"
             type="button"
+            :disabled="notificationStore.isLoading || notificationStore.isUpdating"
             @click="handleMarkAllRead"
-            class="inline-flex items-center gap-1 text-[11px] font-medium text-[#1E56D9] hover:text-[#1d4ed8] transition-colors cursor-pointer"
+            class="inline-flex items-center gap-1 text-[11px] font-medium text-[#1E56D9] hover:text-[#1d4ed8] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
           >
             <CheckCheck class="w-3.5 h-3.5" />
             <span>Đã đọc tất cả</span>
@@ -90,8 +91,26 @@
 
         <!-- Danh Sách Nội Dung Thông Báo Cuộn Dọc -->
         <div class="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div
+            v-if="notificationStore.error"
+            class="px-4 py-3 bg-rose-50 text-rose-700 flex items-center justify-between gap-3"
+            role="alert"
+          >
+            <p class="text-xs">{{ notificationStore.error }}</p>
+            <button
+              type="button"
+              @click="notificationStore.fetchNotifications()"
+              class="text-xs font-semibold underline underline-offset-2 shrink-0"
+            >
+              Thử lại
+            </button>
+          </div>
+
           <!-- Trạng thái đang tải -->
-          <div v-if="notificationStore.isLoading" class="p-8 text-center text-slate-400">
+          <div
+            v-if="notificationStore.isLoading && notificationStore.notifications.length === 0"
+            class="p-8 text-center text-slate-400"
+          >
             <div
               class="inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin text-[#1E56D9]"
             ></div>
@@ -118,11 +137,13 @@
           </div>
 
           <!-- Danh sách từng thẻ thông báo -->
-          <div
+          <button
             v-for="item in notificationStore.filteredNotifications"
+            type="button"
+            :disabled="notificationStore.isLoading || notificationStore.isUpdating"
             :key="item.id"
             @click="handleNotificationClick(item)"
-            class="p-3.5 sm:p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 relative group"
+            class="w-full text-left p-3.5 sm:p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 relative group disabled:cursor-wait"
             :class="{ 'bg-blue-50/30': !item.isRead }"
           >
             <!-- Icon theo loại thông báo -->
@@ -157,19 +178,18 @@
               class="w-2 h-2 rounded-full bg-[#1E56D9] absolute right-3 top-4 shrink-0 shadow-xs"
               title="Chưa đọc"
             ></div>
-          </div>
-        </div>
+          </button>
 
-        <!-- Footer Popover -->
-        <div class="p-3 bg-slate-50 border-t border-slate-100 text-center shrink-0">
-          <router-link
-            to="/student/notifications"
-            @click="isOpen = false"
-            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1E56D9] hover:text-[#1d4ed8] transition-colors"
-          >
-            <span>Xem tất cả thông báo</span>
-            <ExternalLink class="w-3.5 h-3.5" />
-          </router-link>
+          <div v-if="notificationStore.hasMore" class="p-3 text-center">
+            <button
+              type="button"
+              :disabled="notificationStore.isLoading || notificationStore.isUpdating"
+              @click="notificationStore.loadMore()"
+              class="text-xs font-semibold text-[#1E56D9] disabled:text-slate-400"
+            >
+              {{ notificationStore.isLoading ? 'Đang tải...' : 'Tải thêm thông báo' }}
+            </button>
+          </div>
         </div>
       </div>
     </transition>
@@ -177,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   Bell,
@@ -186,20 +206,24 @@ import {
   MessageSquare,
   Trophy,
   Info,
-  ExternalLink,
   Inbox,
+  UserPlus,
+  ClipboardCheck,
+  CircleCheck,
 } from 'lucide-vue-next';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useAuthStore } from '@/stores/authStore';
 
 const router = useRouter();
 const notificationStore = useNotificationStore();
+const authStore = useAuthStore();
 
 const isOpen = ref(false);
 const dropdownRef = ref(null);
 
 function toggleDropdown() {
   isOpen.value = !isOpen.value;
-  if (isOpen.value && notificationStore.notifications.length === 0) {
+  if (isOpen.value && !notificationStore.isLoading && !notificationStore.isUpdating) {
     notificationStore.fetchNotifications();
   }
 }
@@ -213,7 +237,7 @@ function handleClickOutside(event) {
 function handleNotificationClick(item) {
   notificationStore.markAsRead(item.id);
   isOpen.value = false;
-  if (item.targetUrl) {
+  if (item.targetUrl && item.targetUrl.startsWith('/') && !item.targetUrl.startsWith('//')) {
     router.push(item.targetUrl);
   }
 }
@@ -236,6 +260,22 @@ function getTypeBadgeConfig(type) {
       return {
         icon: MessageSquare,
         classes: 'bg-blue-50 text-[#1E56D9] border-blue-200',
+      };
+    case 'invitation':
+      return {
+        icon: UserPlus,
+        classes: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+      };
+    case 'project':
+      return {
+        icon: ClipboardCheck,
+        classes: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+      };
+    case 'review':
+    case 'cancellation':
+      return {
+        icon: CircleCheck,
+        classes: 'bg-violet-50 text-violet-600 border-violet-200',
       };
     case 'competition':
       return {
@@ -276,10 +316,17 @@ function formatRelativeTime(dateString) {
   return d.toLocaleDateString('vi-VN');
 }
 
+watch(
+  () => String(authStore.user?._id ?? authStore.user?.id ?? ''),
+  (userId) => {
+    notificationStore.clear();
+    if (userId) notificationStore.fetchNotifications();
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
-  // Khởi tạo nạp thông báo ban đầu
-  notificationStore.fetchNotifications();
 });
 
 onUnmounted(() => {

@@ -1,5 +1,5 @@
 const { z } = require('zod');
-const { PROJECT_STATUS, MILESTONE_STATUS } = require('../utils/constants');
+const { PROJECT_STATUS } = require('../utils/constants');
 
 /**
  * Zod validation schemas cho phân hệ Dự án (Project).
@@ -38,21 +38,6 @@ const leaderInfoSchema = z.object({
   courseYear: z.string().trim().max(100).optional(),
 }).strict();
 
-const milestoneSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  description: z.string().max(1000).optional(),
-  dueDate: z.union([z.string(), z.date()]).nullable().optional(),
-  status: z.enum(Object.values(MILESTONE_STATUS)).optional(),
-}).strict();
-
-const submissionRoundSchema = z.object({
-  roundNumber: z.coerce.number().int().min(1).optional(),
-  title: z.string().trim().max(200).optional(),
-  status: z.string().trim().max(50).optional(),
-  submittedAt: z.union([z.string(), z.date()]).nullable().optional(),
-  feedback: z.string().max(4000).optional(),
-}).strict();
-
 const projectBodySchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   category: z.string().trim().max(120).optional(),
@@ -63,13 +48,10 @@ const projectBodySchema = z.object({
   solution: z.string().max(4000).optional(),
   businessModel: z.string().max(2000).optional(),
   attachmentUrl: z.string().trim().url().or(z.literal('')).optional(),
-  milestones: z.array(milestoneSchema).max(20).optional(),
   advisorInfo: advisorInfoSchema.optional(),
   leaderInfo: leaderInfoSchema.optional(),
   competitionId: z.union([z.string().max(100), z.number()]).optional(),
   competitionTitle: z.string().trim().max(200).optional(),
-  currentRound: z.coerce.number().int().min(1).optional(),
-  submissionRounds: z.array(submissionRoundSchema).max(20).optional(),
 }).strict();
 
 const createProjectBodySchema = projectBodySchema.extend({

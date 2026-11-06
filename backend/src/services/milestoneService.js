@@ -2,6 +2,7 @@ const ProjectMilestone = require('../models/ProjectMilestone');
 const MilestoneComment = require('../models/MilestoneComment');
 const projectService = require('./projectService');
 const auditService = require('./auditService');
+const notificationService = require('./notificationService');
 const { createError } = require('../middlewares/errorHandler');
 const {
   MILESTONE_STATUS,
@@ -212,10 +213,27 @@ async function getMilestonesByProject(params, maybeUser = null) {
     .sort({ startDate: 1 })
     .lean();
 
-  return milestones.map((m) => ({
-    ...m,
-    status: resolveMilestoneStatus(m),
-  }));
+  const milestoneIds = milestones.map((milestone) => milestone._id);
+  const comments = await MilestoneComment.find({ milestoneId: { $in: milestoneIds } })
+    .populate('authorId', 'profile.fullName fullName email')
+    .sort({ createdAt: -1 })
+    .lean();
+  const commentsByMilestone = new Map();
+  for (const comment of comments) {
+    const key = String(comment.milestoneId);
+    if (!commentsByMilestone.has(key)) commentsByMilestone.set(key, []);
+    commentsByMilestone.get(key).push(comment);
+  }
+
+  return milestones.map((milestone) => {
+    const milestoneComments = commentsByMilestone.get(String(milestone._id)) || [];
+    return {
+      ...milestone,
+      status: resolveMilestoneStatus(milestone),
+      comments: milestoneComments,
+      mentorFeedback: milestoneComments[0]?.content || '',
+    };
+  });
 }
 //Lấy thông tin chi tiết một milestone theo ID
 async function getMilestoneById({ milestoneId, projectId, user = null }) {
@@ -243,7 +261,7 @@ async function getMilestoneById({ milestoneId, projectId, user = null }) {
   };
 }
 //Nộp minh chứng cho milestone 
-async function submitEvidence({ milestoneId, projectId, studentId, url, note = '' }) {
+async function submitEvidence({ milestoneId, projectId, studentId, url, fileName = '', note = '' }) {
   const milestone = await findMilestoneOrFail(milestoneId, projectId);
 
   // BUG-FR05-03: Kiểm tra trạng thái dự án phải đang UnderMentorship
@@ -264,6 +282,7 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
     ? {
       submittedBy: milestone.evidence.submittedBy,
       url: milestone.evidence.url,
+      fileName: milestone.evidence.fileName,
       note: milestone.evidence.note,
       submittedAt: milestone.evidence.submittedAt,
       isLate: milestone.evidence.isLate,
@@ -278,19 +297,14 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
     );
   }
 
-  if (currentStatus === MILESTONE_STATUS.NOT_COMPLETE) {
+  const submissionDeadline = new Date(
+    new Date(milestone.dueDate).getTime() + LATE_SUBMISSION_DAYS * 24 * 60 * 60 * 1000
+  );
+  if (submittedAt > submissionDeadline) {
     throw createError(
       'Đã quá thời gian cho phép nộp trễ (3 ngày kể từ ngày kết thúc), milestone đã chuyển sang trạng thái NotComplete và không thể nộp minh chứng.',
       400,
       'LATE_SUBMISSION_DEADLINE_EXCEEDED'
-    );
-  }
-
-  if (previousEvidence && submittedAt > new Date(milestone.dueDate)) {
-    throw createError(
-      'Minh chứng chỉ được cập nhật trước hạn nộp.',
-      400,
-      'EVIDENCE_UPDATE_DEADLINE_EXCEEDED'
     );
   }
 
@@ -300,6 +314,7 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
   milestone.evidence = {
     submittedBy: studentId,
     url,
+    fileName: fileName || '',
     note: note || '',
     submittedAt,
     isLate,
@@ -323,6 +338,7 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, note = '
       evidence: {
         submittedBy: studentId,
         url: milestone.evidence.url,
+        fileName: milestone.evidence.fileName,
         note: milestone.evidence.note,
         submittedAt: milestone.evidence.submittedAt,
         isLate: milestone.evidence.isLate,
@@ -383,6 +399,8 @@ async function addMilestoneComment({ milestoneId, projectId, mentorId, content }
   });
 
   await comment.populate('authorId', 'profile.fullName email');
+
+  await notificationService.notifyMilestoneCommentAdded({ project, milestone, comment });
 
   return comment.toObject();
 }

@@ -66,10 +66,11 @@
               <span>Bài làm đã gửi:</span>
             </span>
             <span class="text-[11px] text-[#4B5B7A]">{{ formatDate(ms.evidence.submittedAt) }}</span>
+            <span v-if="ms.evidence.isLate" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">Nộp trễ</span>
           </div>
           <p class="text-[#4B5B7A] leading-relaxed">{{ ms.evidence.note }}</p>
           <a
-            :href="ms.evidence.fileUrl"
+            :href="ms.evidence.url || ms.evidence.fileUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-xs font-semibold text-[#1E56D9] hover:underline"
@@ -78,23 +79,32 @@
           </a>
         </div>
 
-        <div v-if="ms.mentorFeedback" class="p-3.5 rounded-xl bg-[#F1F7FF] border border-[#C7D7F5] text-xs space-y-1">
+        <div v-if="ms.comments?.length || ms.mentorFeedback" class="p-3.5 rounded-xl bg-[#F1F7FF] border border-[#C7D7F5] text-xs space-y-2">
           <div class="font-bold text-[#0B1F4B] flex items-center gap-1.5">
             <MessageSquare class="w-3.5 h-3.5 text-[#1E56D9]" />
             <span>Nhận xét từ Giảng viên Cố vấn:</span>
           </div>
-          <p class="text-[#4B5B7A] leading-relaxed">{{ ms.mentorFeedback }}</p>
+          <div v-if="ms.comments?.length" class="space-y-2">
+            <div v-for="comment in ms.comments" :key="comment._id" class="border-t border-[#C7D7F5]/70 pt-2">
+              <p class="text-[#4B5B7A] leading-relaxed">{{ comment.content }}</p>
+              <p class="mt-1 text-[10px] text-slate-500">
+                {{ comment.authorId?.profile?.fullName || comment.authorId?.fullName || comment.authorId?.email || 'Giảng viên' }}
+                <span v-if="comment.createdAt"> · {{ formatDate(comment.createdAt) }}</span>
+              </p>
+            </div>
+          </div>
+          <p v-else class="text-[#4B5B7A] leading-relaxed">{{ ms.mentorFeedback }}</p>
         </div>
 
         <div class="pt-1 flex items-center justify-between flex-wrap gap-2">
           <div class="text-xs text-[#4B5B7A]">
             <span v-if="evaluateMilestoneEvidenceEligibility(ms).isCompleted" class="text-emerald-700 font-medium flex items-center gap-1">
               <CheckCircle2 class="w-3.5 h-3.5 text-emerald-600" />
-              <span>Mốc này đã hoàn thành (Đã qua hạn nộp).</span>
+              <span>Đã đóng cửa sổ nộp minh chứng.</span>
             </span>
             <span v-else-if="evaluateMilestoneEvidenceEligibility(ms).canUpdate" class="text-[#1E56D9] font-medium flex items-center gap-1">
               <CheckCircle2 class="w-3.5 h-3.5 text-emerald-600" />
-              <span>Đã nộp bài (Có thể cập nhật lại trước {{ formatDateOnly(ms.dueDate) }}).</span>
+              <span>Đã nộp bài (có thể cập nhật đến {{ formatDateOnly(addLateWindow(ms.dueDate)) }}).</span>
             </span>
             <span v-else-if="evaluateMilestoneEvidenceEligibility(ms).isNotStarted" class="text-[#4B5B7A] flex items-center gap-1">
               <Clock class="w-3.5 h-3.5" />
@@ -207,37 +217,52 @@ const milestoneProgressPercent = computed(() => {
 
 /**
  * Đánh giá điều kiện nộp/cập nhật minh chứng của cột mốc
- * Cho phép cập nhật lại khi chưa hết hạn (now <= dueDate)
+ * Cho phép nộp/cập nhật đến hết cửa sổ trễ 3 ngày sau dueDate.
  * @param {Object} ms - Thông tin cột mốc
  * @returns {{ canSubmit: boolean, canUpdate: boolean, isCompleted: boolean, isNotStarted: boolean, reason: string }}
  */
 function evaluateMilestoneEvidenceEligibility(ms) {
   if (!ms) return { canSubmit: false, canUpdate: false, isCompleted: false, isNotStarted: false, reason: 'Dữ liệu mốc không hợp lệ' };
 
+  if (props.project?.status !== 'UNDER_MENTORSHIP') {
+    return { canSubmit: false, canUpdate: false, isCompleted: Boolean(ms.evidence), isNotStarted: false, reason: 'Dự án không còn trong giai đoạn cố vấn.' };
+  }
+
   const now = new Date();
-  const isPastDue = ms.dueDate && new Date(ms.dueDate) < now;
+  const dueTime = ms.dueDate ? new Date(ms.dueDate).getTime() : 0;
+  const deadlineTime = dueTime + 3 * 24 * 60 * 60 * 1000;
+  const isPastSubmissionDeadline = Boolean(dueTime && now.getTime() > deadlineTime);
 
-  // 1. Kiểm tra nếu mốc đã có minh chứng hoặc đã hoàn thành
-  if (ms.status === 'Completed' || ms.status === 'DONE' || ms.evidence) {
-    // Nếu chưa hết hạn của mốc -> Vẫn cho phép cập nhật lại minh chứng!
-    if (!isPastDue) {
-      return {
-        canSubmit: true,
-        canUpdate: true,
-        isCompleted: false,
-        isNotStarted: false,
-        reason: 'Có thể cập nhật lại bài làm trước hạn nộp.',
-      };
-    }
+  if (ms.startDate && new Date(ms.startDate).getTime() > now.getTime() && !ms.evidence) {
+    return {
+      canSubmit: false,
+      canUpdate: false,
+      isCompleted: false,
+      isNotStarted: true,
+      reason: `Cột mốc này chưa bắt đầu. Thời gian triển khai bắt đầu từ ngày ${formatDateOnly(ms.startDate)}.`,
+    };
+  }
 
-    // Nếu đã quá hạn -> Khóa không cho cập nhật
+  if (isPastSubmissionDeadline) {
     return {
       canSubmit: false,
       canUpdate: false,
       isCompleted: true,
       isNotStarted: false,
-      reason: 'Cột mốc này đã hết hạn nộp. Minh chứng đã được đóng băng bảo mật, không thể cập nhật thêm.',
+      reason: 'Đã quá cửa sổ cho phép nộp trễ 3 ngày sau hạn nộp.',
     };
+  }
+
+  if (ms.evidence || ms.status === 'Completed' || ms.status === 'DONE') {
+    if (!isPastSubmissionDeadline) {
+      return {
+        canSubmit: true,
+        canUpdate: true,
+        isCompleted: false,
+        isNotStarted: false,
+        reason: 'Có thể cập nhật lại minh chứng trong cửa sổ nộp bài.',
+      };
+    }
   }
 
   // 2. Kiểm tra mốc CHƯA BẮT ĐẦU (theo ngày bắt đầu hoặc trạng thái Pending/PLANNED)
@@ -272,6 +297,11 @@ function evaluateMilestoneEvidenceEligibility(ms) {
     isNotStarted: false,
     reason: '',
   };
+}
+
+function addLateWindow(value) {
+  if (!value) return value;
+  return new Date(new Date(value).getTime() + 3 * 24 * 60 * 60 * 1000);
 }
 
 function openEvidenceModal(ms) {

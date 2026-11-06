@@ -11,17 +11,30 @@
  *             Score Override + Điều chuyển khẩn cấp BGK
  *   BƯỚC 5: Redis/BullMQ (fallback) + reCAPTCHA v3 + Rate Limiting + Public Voting
  *
- * Cách chạy:  npm run test:integration
- * Dùng DB riêng "sess_integration_test" và DROP sau khi chạy -> không ảnh hưởng DB dev.
+ * Cách chạy:  truyền SESS_INTEGRATION_MONGO_URI trỏ đúng sess_integration_test, rồi npm run test:integration.
+ * Chỉ database này được phép dọn trước/sau suite.
  */
 
-// --- Ghi đè ENV TRƯỚC KHI require config (dotenv KHÔNG ghi đè biến đã tồn tại) ---
+const {
+  assertTestDatabaseName,
+  blockDotenvConfig,
+  getTestMongoUri,
+} = require('./testDatabaseGuard');
+
+blockDotenvConfig();
+
+// Tất cả cấu hình được truyền rõ từ tiến trình; bootstrap vô hiệu hóa nạp dotenv.
 process.env.NODE_ENV = 'test';
-process.env.MONGO_URI = process.env.INTEGRATION_MONGO_URI || 'mongodb://127.0.0.1:27017/sess_integration_test';
+process.env.MONGO_URI = getTestMongoUri('integration');
 process.env.MONGODB_URI = '';
 process.env.RATE_LIMIT_API_MAX = '1000000';
 process.env.RATE_LIMIT_AUTH_MAX = '1000000';
 process.env.EXPOSE_OTP_IN_DEV = 'true';
+process.env.BCRYPT_SALT_ROUNDS ||= '4';
+process.env.JWT_ACCESS_SECRET ||= 'integration-test-access-secret-only';
+process.env.JWT_REFRESH_SECRET ||= 'integration-test-refresh-secret-only';
+process.env.JWT_SECRET ||= 'integration-test-legacy-secret-only';
+process.env.REDIS_QUEUE_ENABLED = 'false';
 // Tắt reCAPTCHA để test không phụ thuộc dịch vụ Google (kiểm tra hành vi khi chưa cấu hình)
 process.env.RECAPTCHA_ENABLED = 'false';
 
@@ -53,6 +66,7 @@ const ProjectVote = require('../src/models/ProjectVote');
 const EmergencyJudgeReassignment = require('../src/models/EmergencyJudgeReassignment');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const AuditLog = require('../src/models/AuditLog');
+const Notification = require('../src/models/Notification');
 
 const projectService = require('../src/services/projectService');
 const projectMemberService = require('../src/services/projectMemberService');
@@ -65,6 +79,7 @@ const votingService = require('../src/services/votingService');
 const queueService = require('../src/services/queueService');
 const rubricService = require('../src/services/rubricService');
 const mentorService = require('../src/services/mentorService');
+const notificationService = require('../src/services/notificationService');
 
 // ---------------------------------------------------------------------------
 // Mini test harness
@@ -1031,6 +1046,164 @@ async function testStep5() {
   });
 }
 
+async function testPhase5Notifications() {
+  group('Phase 5 - Thông báo trong ứng dụng');
+
+  const project = {
+    _id: new mongoose.Types.ObjectId(),
+    title: 'Đề tài kiểm tra thông báo',
+    code: 'SESS-IT-NOTIFICATION',
+  };
+  const revision = { _id: new mongoose.Types.ObjectId() };
+
+  await test('sự kiện nộp đề tài tạo thông báo Admin idempotent khi retry', async () => {
+    await notificationService.notifyProjectSubmitted({ project, revision });
+    await notificationService.notifyProjectSubmitted({ project, revision });
+
+    const eventKey = `project-submitted:${revision._id}:${fixtures.admin._id}`;
+    const count = await Notification.countDocuments({ eventKey, recipientId: fixtures.admin._id });
+    assertEqual(count, 1, 'Retry không tạo thông báo trùng');
+  });
+
+  await test('sự kiện lời mời gửi/phản hồi báo đúng người nhận', async () => {
+    const invitation = {
+      _id: new mongoose.Types.ObjectId(),
+      invitedBy: fixtures.student._id,
+      status: PROJECT_MEMBER_STATUS.ACCEPTED,
+    };
+    await notificationService.notifyInvitationCreated({
+      project,
+      invitation,
+      invitee: { _id: fixtures.student2._id },
+    });
+    await notificationService.notifyInvitationResponded({ project, invitation });
+
+    const created = await Notification.findOne({
+      eventKey: `invitation-created:${invitation._id}:${fixtures.student2._id}`,
+    }).lean();
+    const responded = await Notification.findOne({
+      eventKey: `invitation-responded:${invitation._id}:${fixtures.student._id}`,
+    }).lean();
+    assert(created, 'Sinh viên được mời phải nhận thông báo');
+    assert(responded, 'Người gửi lời mời phải nhận thông báo phản hồi');
+  });
+
+  await test('nhận xét milestone báo cho thành viên ACCEPTED và loại recipient trùng', async () => {
+    await Promise.all([
+      ProjectMember.updateOne(
+        { projectId: project._id, userId: fixtures.student._id },
+        { $set: { status: PROJECT_MEMBER_STATUS.ACCEPTED, role: PROJECT_MEMBER_ROLES.OWNER } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ),
+      ProjectMember.updateOne(
+        { projectId: project._id, userId: fixtures.student2._id },
+        { $set: { status: PROJECT_MEMBER_STATUS.ACCEPTED, role: PROJECT_MEMBER_ROLES.MEMBER } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ),
+    ]);
+
+    const comment = { _id: new mongoose.Types.ObjectId() };
+    const milestone = { _id: new mongoose.Types.ObjectId(), title: 'Milestone test' };
+    await notificationService.notifyMilestoneCommentAdded({ project, milestone, comment });
+    await notificationService.notifyMilestoneCommentAdded({ project, milestone, comment });
+
+    const eventKeyPrefix = `milestone-comment-added:${comment._id}:`;
+    const recipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^${eventKeyPrefix}`),
+    });
+    assertEqual(recipients.length, 2, 'Chỉ hai thành viên ACCEPTED nhận một thông báo mỗi người');
+  });
+
+  await test('duyệt thay đổi thành viên và hủy dự án tạo recipient duy nhất', async () => {
+    const changeRequest = {
+      _id: new mongoose.Types.ObjectId(),
+      requesterId: fixtures.student._id,
+      targetUserId: fixtures.student2._id,
+      type: MEMBER_CHANGE_REQUEST_TYPE.ADD,
+    };
+    await notificationService.notifyMemberChangeApproved({ project, changeRequest });
+    await notificationService.notifyMemberChangeApproved({ project, changeRequest });
+
+    const changeRecipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^member-change-approved:${changeRequest._id}:`),
+    });
+    assertEqual(changeRecipients.length, 2, 'Người gửi và người bị tác động nhận thông báo không trùng');
+
+    const cancellationRequest = {
+      _id: new mongoose.Types.ObjectId(),
+      requestedBy: fixtures.student._id,
+    };
+    await notificationService.notifyProjectCancellationApproved({ project, request: cancellationRequest });
+    await notificationService.notifyProjectCancellationApproved({ project, request: cancellationRequest });
+
+    const cancellationRecipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^project-cancellation-approved:${cancellationRequest._id}:`),
+    });
+    assertEqual(cancellationRecipients.length, 2, 'Requester trùng thành viên chỉ nhận một thông báo');
+  });
+
+  await test('lọc unread và unreadCount tính trên toàn bộ thông báo của user', async () => {
+    const result = await notificationService.getNotifications({
+      userId: fixtures.admin._id,
+      status: 'unread',
+      page: 1,
+      limit: 1,
+    });
+    assert(result.notifications.length <= 1, 'API phải giới hạn theo trang');
+    assert(result.unreadCount >= 1, 'Unread count phải bao gồm toàn bộ trang');
+    assertEqual(result.pagination.limit, 1, 'Pagination trả đúng limit');
+  });
+
+  await test('tài khoản khác không thể đọc thông báo và gọi lại vẫn idempotent', async () => {
+    const eventKey = `project-submitted:${revision._id}:${fixtures.admin._id}`;
+    const notification = await Notification.findOne({ eventKey }).lean();
+    await assertThrows(
+      () => notificationService.markNotificationRead({
+        notificationId: notification._id,
+        userId: fixtures.student._id,
+      }),
+      'NOTIFICATION_NOT_FOUND',
+      'Không để lộ thông báo của tài khoản khác',
+    );
+
+    await notificationService.markNotificationRead({
+      notificationId: notification._id,
+      userId: fixtures.admin._id,
+    });
+    await notificationService.markNotificationRead({
+      notificationId: notification._id,
+      userId: fixtures.admin._id,
+    });
+    const saved = await Notification.findById(notification._id).lean();
+    assertEqual(saved.isRead, true, 'Gọi đánh dấu đọc lặp lại không lỗi');
+  });
+
+  await test('read-all chỉ cập nhật tài khoản hiện tại', async () => {
+    const invitationId = new mongoose.Types.ObjectId();
+    await notificationService.notifyInvitationCreated({
+      project,
+      invitation: { _id: invitationId },
+      invitee: { _id: fixtures.student2._id },
+    });
+    const studentUnreadBefore = await Notification.countDocuments({
+      recipientId: fixtures.student2._id,
+      isRead: false,
+    });
+
+    await notificationService.markAllNotificationsRead({ userId: fixtures.admin._id });
+    const adminUnreadAfter = await Notification.countDocuments({
+      recipientId: fixtures.admin._id,
+      isRead: false,
+    });
+    const studentUnreadAfter = await Notification.countDocuments({
+      recipientId: fixtures.student2._id,
+      isRead: false,
+    });
+    assertEqual(adminUnreadAfter, 0, 'Thông báo Admin đã đọc hết');
+    assertEqual(studentUnreadAfter, studentUnreadBefore, 'Không sửa thông báo của tài khoản khác');
+  });
+}
+
 const rubricIdPlaceholder = new mongoose.Types.ObjectId();
 
 // ---------------------------------------------------------------------------
@@ -1042,6 +1215,7 @@ const main = async () => {
   console.log('=========================================================');
 
   await connectDatabase();
+  assertTestDatabaseName(mongoose.connection.name, 'integration');
   console.log(`MongoDB: ${mongoose.connection.name}`);
   await mongoose.connection.dropDatabase();
   console.log('Đã drop DB test cũ.\n');
@@ -1057,6 +1231,7 @@ const main = async () => {
   await testStep3();
   await testStep4();
   await testStep5();
+  await testPhase5Notifications();
 
   // Kết quả
   const passed = results.filter((r) => r.status === 'PASS').length;
@@ -1084,6 +1259,7 @@ const main = async () => {
   }
 
   // Dọn dẹp
+  assertTestDatabaseName(mongoose.connection.name, 'integration');
   await mongoose.connection.dropDatabase();
   await disconnectDatabase();
   await require('../src/config/redis').closeRedis();
@@ -1094,7 +1270,10 @@ const main = async () => {
 main().catch(async (error) => {
   console.error('\n[LỖI] Integration test gặp sự cố không mong đợi:', error);
   try {
-    await mongoose.connection.dropDatabase();
+    if (mongoose.connection.readyState === 1) {
+      assertTestDatabaseName(mongoose.connection.name, 'integration');
+      await mongoose.connection.dropDatabase();
+    }
     await disconnectDatabase();
   } catch {
     // Bỏ qua lỗi dọn dẹp

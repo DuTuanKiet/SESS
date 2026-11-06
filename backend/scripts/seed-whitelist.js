@@ -9,11 +9,23 @@
  *   npm run seed:whitelist
  *   node scripts/seed-whitelist.js --imported
  */
-const path = require('node:path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const { blockDotenvConfig, getTestMongoUri } = require('./testDatabaseGuard');
+blockDotenvConfig();
+
+const parseArgs = (argv) =>
+  argv.reduce((accumulator, argument) => {
+    if (!argument.startsWith('--')) return accumulator;
+    const [key, value] = argument.slice(2).split('=');
+    accumulator[key] = value === undefined ? true : value;
+    return accumulator;
+  }, {});
+
+const args = parseArgs(process.argv.slice(2));
+const target = String(args.target || 'integration');
+const mongoUri = getTestMongoUri(target);
+process.env.MONGO_URI = mongoUri;
 
 const mongoose = require('mongoose');
-const env = require('../src/config/env');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const { GLOBAL_TEST_EMAIL, GLOBAL_TEST_STUDENT_ID } = require('../src/utils/constants');
 
@@ -77,19 +89,10 @@ const SAMPLE_STUDENTS = [
   },
 ];
 
-const parseArgs = (argv) =>
-  argv.reduce((accumulator, argument) => {
-    if (!argument.startsWith('--')) return accumulator;
-    const [key, value] = argument.slice(2).split('=');
-    accumulator[key] = value === undefined ? true : value;
-    return accumulator;
-  }, {});
-
 const seedWhitelist = async () => {
-  const args = parseArgs(process.argv.slice(2));
   const isImported = Boolean(args.imported);
 
-  await mongoose.connect(env.mongoUri);
+  await mongoose.connect(mongoUri);
 
   let created = 0;
   let updated = 0;
@@ -113,10 +116,11 @@ const seedWhitelist = async () => {
   console.log('[Whitelist] isImported =', isImported);
 
   for (const student of SAMPLE_STUDENTS) {
-    console.log(`  - ${student.email} | MSSV ${student.studentId} | ${student.className} | CVHT: ${student.advisorEmail}`);
+    console.log(
+      `  - ${student.email} | MSSV ${student.studentId} | ${student.className} ` +
+        `| CVHT: ${student.advisorEmail}`,
+    );
   }
-
-  if (env.isProduction) console.warn('[Whitelist] CẢNH BÁO: không nên chạy script seed này trên production!');
 
   await mongoose.disconnect();
 };

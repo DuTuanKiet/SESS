@@ -23,6 +23,7 @@
         <div class="lg:col-span-7 flex flex-col">
           <StudentProjectHistoryList
             :projects="allProjects"
+            :reward-claims="rewardClaims"
             :is-loading="isLoadingProjects"
             @open-reward-claim="handleOpenRewardClaim"
           />
@@ -76,6 +77,7 @@ const profileData = ref({
 
 // --- Dữ liệu Lịch sử Đề tài ---
 const allProjects = ref([]);
+const rewardClaims = ref({});
 const isLoadingProjects = ref(false);
 const isLoadingProfile = ref(true);
 const profileError = ref('');
@@ -88,18 +90,20 @@ function handleProfileUpdated(updatedData) {
 }
 
 function handleOpenRewardClaim(project) {
+  if (project?.status !== 'COMPLETED' || project?.userRole !== 'OWNER' || !project?.award?.rank || !project?.award?.prizeName) return;
   selectedProjectForReward.value = project;
   isRewardModalOpen.value = true;
 }
 
 function handleRewardClaimSubmitted({ projectId, rewardClaim }) {
-  const target = allProjects.value.find((p) => p._id === projectId);
-  if (target) {
-    target.rewardClaim = rewardClaim;
-  }
-  if (selectedProjectForReward.value && selectedProjectForReward.value._id === projectId) {
-    selectedProjectForReward.value.rewardClaim = rewardClaim;
-  }
+  rewardClaims.value = {
+    ...rewardClaims.value,
+    [projectId]: {
+      status: rewardClaim.status,
+      accountHolder: rewardClaim.accountHolder,
+      submittedAt: rewardClaim.submittedAt,
+    },
+  };
 }
 
 onMounted(async () => {

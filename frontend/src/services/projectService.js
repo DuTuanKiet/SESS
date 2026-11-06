@@ -1,5 +1,4 @@
 import httpClient from './http/httpClient';
-import notificationService from './notificationService';
 
 /**
  * Service Quản lý Đề tài Sinh viên & Vòng đời Dự án SESS
@@ -323,146 +322,6 @@ const MOCK_PROJECTS = [
   },
 ];
 
-const generateDefaultMilestones = (project = {}) => [
-  {
-    _id: `ms_${project?._id || Date.now()}_01`,
-    title: 'Mốc 1: Khảo sát thực trạng & Thiết kế kiến trúc giải pháp',
-    startDate: new Date().toISOString().slice(0, 10),
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    status: 'InProgress',
-    evidence: null,
-    mentorFeedback: null,
-  },
-  {
-    _id: `ms_${project?._id || Date.now()}_02`,
-    title: 'Mốc 2: Triển khai thử nghiệm mô hình MVP & Đánh giá sơ bộ',
-    startDate: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    status: 'Pending',
-    evidence: null,
-    mentorFeedback: null,
-  },
-  {
-    _id: `ms_${project?._id || Date.now()}_03`,
-    title: 'Mốc 3: Hoàn thiện báo cáo kết quả & Thuyết minh chung kết',
-    startDate: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    status: 'Pending',
-    evidence: null,
-    mentorFeedback: null,
-  },
-];
-
-const MOCK_MILESTONES = {
-  '671f0001a1b2c3d4e5f60001': [
-    {
-      _id: 'ms01',
-      title: 'Mốc 1: Khảo sát thực trạng & Thiết kế kiến trúc hệ thống',
-      startDate: '2026-03-10',
-      dueDate: '2026-04-15',
-      status: 'Completed',
-      evidence: {
-        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms01-report.pdf',
-        fileName: 'Bao-cao-khao-sat-thuc-te-dot-1.pdf',
-        submittedAt: '2026-04-12T10:00:00Z',
-        note: 'Đã hoàn thành khảo sát 50 hộ nông dân tại Cần Thơ, thu thập 1.200 ảnh mẫu bệnh lá lúa.',
-      },
-      mentorFeedback: 'Khảo sát kỹ lưỡng, số liệu thực tế thuyết phục. Đạt yêu cầu để sang mốc tiếp theo.',
-    },
-    {
-      _id: 'ms02',
-      title: 'Mốc 2: Huấn luyện mô hình AI & Xây dựng bản thử nghiệm MVP',
-      startDate: '2026-04-16',
-      dueDate: '2026-06-01',
-      status: 'InProgress',
-      evidence: null,
-      mentorFeedback: null,
-    },
-    {
-      _id: 'ms03',
-      title: 'Mốc 3: Triển khai thử nghiệm thực tế & Hoàn thiện báo cáo',
-      startDate: '2026-06-02',
-      dueDate: '2026-08-01',
-      status: 'Pending',
-      evidence: null,
-      mentorFeedback: null,
-    },
-  ],
-  '671f0001a1b2c3d4e5f60009': [
-    {
-      _id: 'ms09_01',
-      title: 'Mốc 1: Thu thập dữ liệu rác y tế & Thiết kế quy chuẩn an toàn',
-      startDate: '2026-03-20',
-      dueDate: '2026-05-30',
-      status: 'InProgress',
-      evidence: null,
-      mentorFeedback: null,
-    },
-    {
-      _id: 'ms09_02',
-      title: 'Mốc 2: Thử nghiệm phân loại tự động bằng cánh tay robot trong Lab',
-      startDate: '2026-06-01',
-      dueDate: '2026-07-15',
-      status: 'Pending',
-      evidence: null,
-      mentorFeedback: null,
-    },
-    {
-      _id: 'ms09_03',
-      title: 'Mốc 3: Thử nghiệm thực tế tại bệnh viện & Hoàn thiện báo cáo',
-      startDate: '2026-07-16',
-      dueDate: '2026-08-30',
-      status: 'Pending',
-      evidence: null,
-      mentorFeedback: null,
-    },
-  ],
-  '671f0001a1b2c3d4e5f60002': [
-    {
-      _id: 'ms02_01',
-      title: 'Mốc 1: Nghiên cứu kiến trúc Blockchain & Thiết kế Smart Contract',
-      startDate: '2025-03-15',
-      dueDate: '2025-05-01',
-      status: 'Completed',
-      evidence: {
-        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-01-blockchain.pdf',
-        fileName: 'Kien-truc-smart-contract.pdf',
-        submittedAt: '2025-04-28T09:00:00Z',
-        note: 'Đã hoàn thiện tài liệu đặc tả kiến trúc phân tán.',
-      },
-      mentorFeedback: 'Hồ sơ thiết kế đạt chuẩn chất lượng.',
-    },
-    {
-      _id: 'ms02_02',
-      title: 'Mốc 2: Kết nối API hải quan và thử nghiệm 3 hợp tác xã',
-      startDate: '2025-05-02',
-      dueDate: '2025-08-01',
-      status: 'Completed',
-      evidence: {
-        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-02-api.pdf',
-        fileName: 'Ket-noi-api-hai-quan.pdf',
-        submittedAt: '2025-07-29T14:30:00Z',
-        note: 'Đã kết nối thành công 3 hợp tác xã xuất khẩu.',
-      },
-      mentorFeedback: 'Thực thi tốt, đạt chuẩn bảo mật dữ liệu.',
-    },
-    {
-      _id: 'ms02_03',
-      title: 'Mốc 3: Hoàn thiện nghiệm thu cấp Trường và công bố mã nguồn',
-      startDate: '2025-08-02',
-      dueDate: '2025-11-15',
-      status: 'Completed',
-      evidence: {
-        fileUrl: 'https://storage.sess.ctuet.edu.vn/evidence/ms02-03-final.pdf',
-        fileName: 'Bao-cao-tong-ket-nghiem-thu.pdf',
-        submittedAt: '2025-11-10T16:00:00Z',
-        note: 'Nghiệm thu thành công đạt giải Nhất NCKH cấp Trường.',
-      },
-      mentorFeedback: 'Xuất sắc. Đạt yêu cầu nghiệm thu xuất sắc.',
-    },
-  ],
-};
-
 const MOCK_REVISIONS = {
   '671f0001a1b2c3d4e5f60002': [
     {
@@ -594,7 +453,7 @@ export async function getMilestonesApi(projectId) {
         return {
           ...milestone,
           evidence: hasEvidence
-            ? { ...evidence, fileUrl: evidence.fileUrl ?? evidence.url ?? '' }
+            ? { ...evidence, fileUrl: evidence.fileUrl ?? evidence.url ?? '', url: evidence.url ?? evidence.fileUrl ?? '' }
             : null,
         };
       }),
@@ -609,8 +468,19 @@ export async function getMilestonesApi(projectId) {
 export async function submitEvidenceApi(projectId, milestoneId, payload) {
   const response = await httpClient.post('/projects/' + projectId + '/milestones/' + milestoneId + '/evidence', {
     url: payload?.url ?? payload?.fileUrl ?? '',
+    fileName: payload?.fileName ?? '',
     note: payload?.note ?? '',
   });
+  return response.data;
+}
+
+export async function getProjectSubmissionsApi(projectId) {
+  const response = await httpClient.get(`/projects/${projectId}/submissions`);
+  return response.data;
+}
+
+export async function saveProjectSubmissionsApi(projectId, roundId, items) {
+  const response = await httpClient.put(`/projects/${projectId}/submissions`, { roundId, items });
   return response.data;
 }
 
@@ -778,19 +648,8 @@ export async function requestProjectCancellationApi(projectId, { reason, evidenc
  * @param {string} projectId
  * @returns {{ completed: number, total: number, percent: number }}
  */
-export function calculateProjectProgress(projectId) {
-  const milestones = MOCK_MILESTONES[projectId];
-  if (!milestones || !milestones.length) {
-    const p = MOCK_PROJECTS.find((proj) => proj._id === projectId);
-    if (p?.status === 'COMPLETED') return { completed: 3, total: 3, percent: 100 };
-    return { completed: 0, total: 3, percent: 0 };
-  }
-  const completed = milestones.filter((m) => m.status === 'Completed' || m.status === 'DONE').length;
-  return {
-    completed,
-    total: milestones.length,
-    percent: Math.round((completed / milestones.length) * 100),
-  };
+export function calculateProjectProgress(_projectId) {
+  return { completed: 0, total: 0, percent: 0 };
 }
 
 /**
@@ -819,60 +678,16 @@ export function evaluateProjectEligibility(projects = []) {
  * Kê khai và lưu thông tin nhận giải thưởng cho đề tài đạt giải chung kết
  */
 export async function saveRewardClaimApi(projectId, claimData) {
-  if (!USE_MOCK_DATA) {
-    const response = await httpClient.post(`/projects/${projectId}/reward-claim`, claimData);
-    return response.data;
-  }
-
-  await delay(250);
-  const claimRecord = {
-    ...claimData,
-    submittedAt: new Date().toISOString(),
-    status: 'PENDING',
-  };
-
-  try {
-    localStorage.setItem(`sess_reward_claim_${projectId}`, JSON.stringify(claimRecord));
-  } catch (err) {
-    console.error('Không thể lưu thông tin nhận thưởng vào localStorage:', err);
-  }
-
-  return {
-    success: true,
-    message: 'Kê khai thông tin nhận giải thưởng thành công!',
-    data: {
-      rewardClaim: claimRecord,
-    },
-  };
+  const response = await httpClient.post(`/projects/${projectId}/reward-claim`, claimData);
+  return response.data;
 }
 
 /**
  * Lấy thông tin kê khai nhận thưởng của đề tài
  */
 export async function getRewardClaimApi(projectId) {
-  if (!USE_MOCK_DATA) {
-    const response = await httpClient.get(`/projects/${projectId}/reward-claim`);
-    return response.data;
-  }
-
-  await delay(100);
-  try {
-    const claimStr = localStorage.getItem(`sess_reward_claim_${projectId}`);
-    const claim = claimStr ? JSON.parse(claimStr) : null;
-    return {
-      success: true,
-      data: {
-        rewardClaim: claim,
-      },
-    };
-  } catch {
-    return {
-      success: true,
-      data: {
-        rewardClaim: null,
-      },
-    };
-  }
+  const response = await httpClient.get(`/projects/${projectId}/reward-claim`);
+  return response.data;
 }
 
 export const projectService = {
@@ -884,6 +699,8 @@ export const projectService = {
   getProjectRevisions: getProjectRevisionsApi,
   getMilestones: getMilestonesApi,
   submitEvidence: submitEvidenceApi,
+  getProjectSubmissions: getProjectSubmissionsApi,
+  saveProjectSubmissions: saveProjectSubmissionsApi,
   getProjectMembers: getProjectMembersApi,
   inviteMember: inviteMemberApi,
   removeMember: removeMemberApi,

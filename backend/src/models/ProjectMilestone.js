@@ -56,6 +56,12 @@ const projectMilestoneSchema = new mongoose.Schema(
         default: null,
         trim: true,
       },
+      fileName: {
+        type: String,
+        default: '',
+        trim: true,
+        maxlength: 255,
+      },
       note: {
         type: String,
         default: '',
