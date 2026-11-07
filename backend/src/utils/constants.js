@@ -248,6 +248,7 @@ const COMMENT_DEADLINE_DAYS = 5;
 const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.doc', '.mp4', '.png', '.jpg', '.jpeg']);
 const MAX_FILE_SIZE_VIDEO = 500 * 1024 * 1024; // 500MB
 const MAX_FILE_SIZE_POSTER = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_IMAGE = 10 * 1024 * 1024; // 10MB cho mỗi ảnh sản phẩm thực tế
 const MAX_FILE_SIZE_DOCUMENT = 50 * 1024 * 1024; // 50MB
 
 /** Map loại file -> giới hạn kích thước */
@@ -255,6 +256,7 @@ const UPLOAD_SIZE_LIMITS = Object.freeze({
   video: MAX_FILE_SIZE_VIDEO,
   poster: MAX_FILE_SIZE_POSTER,
   document: MAX_FILE_SIZE_DOCUMENT,
+  image: MAX_FILE_SIZE_IMAGE,
 });
 
 /** Cloud storage provider: 's3' | 'r2' | 'minio' | 'dev' */

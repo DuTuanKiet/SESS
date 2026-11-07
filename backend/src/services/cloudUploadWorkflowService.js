@@ -163,7 +163,10 @@ function assertDevelopmentStorageEnabled() {
 }
 
 function resolveDevObjectPath(objectKey) {
-  const resolved = path.resolve(DEV_STORAGE_ROOT, objectKey);
+  const normalizedKey = objectKey.startsWith('uploads/projects/')
+    ? objectKey.replace(/^uploads\//, '')
+    : objectKey;
+  const resolved = path.resolve(DEV_STORAGE_ROOT, normalizedKey);
   if (!resolved.startsWith(`${DEV_STORAGE_ROOT}${path.sep}`)) {
     throw ApiError.badRequest('objectKey không hợp lệ.', 'INVALID_OBJECT_KEY');
   }
@@ -172,7 +175,7 @@ function resolveDevObjectPath(objectKey) {
 
 async function prepareDevelopmentUpload(objectKey) {
   assertDevelopmentStorageEnabled();
-  if (!objectKey.startsWith('uploads/projects/')) {
+  if (!objectKey.startsWith('projects/') && !objectKey.startsWith('uploads/projects/')) {
     throw ApiError.badRequest('objectKey không thuộc thư mục upload của dự án.', 'INVALID_OBJECT_KEY');
   }
   const fileRecord = await CloudFileUpload.findOne({ objectKey });
@@ -191,7 +194,12 @@ async function prepareDevelopmentUpload(objectKey) {
 
 async function getDevelopmentFile(objectKey) {
   assertDevelopmentStorageEnabled();
-  const fileRecord = await CloudFileUpload.findOne({ objectKey, status: 'completed' }).lean();
+  let fileRecord = await CloudFileUpload.findOne({ objectKey, status: 'completed' }).lean();
+  if (!fileRecord && objectKey.startsWith('projects/')) {
+    fileRecord = await CloudFileUpload.findOne({ objectKey: `uploads/${objectKey}`, status: 'completed' }).lean();
+  } else if (!fileRecord && objectKey.startsWith('uploads/projects/')) {
+    fileRecord = await CloudFileUpload.findOne({ objectKey: objectKey.replace(/^uploads\//, ''), status: 'completed' }).lean();
+  }
   if (!fileRecord) throw ApiError.notFound('Không tìm thấy tệp đã xác nhận.', 'FILE_NOT_FOUND');
   return { fileRecord, filePath: resolveDevObjectPath(objectKey) };
 }

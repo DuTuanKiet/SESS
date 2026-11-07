@@ -484,6 +484,8 @@ const props = defineProps({
   },
 });
 
+const emit = defineEmits(['refresh-project', 'submission-updated']);
+
 const toastStore = useToastStore();
 const authStore = useAuthStore();
 
@@ -823,7 +825,7 @@ async function handleAddProductImage(e) {
     const uploaded = await cloudUploadService.uploadProjectFile({
       projectId: props.projectId,
       file,
-      fileType: 'poster',
+      fileType: 'image',
     });
     submissionForm.value.productImages.push({
       name: file.name,
@@ -945,6 +947,10 @@ async function handleSaveSubmission() {
     message: `Đã lưu và cập nhật hồ sơ sản phẩm dự thi thành công! Mã biên nhận: ${submissionReceipt.value.hash}`,
     type: 'success',
   });
+
+  // Phát tín hiệu lên component cha để làm mới state tức thì
+  emit('submission-updated');
+  emit('refresh-project');
 }
 
 watch(() => props.projectId, () => {

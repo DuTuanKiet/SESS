@@ -45,7 +45,11 @@ async function uploadDevelopmentFile(req, res) {
 async function readDevelopmentFile(req, res) {
   const objectKey = req.params[0];
   const { fileRecord, filePath } = await cloudUploadWorkflowService.getDevelopmentFile(objectKey);
-  await fs.promises.access(filePath, fs.constants.R_OK);
+  try {
+    await fs.promises.access(filePath, fs.constants.R_OK);
+  } catch {
+    throw ApiError.notFound('Tệp không tồn tại hoặc đã bị xóa khỏi bộ nhớ.', 'FILE_NOT_FOUND');
+  }
   res.setHeader('Content-Type', fileRecord.mimeType || 'application/octet-stream');
   res.setHeader('Content-Length', String(fileRecord.fileSize));
   res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileRecord.originalName)}`);

@@ -174,6 +174,8 @@
         :project="project"
         :isOwner="isOwner"
         :members="members"
+        @refresh-project="fetchProjectDetails"
+        @submission-updated="handleSubmissionUpdated"
       />
 
       <ProjectRevisionsTab
@@ -194,7 +196,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   ArrowLeft,
@@ -381,6 +383,20 @@ async function handleConfirmFinalSubmit() {
 function formatDate(d) {
   return formatDateTimeVi(d);
 }
+
+/** Tự động đồng bộ lại chi tiết dự án và lịch sử khi nộp sản phẩm thành công */
+async function handleSubmissionUpdated() {
+  await fetchProjectDetails();
+  await fetchRevisions();
+}
+
+/** Tự động làm mới dữ liệu ngầm khi sinh viên click chuyển sang Tab Lịch sử và biên nhận */
+watch(activeTab, (newTab) => {
+  if (newTab === 'REVISIONS') {
+    fetchProjectDetails();
+    fetchRevisions();
+  }
+});
 
 onMounted(() => {
   fetchProjectDetails();

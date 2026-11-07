@@ -12,8 +12,8 @@ const router = express.Router();
 const presignedUrlBodySchema = z.object({
   projectId: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: 'projectId không đúng định dạng ObjectId.' }),
   originalName: z.string().trim().min(1, 'Tên file gốc là bắt buộc.').max(255),
-  fileType: z.enum(['video', 'poster', 'document'], {
-    errorMap: () => ({ message: 'fileType phải là video, poster hoặc document.' }),
+  fileType: z.enum(['video', 'poster', 'document', 'image'], {
+    errorMap: () => ({ message: 'fileType phải là video, poster, document hoặc image.' }),
   }),
   fileSize: z.number().int().nonnegative('fileSize phải là số nguyên không âm.'),
   mimeType: z.string().trim().max(150).optional(),

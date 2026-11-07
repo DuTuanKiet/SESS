@@ -15,7 +15,18 @@ const {
 } = require('../utils/constants');
 const ApiError = require('../utils/apiError');
 
-/** Map extension -> fileType */
+/** Map extension -> các loại fileType được phép */
+const EXT_TO_ALLOWED_TYPES = {
+  '.mp4': ['video'],
+  '.pdf': ['document'],
+  '.docx': ['document'],
+  '.doc': ['document'],
+  '.png': ['poster', 'image'],
+  '.jpg': ['poster', 'image'],
+  '.jpeg': ['poster', 'image'],
+};
+
+/** Map extension -> fileType mặc định (tương thích ngược) */
 const EXT_TO_FILE_TYPE = {
   '.mp4': 'video',
   '.pdf': 'document',
@@ -31,7 +42,7 @@ const buildObjectKey = ({ projectId, userId, originalName, fileType }) => {
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const timestamp = Date.now();
   const uploadId = crypto.randomUUID();
-  return `uploads/projects/${projectId}/${fileType}/${timestamp}-${uploadId}-${userId}-${safeName}`;
+  return `projects/${projectId}/${fileType}/${timestamp}-${uploadId}-${userId}-${safeName}`;
 };
 
 /** Kiểm tra định dạng file và kích thước */
@@ -44,8 +55,8 @@ const validateUploadFile = ({ originalName, fileType, fileSize }) => {
     );
   }
 
-  const expectedType = EXT_TO_FILE_TYPE[fileExtension];
-  if (expectedType && fileType !== expectedType) {
+  const allowedTypes = EXT_TO_ALLOWED_TYPES[fileExtension];
+  if (allowedTypes && !allowedTypes.includes(fileType)) {
     throw ApiError.badRequest(
       `Loại file "${fileType}" không khớp với định dạng "${fileExtension}"`,
       'INVALID_FILE_TYPE',
@@ -163,7 +174,10 @@ const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
       throw ApiError.serviceUnavailable('Cloud Storage chưa được cấu hình cho môi trường này.', 'STORAGE_NOT_CONFIGURED');
     }
     const root = path.resolve(__dirname, '../../uploads/dev');
-    const filePath = path.resolve(root, objectKey);
+    const normalizedKey = objectKey.startsWith('uploads/projects/')
+      ? objectKey.replace(/^uploads\//, '')
+      : objectKey;
+    const filePath = path.resolve(root, normalizedKey);
     if (!filePath.startsWith(`${root}${path.sep}`)) {
       throw ApiError.badRequest('objectKey không hợp lệ.', 'INVALID_OBJECT_KEY');
     }
@@ -208,6 +222,7 @@ const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
 
 module.exports = {
   EXT_TO_FILE_TYPE,
+  EXT_TO_ALLOWED_TYPES,
   validateUploadFile,
   buildObjectKey,
   generatePresignedUploadUrl,

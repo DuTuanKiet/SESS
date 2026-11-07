@@ -370,7 +370,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import {
   ShieldCheck,
   ChevronDown,
@@ -653,8 +653,7 @@ const submissionRoundsHistory = computed(() => {
 });
 
 // Tải thêm thông tin submission từ backend nếu cần
-onMounted(async () => {
-  const projectId = props.project?._id || props.project?.id;
+async function refreshSubmissions(projectId) {
   if (!projectId) return;
   try {
     const res = await projectService.getProjectSubmissions(projectId);
@@ -664,5 +663,20 @@ onMounted(async () => {
   } catch {
     // Không chặn UI nếu API lỗi
   }
+}
+
+onMounted(() => {
+  const projectId = props.project?._id || props.project?.id;
+  refreshSubmissions(projectId);
 });
+
+// Tự động cập nhật lại thông tin submission khi props.project được trang cha làm mới
+watch(
+  () => props.project,
+  (newVal) => {
+    const projectId = newVal?._id || newVal?.id;
+    refreshSubmissions(projectId);
+  },
+  { deep: true }
+);
 </script>

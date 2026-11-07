@@ -22,10 +22,10 @@ const cloudFileUploadSchema = new mongoose.Schema(
     },
     /** Tên file gốc */
     originalName: { type: String, required: true, trim: true, maxlength: 255 },
-    /** Loại file: 'video' | 'poster' | 'document' */
+    /** Loại file: 'video' | 'poster' | 'document' | 'image' */
     fileType: {
       type: String,
-      enum: ['video', 'poster', 'document'],
+      enum: ['video', 'poster', 'document', 'image'],
       required: true,
       index: true,
     },
