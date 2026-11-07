@@ -10,6 +10,7 @@
 </template>
 
 <script setup>
+// Merge: dùng bố cục student HEAD với Navbar/Footer chung, không thêm cổng sinh viên thứ hai.
 import Navbar from '@/components/common/Navbar.vue';
 import Footer from '@/components/common/Footer.vue';
 </script>

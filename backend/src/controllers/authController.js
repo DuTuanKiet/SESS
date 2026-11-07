@@ -1,24 +1,75 @@
 const authService = require('../services/authService');
+const mailerService = require('../services/mailerService');
+const { USER_ROLES } = require('../utils/constants');
 
 /** Thông tin phiên đăng nhập đi kèm refresh token để quản lý thiết bị */
 const getSessionMeta = (req) => ({ userAgent: req.get('user-agent') ?? '', ip: req.ip ?? '' });
 
+/** Xác định trang đích sau đăng nhập theo vai trò người dùng */
+const redirectPathByRole = (role) => {
+  const r = String(role || '').toLowerCase();
+  const map = {
+    [USER_ROLES.JUDGE]: '/judge/assignments',
+    [USER_ROLES.TEACHER]: '/advisor',
+    [USER_ROLES.MENTOR]: '/advisor',
+    [USER_ROLES.STUDENT]: '/student',
+    [USER_ROLES.ADMIN]: '/admin',
+  };
+  return map[r] || '/';
+};
+
 const verifyOtp = async (req, res) => {
   const data = await authService.verifyOtp({ ...req.body, sessionMeta: getSessionMeta(req) });
+
+  const userRole = data.user?.role || data.user?.systemRole || '';
+  data.redirectPath = redirectPathByRole(userRole);
+
   res.status(200).json({ success: true, message: 'Xác thực email thành công.', data });
 };
 
 const login = async (req, res) => {
   const data = await authService.login({ ...req.body, sessionMeta: getSessionMeta(req) });
+
+  // Thêm redirectPath để frontend điều hướng tự động sau khi đăng nhập
+  const userRole = data.user?.role || data.user?.systemRole || '';
+  data.redirectPath = redirectPathByRole(userRole);
+
+  // Non-blocking login notification email
+  (async () => {
+    try {
+      await mailerService.sendMail({
+        to: data.user.email,
+        subject: '[SESS] Thông báo: Phát hiện đăng nhập thành công vào tài khoản của bạn',
+        text: `Xin chào ${data.user.fullName || ''},\nThời gian: ${new Date().toISOString()}\nIP: ${req.ip}\nThiết bị: ${req.get('user-agent')}\nNếu không phải bạn, liên hệ quản trị viên.`,
+        html: `<p>Xin chào ${data.user.fullName || ''},</p><p>Thời gian: ${new Date().toISOString()}</p><p>IP: ${req.ip}</p><p>Thiết bị: ${req.get('user-agent')}</p><p>Nếu không phải bạn, liên hệ quản trị viên hoặc đổi mật khẩu ngay.</p>`,
+      });
+    } catch (e) {
+      console.error('Login notify email failed:', e.message);
+    }
+  })();
+
   res.status(200).json({ success: true, message: 'Đăng nhập thành công.', data });
 };
 
 const loginWithGoogle = async (req, res) => {
   const data = await authService.loginWithGoogle({ ...req.body, sessionMeta: getSessionMeta(req) });
 
+  data.redirectPath = redirectPathByRole(data.user?.role || data.user?.systemRole);
+
   let message = 'Đăng nhập Google thành công.';
   if (data.isNewUser) message = 'Đã tạo tài khoản mới và đăng nhập bằng Google thành công.';
   else if (data.isLinked) message = 'Đã tự động liên kết Google vào tài khoản hiện có và đăng nhập thành công.';
+
+  (async () => {
+    try {
+      await mailerService.sendMail({
+        to: data.user.email,
+        subject: '[SESS] Thông báo: Phát hiện đăng nhập thành công vào tài khoản của bạn',
+        text: `Xin chào ${data.user.fullName || ''},\nThời gian: ${new Date().toISOString()}\nIP: ${req.ip}\nThiết bị: ${req.get('user-agent')}\nNếu không phải bạn, liên hệ quản trị viên.`,
+        html: `<p>Xin chào ${data.user.fullName || ''},</p><p>Thời gian: ${new Date().toISOString()}</p><p>IP: ${req.ip}</p><p>Thiết bị: ${req.get('user-agent')}</p><p>Nếu không phải bạn, liên hệ quản trị viên hoặc đổi mật khẩu ngay.</p>`,
+      });
+    } catch (e) { console.error('Login notify email failed:', e.message); }
+  })();
 
   res.status(200).json({ success: true, message, data });
 };
@@ -37,13 +88,17 @@ const logout = async (req, res) => {
   });
 };
 
+// Merge: đổi mật khẩu của HEAD và /me của dev phục vụ hai nhu cầu riêng, dùng chung exports.
 const handleChangePassword = async (req, res) => {
   const data = await authService.changePassword(req.user, req.body);
-  res.status(200).json({
-    success: true,
-    message: 'Đổi mật khẩu thành công.',
-    data,
-  });
+  res.status(200).json({ success: true, message: 'Đổi mật khẩu thành công.', data });
 };
 
-module.exports = { verifyOtp, login, loginWithGoogle, refreshToken, logout, handleChangePassword };
+const getMe = async (req, res) => {
+  // authenticate cung cấp User document; serializer của model loại mật khẩu và dữ liệu token.
+  res.status(200).json({ success: true, data: req.user.toJSON() });
+};
+
+module.exports = {
+  verifyOtp, login, loginWithGoogle, refreshToken, logout, handleChangePassword, getMe,
+};

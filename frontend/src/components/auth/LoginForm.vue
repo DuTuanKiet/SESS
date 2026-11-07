@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
+import { getLoginRedirect } from '@/router/authRedirect';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toast';
 import { googleLoginApi, loginApi, resendOtpApi, verifyOtpApi } from '@/services/authService';
@@ -19,6 +20,7 @@ const props = defineProps({
 const authStore = useAuthStore();
 const toastStore = useToastStore();
 const router = useRouter();
+const route = useRoute();
 const { executeRecaptcha } = useRecaptcha();
 
 // Form State
@@ -90,18 +92,7 @@ function handleBlurPassword() {
   }
 }
 
-function getDashboardPath(user) {
-  const role = user?.role || user?.systemRole;
-  const rolePaths = {
-    student: '/student',
-    mentor: '/advisor',
-    teacher: '/advisor',
-    judge: '/judge',
-    admin: '/admin',
-  };
-  return rolePaths[role] || '/';
-}
-
+// Merge: login, OTP và Google dùng cùng hợp đồng data.user/data.tokens và một điểm điều hướng.
 async function handleLoginSuccess(response) {
   const session = response?.data;
   if (!session?.user || !session?.tokens?.accessToken || !session?.tokens?.refreshToken) {
@@ -118,10 +109,15 @@ async function handleLoginSuccess(response) {
     type: 'success',
     duration: 4000,
   });
-  await router.replace(getDashboardPath(session.user));
+  await router.replace(getLoginRedirect(router, {
+    user: session.user,
+    requestedPath: route.query.redirect,
+    redirectPath: session.redirectPath,
+  }));
 }
 
 async function handleSubmitLogin() {
+  if (isLoading.value || isOtpLoading.value) return;
   errorMessage.value = '';
   fieldErrors.value.email = validateEmail(email.value);
   fieldErrors.value.password = !password.value.trim() ? 'Vui lòng nhập mật khẩu.' : '';
@@ -159,6 +155,7 @@ async function handleSubmitLogin() {
 }
 
 async function handleVerifyOtp(otp) {
+  if (isOtpLoading.value || isLoading.value) return;
   otpErrorMessage.value = '';
   isOtpLoading.value = true;
   try {
@@ -177,6 +174,7 @@ async function handleVerifyOtp(otp) {
 }
 
 async function handleResendOtp() {
+  if (isOtpLoading.value || isLoading.value) return;
   otpErrorMessage.value = '';
   otpInfoMessage.value = '';
   isOtpLoading.value = true;
@@ -202,6 +200,7 @@ async function handleResendOtp() {
 }
 
 async function handleGoogleCredential(idToken) {
+  if (isLoading.value || isOtpLoading.value) return;
   errorMessage.value = '';
   isLoading.value = true;
   try {
@@ -224,6 +223,7 @@ function handleGoogleError(error) {
 }
 
 function handleForgotPasswordClick() {
+  errorMessage.value = '';
   isForgotPasswordOpen.value = true;
 }
 </script>

@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const { pipeline } = require('node:stream/promises');
 const cloudUploadWorkflowService = require('../services/cloudUploadWorkflowService');
 
 const requestPresignedUrl = async (req, res) => {
@@ -28,6 +30,7 @@ const confirmUpload = async (req, res) => {
 };
 
 const listProjectFiles = async (req, res) => {
+  // Conflict resolution: authorization and completed-file filtering stay in the workflow service.
   const data = await cloudUploadWorkflowService.listProjectFiles({
     projectId: req.params.projectId,
     user: req.user,
@@ -39,8 +42,23 @@ const listProjectFiles = async (req, res) => {
   });
 };
 
+const downloadProjectFile = async (req, res) => {
+  const { fileRecord, filePath, stream } = await cloudUploadWorkflowService.downloadProjectFile({
+    objectKey: req.query.objectKey,
+    publicUrl: req.query.publicUrl,
+    user: req.user,
+  });
+  res.setHeader('Content-Type', fileRecord.mimeType || 'application/octet-stream');
+  res.setHeader('Content-Length', String(fileRecord.fileSize));
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileRecord.originalName)}`);
+
+  const fileStream = filePath ? fs.createReadStream(filePath) : stream;
+  await pipeline(fileStream, res);
+};
+
 module.exports = {
   requestPresignedUrl,
   confirmUpload,
   listProjectFiles,
+  downloadProjectFile,
 };

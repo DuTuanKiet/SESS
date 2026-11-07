@@ -44,7 +44,9 @@ async function uploadDevelopmentFile(req, res) {
 
 async function readDevelopmentFile(req, res) {
   const objectKey = req.params[0];
-  const { fileRecord, filePath } = await cloudUploadWorkflowService.getDevelopmentFile(objectKey);
+  const { fileRecord, filePath } = await cloudUploadWorkflowService.getDevelopmentFile(objectKey, {
+    user: req.user,
+  });
   try {
     await fs.promises.access(filePath, fs.constants.R_OK);
   } catch {

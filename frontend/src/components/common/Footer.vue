@@ -63,8 +63,8 @@
           <h3 class="font-semibold uppercase tracking-widest text-blue-300 text-[11px]">Khám phá</h3>
           <ul class="space-y-1.5 text-white/80 text-xs">
             <li><router-link to="/" class="hover:text-white transition-colors">Trang chủ</router-link></li>
-            <li><router-link to="/cuoc-thi" class="hover:text-white transition-colors">Cuộc thi</router-link></li>
-            <li><router-link to="/tin-tuc" class="hover:text-white transition-colors">Tin tức & Sự kiện</router-link></li>
+            <li><router-link to="/competitions" class="hover:text-white transition-colors">Cuộc thi</router-link></li>
+            <li><router-link to="/news" class="hover:text-white transition-colors">Tin tức & Sự kiện</router-link></li>
           </ul>
         </div>
 
@@ -110,5 +110,6 @@
 </template>
 
 <script setup>
+// Merge: giữ Footer HEAD; nối liên kết cuộc thi/tin tức tới route chung hiện có.
 import campusImg from '@/assets/ctut-campus-lineart.png'
 </script>

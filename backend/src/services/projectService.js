@@ -8,6 +8,7 @@ const ProjectMemberChangeRequest = require('../models/ProjectMemberChangeRequest
 const User = require('../models/User');
 const UserProfile = require('../models/UserProfile');
 const whitelistService = require('./whitelistService');
+const StudentWhitelist = require('../models/StudentWhitelist');
 const MentorAssignment = require('../models/MentorAssignment');
 const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
@@ -387,8 +388,8 @@ async function verifyProjectAccess(userId, projectId, userRole) {
 }
 
 
-/** Trường cốt lõi bắt buộc phải có trước khi nộp dự án (fail fast) */
-const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract'];
+/** Objectives bắt buộc ở cả lúc tạo mới và lúc nộp dự án. */
+const REQUIRED_SUBMIT_FIELDS = ['title', 'category', 'abstract', 'objectives'];
 
 /** Các trường được ghi vào snapshot khi nộp dự án */
 const SNAPSHOT_FIELDS = [
@@ -518,6 +519,13 @@ const createProject = async ({ owner, payload = {}, req } = {}) => {
   if (!isNonEmptyString(payload.title)) {
     throw ApiError.badRequest('Thiếu thông tin bắt buộc: "title"', 'MISSING_FIELD');
   }
+  if (!isNonEmptyString(payload.objectives)) {
+    throw ApiError.badRequest(
+      'Thiếu thông tin bắt buộc: "objectives"',
+      'MISSING_REQUIRED_FIELDS',
+      { missingFields: ['objectives'] },
+    );
+  }
 
   const writableData = buildProjectData(payload);
   const whitelistStudent = await whitelistService.findStudentByEmail(owner.email);
@@ -625,9 +633,6 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
     projectMemberService.assertProjectEditable(project);
 
     const missingFields = REQUIRED_SUBMIT_FIELDS.filter((field) => !isNonEmptyString(project[field]));
-    if (!isNonEmptyString(project.objectives)) {
-      missingFields.push('objectives');
-    }
     if (missingFields.length) {
       throw ApiError.badRequest(
         `Dự án chưa đủ thông tin để nộp. Vui lòng bổ sung: ${missingFields.join(', ')}`,
@@ -868,27 +873,83 @@ const getProject = async ({ projectId, userId }) => {
     projectId: project._id,
     status: PROJECT_MEMBER_STATUS.ACCEPTED,
   }).sort({ joinedAt: 1 }).lean();
-  const memberUsers = embeddedMemberships.length
-    ? await User.find({ _id: { $in: embeddedMemberships.map((item) => item.userId) } })
-      .select('fullName email studentId className phoneNumber')
-      .lean()
-    : [];
+  const memberIds = embeddedMemberships.map((item) => item.userId).filter(Boolean);
+  const memberEmails = [...new Set(
+    embeddedMemberships.map((item) => String(item.email || '').trim().toLowerCase()).filter(Boolean),
+  )];
+  const [memberUsers, memberProfiles, whitelistStudents] = await Promise.all([
+    memberIds.length
+      ? User.find({ _id: { $in: memberIds } })
+        .select('fullName email studentId className faculty phoneNumber role')
+        .lean()
+      : [],
+    memberIds.length
+      ? UserProfile.find({ userId: { $in: memberIds } }).select('userId phone').lean()
+      : [],
+    memberEmails.length
+      ? StudentWhitelist.find({ email: { $in: memberEmails } })
+        .select('fullName email studentId className faculty phone')
+        .lean()
+      : [],
+  ]);
   const userById = new Map(memberUsers.map((user) => [String(user._id), user]));
+  const profileByUserId = new Map(memberProfiles.map((profile) => [String(profile.userId), profile]));
+  const whitelistByEmail = new Map(whitelistStudents.map((student) => [student.email.toLowerCase(), student]));
   const projectData = project.toObject();
+  // Conflict resolution: ProjectMember remains authoritative; legacy embedded members are never used as fallback.
   projectData.members = embeddedMemberships.map((item) => {
-    const user = userById.get(String(item.userId)) ?? {};
+    const userIdValue = item.userId ? String(item.userId) : '';
+    const user = userById.get(userIdValue) ?? {};
+    const profile = profileByUserId.get(userIdValue) ?? {};
+    const student = whitelistByEmail.get(String(user.email || item.email || '').toLowerCase()) ?? {};
+    const role = item.role;
     return {
-      userId: item.userId,
-      fullName: user.fullName ?? '',
-      email: user.email ?? item.email ?? '',
-      studentId: user.studentId ?? '',
-      className: user.className ?? '',
-      phone: user.phoneNumber ?? '',
-      role: item.role,
-      projectRole: item.role === PROJECT_MEMBER_ROLES.OWNER ? 'Owner' : 'Member',
-      joinedAt: item.joinedAt,
+      _id: item._id ? String(item._id) : '',
+      userId: userIdValue,
+      fullName: user.fullName || student.fullName || '',
+      email: user.email || item.email || student.email || '',
+      studentId: user.studentId || student.studentId || '',
+      studentCode: user.studentId || student.studentId || '',
+      className: user.className || student.className || '',
+      faculty: user.faculty || student.faculty || '',
+      phone: user.phoneNumber || profile.phone || student.phone || '',
+      role,
+      projectRole: role === PROJECT_MEMBER_ROLES.OWNER ? 'Owner' : 'Member',
+      status: item.status,
+      joinedAt: item.joinedAt ?? null,
     };
   });
+
+  // Keep the dev branch's leader shape on the response object only; display enrichment is not persisted.
+  const leaderEmail = projectData.leaderEmail || projectData.leaderInfo?.email;
+  let leaderDoc = null;
+  if (leaderEmail) {
+    leaderDoc = await User.findOne({ email: leaderEmail })
+      .select('fullName email studentId phoneNumber role')
+      .lean();
+    if (!leaderDoc) {
+      leaderDoc = await StudentWhitelist.findOne({ email: leaderEmail })
+        .select('fullName email studentId phone')
+        .lean();
+    }
+  } else if (projectData.ownerId) {
+    leaderDoc = await User.findById(projectData.ownerId)
+      .select('fullName email studentId phoneNumber role')
+      .lean();
+  }
+  const leaderInfo = projectData.leaderInfo ?? {};
+  if (leaderDoc || Object.values(leaderInfo).some(Boolean)) {
+    projectData.leader = {
+      _id: leaderDoc?._id ? String(leaderDoc._id) : String(projectData.ownerId || ''),
+      fullName: leaderDoc?.fullName || leaderInfo.fullName || '',
+      email: leaderDoc?.email || leaderEmail || leaderInfo.email || '',
+      studentId: leaderDoc?.studentId || leaderInfo.studentId || '',
+      studentCode: leaderDoc?.studentId || leaderInfo.studentId || '',
+      phone: leaderDoc?.phoneNumber || leaderDoc?.phone || leaderInfo.phone || '',
+      role: leaderDoc?.role || 'Thành viên',
+    };
+  }
+
   const [enrichedProject] = await enrichProjectsForUser({ projects: [projectData], userId });
   const cancellationRequest = enrichedProject.cancellationRequest;
   return {

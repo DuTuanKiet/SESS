@@ -1,14 +1,9 @@
 ﻿<template>
-  <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24 text-center">
-    <div class="w-16 h-16 rounded-2xl bg-[#F1F7FF] flex items-center justify-center mx-auto mb-6">
-      <AlertCircle class="w-8 h-8 text-orange-500" />
-    </div>
-    <h1 class="text-4xl sm:text-5xl font-bold text-[#0B1F4B] leading-tight mb-4">404</h1>
-    <p class="text-sm text-[#4B5B7A] leading-relaxed mb-8 max-w-[480px] mx-auto">Trang bạn đang tìm không tồn tại.</p>
-    <router-link to="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E56D9] text-white rounded-full hover:bg-[#1d4ed8] font-medium text-sm shadow-sm transition-colors active:scale-95">
-      Về trang chủ
-      <ArrowRight class="w-4 h-4" />
-    </router-link>
+  <section class="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-24">
+    <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 ring-1 ring-indigo-100"><AlertCircle class="h-8 w-8 text-indigo-600" /></div>
+    <h1 class="text-5xl font-bold tracking-tight text-[#0f172a]">404</h1>
+    <p class="mx-auto mt-3 max-w-[480px] text-sm leading-relaxed text-slate-500">Trang bạn đang tìm không tồn tại hoặc đã được di chuyển.</p>
+    <router-link to="/" class="mt-8 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_-14px_rgba(79,70,229,0.85)] transition hover:-translate-y-px hover:bg-indigo-500">Về trang chủ <ArrowRight class="h-4 w-4" /></router-link>
   </section>
 </template>
 

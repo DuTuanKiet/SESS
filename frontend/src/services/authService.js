@@ -1,11 +1,13 @@
 import httpClient from './http/httpClient';
 
+// Merge: một bộ chuẩn hóa lỗi cho cả hai nhánh, giữ metadata để form xử lý OTP/validation.
 function toAuthError(httpError, fallbackMessage, fallbackCode) {
   const backendError = httpError.response?.data;
   const error = new Error(backendError?.message || fallbackMessage);
-  error.code = backendError?.code || fallbackCode;
-  error.status = httpError.response?.status || 500;
-  error.details = backendError?.errors;
+  error.code = backendError?.code || httpError.code || fallbackCode;
+  error.status = httpError.response?.status || httpError.status || 0;
+  error.details = backendError?.errors || backendError?.details || backendError?.data?.details;
+  error.response = httpError.response;
   return error;
 }
 
@@ -59,3 +61,24 @@ export async function googleLoginApi({ idToken, portalType = 'user', recaptchaTo
     throw toAuthError(error, 'Đăng nhập Google không thành công.', 'GOOGLE_LOGIN_FAILED');
   }
 }
+
+/** Giữ API refresh/logout của dev, dùng cùng HTTP client và chuẩn lỗi. */
+export async function refreshTokenApi({ refreshToken }) {
+  try {
+    const response = await httpClient.post('/auth/refresh-token', { refreshToken });
+    return response.data;
+  } catch (error) {
+    throw toAuthError(error, 'Không thể làm mới phiên đăng nhập.', 'REFRESH_FAILED');
+  }
+}
+
+export async function logoutApi(payload = {}) {
+  try {
+    const response = await httpClient.post('/auth/logout', payload);
+    return response.data;
+  } catch (error) {
+    throw toAuthError(error, 'Không thể đăng xuất phiên trên máy chủ.', 'LOGOUT_FAILED');
+  }
+}
+
+export default { loginApi, verifyOtpApi, resendOtpApi, googleLoginApi, refreshTokenApi, logoutApi };

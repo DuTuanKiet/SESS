@@ -120,9 +120,8 @@
               </div>
               <a
                 v-if="round.items.reportFile?.url"
-                :href="round.items.reportFile.url"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#"
+                @click.prevent="handleOpenProjectFile(round.items.reportFile.url, round.items.reportFile.objectKey)"
                 class="text-xs font-semibold text-[#1E56D9] hover:underline shrink-0 self-center"
               >
                 Tải về
@@ -145,9 +144,8 @@
               </div>
               <a
                 v-if="round.items.poster?.url"
-                :href="round.items.poster.url"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#"
+                @click.prevent="handleOpenProjectFile(round.items.poster.url, round.items.poster.objectKey)"
                 class="text-xs font-semibold text-[#1E56D9] hover:underline shrink-0 self-center"
               >
                 Xem poster
@@ -170,9 +168,8 @@
               </div>
               <a
                 v-if="round.items.demoVideo?.url"
-                :href="round.items.demoVideo.url"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#"
+                @click.prevent="handleOpenProjectFile(round.items.demoVideo.url, round.items.demoVideo.objectKey)"
                 class="text-xs font-semibold text-[#1E56D9] hover:underline shrink-0 self-center"
               >
                 Xem video
@@ -199,13 +196,12 @@
                 <a
                   v-for="(img, idx) in round.items.productImages"
                   :key="idx"
-                  :href="img.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#"
+                  @click.prevent="handleOpenProjectFile(img.url, img.objectKey)"
                   class="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 hover:border-[#1E56D9] transition-colors shrink-0 group relative"
                   :title="img.name || `Ảnh ${idx + 1}`"
                 >
-                  <img :src="img.url" :alt="img.name || 'Ảnh sản phẩm'" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <img :src="getAuthenticatedPreviewUrl(img.url)" :alt="img.name || 'Ảnh sản phẩm'" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                 </a>
               </div>
             </div>
@@ -370,7 +366,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import {
   ShieldCheck,
   ChevronDown,
@@ -384,6 +380,8 @@ import {
 } from 'lucide-vue-next';
 import { formatDateTimeVi } from '@/modules/student/utils/studentProjectHelpers';
 import projectService from '@/services/projectService';
+import cloudUploadService from '@/services/cloudUploadService';
+import { useToastStore } from '@/stores/toast';
 
 const props = defineProps({
   project: { type: Object, required: true },
@@ -394,6 +392,9 @@ const props = defineProps({
 const expandedRevisions = ref({});
 const copiedId = ref(null);
 const backendSubmissionData = ref(null);
+const authenticatedPreviewUrls = ref({});
+const createdPreviewUrls = new Set();
+const toastStore = useToastStore();
 
 const formatDate = formatDateTimeVi;
 
@@ -578,20 +579,24 @@ const submissionRoundsHistory = computed(() => {
               name: reportFile.fileName || 'Bao_cao_du_an.docx',
               size: reportFile.fileSize ? `${(reportFile.fileSize / (1024 * 1024)).toFixed(1)} MB` : '',
               url: reportFile.publicUrl || '',
+                objectKey: reportFile.objectKey || '',
             } : null,
             poster: poster ? {
               name: poster.fileName || 'Poster_du_an.jpg',
               size: poster.fileSize ? `${(poster.fileSize / (1024 * 1024)).toFixed(1)} MB` : '',
               url: poster.publicUrl || '',
+                objectKey: poster.objectKey || '',
             } : null,
             demoVideo: demoVideo ? {
               name: demoVideo.fileName || 'Demo_Video.mp4',
               size: demoVideo.fileSize ? `${(demoVideo.fileSize / (1024 * 1024)).toFixed(1)} MB` : '',
               url: demoVideo.publicUrl || '',
+                objectKey: demoVideo.objectKey || '',
             } : null,
             productImages: productImages.map((img) => ({
               name: img.fileName || 'Hinh_anh_san_pham.jpg',
               url: img.publicUrl || '',
+                objectKey: img.objectKey || '',
             })),
           },
         });
@@ -629,20 +634,24 @@ const submissionRoundsHistory = computed(() => {
             name: reportFile.name || reportFile.fileName || 'Bao_cao_Du_an_CTUT_Startup_2026.docx',
             size: reportFile.size || '3.4 MB',
             url: reportFile.url || reportFile.publicUrl || '',
+            objectKey: reportFile.objectKey || '',
           } : null,
           poster: poster ? {
             name: poster.name || poster.fileName || 'Poster_Du_an_Startup.pdf',
             size: poster.size || '5.2 MB',
             url: poster.url || poster.publicUrl || '',
+            objectKey: poster.objectKey || '',
           } : null,
           demoVideo: demoVideo ? {
             name: demoVideo.name || demoVideo.fileName || 'Demo_CTUT_Startup_Prototype.mp4',
             size: demoVideo.size || '142.5 MB',
             url: demoVideo.url || demoVideo.publicUrl || '',
+            objectKey: demoVideo.objectKey || '',
           } : null,
           productImages: productImages.map((img) => ({
             name: img.name || img.fileName || 'Anh_san_pham.jpg',
             url: img.url || img.publicUrl || '',
+            objectKey: img.objectKey || '',
           })),
         },
       });
@@ -651,6 +660,46 @@ const submissionRoundsHistory = computed(() => {
 
   return result;
 });
+
+function getAuthenticatedPreviewUrl(fileUrl) {
+  return fileUrl ? (authenticatedPreviewUrls.value[fileUrl] || '') : '';
+}
+
+async function loadAuthenticatedPreviews() {
+  const filesByUrl = new Map();
+  submissionRoundsHistory.value.forEach((round) => {
+    const items = [
+      round.items.reportFile,
+      round.items.poster,
+      round.items.demoVideo,
+      ...(round.items.productImages || []),
+    ];
+    items.forEach((item) => {
+      if (item?.url) {
+        filesByUrl.set(item.url, item.objectKey || '');
+      }
+    });
+  });
+
+  await Promise.all([...filesByUrl.entries()].map(async ([fileUrl, objectKey]) => {
+    if (authenticatedPreviewUrls.value[fileUrl]) return;
+    try {
+      const previewUrl = await cloudUploadService.getProjectFilePreviewUrl(fileUrl, objectKey);
+      authenticatedPreviewUrls.value = { ...authenticatedPreviewUrls.value, [fileUrl]: previewUrl };
+      if (previewUrl.startsWith('blob:')) createdPreviewUrls.add(previewUrl);
+    } catch (error) {
+      console.warn('Không tải được preview file lịch sử:', error?.message);
+    }
+  }));
+}
+
+async function handleOpenProjectFile(fileUrl, objectKey) {
+  try {
+    await cloudUploadService.openProjectFile(fileUrl, objectKey);
+  } catch (error) {
+    toastStore.add({ message: error?.message || 'Không thể mở tệp.', type: 'error' });
+  }
+}
 
 // Tải thêm thông tin submission từ backend nếu cần
 async function refreshSubmissions(projectId) {
@@ -670,6 +719,19 @@ onMounted(() => {
   refreshSubmissions(projectId);
 });
 
+watch(
+  () => submissionRoundsHistory.value.flatMap((round) => [
+    round.items.reportFile,
+    round.items.poster,
+    round.items.demoVideo,
+    ...(round.items.productImages || []),
+  ]).filter((item) => item?.url)
+    .map((item) => `${item.objectKey || ''}:${item.url}`)
+    .join('|'),
+  loadAuthenticatedPreviews,
+  { immediate: true },
+);
+
 // Tự động cập nhật lại thông tin submission khi props.project được trang cha làm mới
 watch(
   () => props.project,
@@ -679,4 +741,8 @@ watch(
   },
   { deep: true }
 );
+
+onBeforeUnmount(() => {
+  createdPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+});
 </script>

@@ -220,6 +220,54 @@ const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
   };
 };
 
+/** Đọc object private từ S3-compatible storage sau khi workflow đã kiểm tra quyền dự án. */
+const downloadFile = async ({ objectKey }) => {
+  if (!STORAGE_ENDPOINT || !STORAGE_ACCESS_KEY || !STORAGE_SECRET_KEY) {
+    throw ApiError.serviceUnavailable('Cloud Storage chưa được cấu hình để tải tệp.', 'STORAGE_NOT_CONFIGURED');
+  }
+
+  const url = `${STORAGE_ENDPOINT}/${STORAGE_BUCKET}/${encodeURIComponent(objectKey)}`;
+  const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = date.substring(0, 8);
+  const host = new URL(STORAGE_ENDPOINT).host;
+  const signedHeaders = 'host;x-amz-date';
+  const canonicalRequest = [
+    'GET',
+    `/${STORAGE_BUCKET}/${encodeURIComponent(objectKey)}`,
+    '',
+    `host:${host}\nx-amz-date:${date}\n`,
+    signedHeaders,
+    crypto.createHash('sha256').update('', 'utf8').digest('hex'),
+  ].join('\n');
+  const credentialScope = `${dateStamp}/${STORAGE_REGION}/s3/aws4_request`;
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    date,
+    credentialScope,
+    crypto.createHash('sha256').update(canonicalRequest, 'utf8').digest('hex'),
+  ].join('\n');
+
+  const kDate = crypto.createHmac('sha256', `AWS4${STORAGE_SECRET_KEY}`).update(dateStamp).digest();
+  const kRegion = crypto.createHmac('sha256', kDate).update(STORAGE_REGION).digest();
+  const kService = crypto.createHmac('sha256', kRegion).update('s3').digest();
+  const kSigning = crypto.createHmac('sha256', kService).update('aws4_request').digest();
+  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
+  const authorization = `AWS4-HMAC-SHA256 Credential=${STORAGE_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  try {
+    const response = await axios.get(url, {
+      responseType: 'stream',
+      headers: { 'x-amz-date': date, Authorization: authorization },
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      throw ApiError.notFound('Không tìm thấy tệp trong Cloud Storage.', 'FILE_NOT_FOUND');
+    }
+    throw ApiError.serviceUnavailable('Không thể tải tệp từ Cloud Storage.', 'STORAGE_DOWNLOAD_FAILED');
+  }
+};
+
 module.exports = {
   EXT_TO_FILE_TYPE,
   EXT_TO_ALLOWED_TYPES,
@@ -227,4 +275,5 @@ module.exports = {
   buildObjectKey,
   generatePresignedUploadUrl,
   confirmUpload,
+  downloadFile,
 };

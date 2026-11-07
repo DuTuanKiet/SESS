@@ -1204,11 +1204,118 @@ async function testPhase5Notifications() {
   });
 }
 
+// Merge: kiểm chứng trên DB test đã qua allowlist của runner, không chạy riêng trên DB thật.
+async function testNotificationMergeCompatibility() {
+  await test('notification merge: student không được tạo thông báo admin', async () => {
+    const { checkRole } = require('../src/middlewares/authMiddleware');
+    await assertThrows(() => checkRole('admin')({ user: fixtures.student }, {}, () => {}),
+      'INSUFFICIENT_ROLE', 'Chặn student trước controller POST');
+    let allowed = false;
+    checkRole('admin')({ user: fixtures.admin }, {}, () => { allowed = true; });
+    assert(allowed, 'Admin được đi tiếp tới validation');
+  });
+  await test('notification merge: validation hai hợp đồng và query ưu tiên status', async () => {
+    const { notificationBodySchema, notificationQuerySchema } = require('../src/validations/notificationValidation');
+    const recipientId = String(fixtures.student._id);
+    assert(notificationBodySchema.safeParse({ recipientId, title: 'T'.repeat(200),
+      content: 'Content', type: 'feedback', link: '/student/projects' }).success, 'Nhận payload dev và type HEAD');
+    assert(!notificationBodySchema.safeParse({ recipientId, title: 'T', content: 'C',
+      link: '//external.example' }).success, 'Không nhận link ngoài');
+    assert(!notificationBodySchema.safeParse({ recipientId, title: 'T' }).success, 'Bắt buộc nội dung');
+    assert(!notificationBodySchema.safeParse({ recipientId, userId: String(fixtures.admin._id),
+      title: 'T', content: 'C' }).success, 'Không nhận recipient không nhất quán');
+    const query = notificationQuerySchema.parse({ unreadOnly: 'true', limit: '100' });
+    assertEqual(query.status, undefined, 'Không default status che unreadOnly');
+    assertEqual(query.limit, 100, 'Giữ limit màn hình judge');
+  });
+  await test('notification merge: legacy read và recipient ownership', async () => {
+    const legacyId = new mongoose.Types.ObjectId();
+    await Notification.collection.insertOne({
+      _id: legacyId, userId: fixtures.student._id, title: 'Legacy', content: 'Legacy content',
+      read: true, isRead: false, createdAt: new Date(),
+    });
+    const list = await notificationService.getMentorNotifications({ userId: fixtures.student._id });
+    const item = list.find((entry) => String(entry._id) === String(legacyId));
+    assert(item && item.isRead && item.read, 'Đã đọc ở một nhánh không được thành unread');
+    assertEqual(item.message, 'Legacy content', 'Chuẩn hóa content sang message');
+    await assertThrows(() => notificationService.markNotificationRead({
+      notificationId: legacyId, userId: fixtures.admin._id,
+    }), 'NOTIFICATION_NOT_FOUND', 'Không sửa thông báo người khác');
+    await notificationService.markNotificationRead({ notificationId: legacyId, userId: fixtures.student._id });
+    const saved = await Notification.collection.findOne({ _id: legacyId });
+    assert(saved.read && saved.isRead, 'Service đồng bộ hai trạng thái');
+    await Notification.collection.deleteOne({ _id: legacyId });
+  });
+  await test('notification merge: retry không trùng và giữ type/title của cả hai nhánh', async () => {
+    await Notification.collection.createIndex({ eventKey: 1 }, { unique: true });
+    const eventKey = `merge-test:${new mongoose.Types.ObjectId()}`;
+    const payload = { recipientId: fixtures.student._id, title: 'T'.repeat(200),
+      message: 'Message', type: 'invitation', eventKey };
+    await Promise.all([notificationService.createNotification(payload), notificationService.createNotification(payload)]);
+    const item = await Notification.findOne({ eventKey });
+    await notificationService.markNotificationRead({ notificationId: item._id, userId: fixtures.student._id });
+    await notificationService.createNotification(payload);
+    assertEqual(await Notification.countDocuments({ eventKey }), 1, 'Retry kể cả đã đọc không tạo bản ghi mới');
+  });
+  await test('notification migration: dry-run, giữ timestamps và chạy lại an toàn', async () => {
+    const { migrateNotifications } = require('../src/services/notificationMigrationService');
+    const collection = mongoose.connection.db.collection('notification_migration_tests');
+    const id = new mongoose.Types.ObjectId();
+    const createdAt = new Date('2025-01-01T00:00:00Z');
+    await collection.insertOne({ _id: id, userId: fixtures.student._id, title: 'Legacy',
+      content: 'Content', read: true, isRead: false, createdAt });
+    const dry = await migrateNotifications({ collection });
+    assertEqual(dry.modified, 0, 'Dry-run không ghi');
+    assertEqual((await collection.findOne({ _id: id })).eventKey, undefined, 'Dry-run không backfill');
+    const applied = await migrateNotifications({ collection, dryRun: false });
+    assertEqual(applied.modified, 1, 'Apply backfill');
+    const saved = await collection.findOne({ _id: id });
+    assertEqual(saved.createdAt.getTime(), createdAt.getTime(), 'Giữ thời gian tạo');
+    const repeated = await migrateNotifications({ collection, dryRun: false });
+    assertEqual(repeated.modified, 0, 'Chạy lại không ghi thêm');
+    await collection.deleteOne({ _id: id });
+  });
+}
+
 const rubricIdPlaceholder = new mongoose.Types.ObjectId();
 
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
+// Merge: kiểm tra router tĩnh không bị /:id hoặc middleware của router khác che.
+async function testMergeRouteReachability() {
+  group('Merge step 6 - route reachability');
+  const adminTokens = await tokenService.issueTokens(fixtures.admin, {});
+  const studentTokens = await tokenService.issueTokens(fixtures.student, {});
+  const server = app.listen(0, '127.0.0.1');
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
+    const cases = [
+      ['/news', null, 200],
+      ['/projects/unassigned-mentor', adminTokens, 200],
+      ['/projects/cancellation-requests', adminTokens, 200],
+      ['/projects/invitations/me', studentTokens, 200],
+      ['/evaluator/assignments', studentTokens, 403],
+      ['/admin/evaluations/rounds/not-an-id/assignments', adminTokens, 400],
+      ['/admin/evaluations/rounds/not-an-id/assignments', studentTokens, 403],
+    ];
+    for (const [route, tokens, expected] of cases) {
+      await test(`GET ${route} (${tokens === studentTokens ? 'student' : tokens ? 'admin' : 'public'})`, async () => {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1${route}`, {
+          headers: tokens ? { authorization: `Bearer ${tokens.accessToken}` } : {},
+        });
+        await response.text();
+        assertEqual(response.status, expected, 'Route phải đến đúng middleware/controller');
+      });
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 const main = async () => {
   console.log('=========================================================');
   console.log(' SESS-CTUT Enterprise Edition - INTEGRATION TEST SUITE');
@@ -1232,6 +1339,8 @@ const main = async () => {
   await testStep4();
   await testStep5();
   await testPhase5Notifications();
+  await testNotificationMergeCompatibility();
+  await testMergeRouteReachability();
 
   // Kết quả
   const passed = results.filter((r) => r.status === 'PASS').length;

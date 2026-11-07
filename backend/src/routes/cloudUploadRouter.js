@@ -29,10 +29,17 @@ const projectFilesParamsSchema = z.object({
   projectId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'projectId không đúng định dạng ObjectId.'),
 });
 
+const downloadFileQuerySchema = z.object({
+  objectKey: z.string().trim().min(1).max(1024).optional(),
+  publicUrl: z.string().trim().url().max(2048).optional(),
+}).refine(({ objectKey, publicUrl }) => Boolean(objectKey || publicUrl), {
+  message: 'Cần objectKey hoặc publicUrl để tải tệp.',
+});
+
 // URL giả lập chỉ được mount ở môi trường development với storage provider dev.
 if (STORAGE_PROVIDER === 'dev' && (process.env.NODE_ENV || 'development') === 'development') {
   router.put(/^\/dev-mock\/(.+)$/, devCloudUploadController.uploadDevelopmentFile);
-  router.get(/^\/dev-mock\/(.+)$/, devCloudUploadController.readDevelopmentFile);
+  router.get(/^\/dev-mock\/(.+)$/, authenticate, devCloudUploadController.readDevelopmentFile);
 }
 
 router.use(authenticate);
@@ -49,6 +56,13 @@ router.post(
   '/confirm',
   validate({ body: confirmUploadBodySchema }),
   cloudUploadController.confirmUpload,
+);
+
+/** GET /api/v1/cloud-upload/download?objectKey=... */
+router.get(
+  '/download',
+  validate({ query: downloadFileQuerySchema }),
+  cloudUploadController.downloadProjectFile,
 );
 
 /** GET /api/v1/cloud-upload/files/:projectId */

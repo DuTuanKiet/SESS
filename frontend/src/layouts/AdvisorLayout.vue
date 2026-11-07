@@ -1,25 +1,27 @@
 ﻿<template>
-  <div class="role-layout advisor-layout">
-    <aside class="sidebar">
-      <div class="sidebar-header">Giảng viên cố vấn</div>
-      <nav class="sidebar-nav">
-        <router-link to="/advisor">Tổng quan</router-link>
-        <router-link to="/advisor/projects">Dự án được phân công</router-link>
-        <router-link to="/advisor/teams">Danh sách nhóm</router-link>
-        <router-link to="/advisor/feedback">Nhận xét và góp ý</router-link>
-        <router-link to="/advisor/progress">Theo dõi tiến độ</router-link>
-        <router-link to="/advisor/notifications">Thông báo</router-link>
-        <router-link to="/advisor/account">Tài khoản</router-link>
-      </nav>
-    </aside>
-    <div class="main-area">
-      <header class="topbar">SESS - Cố vấn</header>
-      <main class="content">
-        <router-view />
+  <div class="flex min-h-screen bg-[#f8fafc] text-[#0f172a] antialiased">
+    <MentorSidebar />
+    <div class="pl-64 min-h-screen flex flex-col flex-1">
+      <MentorHeader />
+      <main class="flex-1 max-w-[1440px] w-full mx-auto px-6 lg:px-8 py-7">
+        <router-view v-slot="{ Component, route }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
+          </transition>
+        </router-view>
       </main>
+      <MentorFooter />
     </div>
   </div>
 </template>
 
 <script setup>
+import MentorSidebar from "@/modules/mentoring/common/components/layout/MentorSidebar.vue"
+import MentorHeader from "@/modules/mentoring/common/components/layout/MentorHeader.vue"
+import MentorFooter from "@/modules/mentoring/common/components/layout/MentorFooter.vue"
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: all 180ms cubic-bezier(0.16,1,0.3,1); }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(6px); }
+</style>

@@ -162,9 +162,6 @@ import {
   ChevronDown,
   Search,
   User,
-  LayoutDashboard,
-  FolderKanban,
-  KeyRound,
   LogOut,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
@@ -172,6 +169,7 @@ import NotificationDropdown from '@/components/common/NotificationDropdown.vue';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 
 const router = useRouter();
+// Merge: giữ Navbar HEAD; trạng thái và logout của cả hai nhánh đi qua store chung.
 const authStore = useAuthStore();
 
 const isUserMenuOpen = ref(false);
@@ -188,18 +186,10 @@ const homePath = computed(() => {
   return '/';
 });
 
-const dashboardPath = computed(() => {
-  if (authStore.isStudent) return '/student';
-  if (authStore.isMentor) return '/advisor';
-  if (authStore.isJudge) return '/judge';
-  if (authStore.isAdmin) return '/admin';
-  return '/';
-});
-
 function handleLogout() {
   isUserMenuOpen.value = false;
   authStore.logout();
-  router.push('/auth/login');
+  router.replace('/auth/login');
 }
 
 function handleClickOutside(event) {

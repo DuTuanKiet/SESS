@@ -5,24 +5,29 @@ const mongoose = require('mongoose');
 const mentorRoutes = require('./mentorRoutes');
 const rubricRoutes = require('./rubricRoutes');
 const milestoneRoutes = require('./milestoneRoutes');
+const feedbackRoutes = require('./feedbackRoutes');
 const fr05ProjectRoutes = require('./projectRoutes');
 
 // --- Routes của nhánh FR01-FR04 (auth, user, admin, project FR03/FR04) ---
 const authRouter = require('./authRouter');
 const userRouter = require('./userRouter');
 const adminRouter = require('./adminRouter');
+const adminEvaluationRoutes = require('./adminEvaluationRoutes');
 const projectRouter = require('./projectRouter');
 const judgeWhitelistRouter = require('./judgeWhitelistRouter');
 const cloudUploadRouter = require('./cloudUploadRouter');
 const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
 const votingRouter = require('./votingRouter');
+// Merge: một router thông báo chung; giữ news của dev.
 const notificationRouter = require('./notificationRouter');
+const newsRouter = require('./newsRouter');
 
 // --- Routes vòng đời nâng cao (Enterprise Edition) ---
 const projectCancellationRoutes = require('./projectCancellationRoutes');
 const projectHierarchyRoutes = require('./projectHierarchyRoutes');
 const evaluationRoutes = require('./evaluationRoutes');
+const evaluatorRoutes = require('./evaluatorRoutes');
 const queueService = require('../services/queueService');
 
 const router = express.Router();
@@ -73,18 +78,22 @@ router.get('/ready', async (_req, res) => {
 router.use('/', mentorRoutes);
 router.use('/evaluation-rubrics', rubricRoutes);
 router.use('/projects/:projectId/milestones', milestoneRoutes);
+router.use('/projects/:projectId/feedbacks', feedbackRoutes);
 
 // ---------------------------------------------------------------------------
 // Nhánh FR01-FR04
 // ---------------------------------------------------------------------------
 router.use('/auth', authRouter);
 router.use('/users', userRouter);
-router.use('/admin', adminRouter);
+router.use('/admin/evaluations', adminEvaluationRoutes);
+// Merge: router cụ thể chạy trước middleware toàn cục của /admin.
 router.use('/admin/judge-whitelist', judgeWhitelistRouter);
+router.use('/admin', adminRouter);
 router.use('/cloud-upload', cloudUploadRouter);
 router.use('/score-overrides', scoreOverrideRoutes);
 router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
 router.use('/public/votes', votingRouter);
+router.use('/news', newsRouter);
 router.use('/notifications', notificationRouter);
 
 // ---------------------------------------------------------------------------
@@ -98,6 +107,7 @@ router.use('/notifications', notificationRouter);
 router.use('/projects', projectCancellationRoutes);
 router.use('/projects', projectHierarchyRoutes);
 router.use('/projects', evaluationRoutes);
+router.use('/evaluator', evaluatorRoutes);
 router.use('/projects', fr05ProjectRoutes);
 router.use('/projects', projectRouter);
 

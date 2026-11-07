@@ -27,27 +27,18 @@ process.env.MONGO_URI = mongoUri;
 
 const mongoose = require('mongoose');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
-const { GLOBAL_TEST_EMAIL, GLOBAL_TEST_STUDENT_ID } = require('../src/utils/constants');
 
-/** Dữ liệu sinh viên mẫu (bao gồm email thật + thông tin CVHT của lớp) */
+/** Dữ liệu sinh viên giả lập chỉ dùng trong database test */
 const SAMPLE_STUDENTS = [
   {
-    email: GLOBAL_TEST_EMAIL,
-    studentId: GLOBAL_TEST_STUDENT_ID,
-    fullName: 'Hồ Lê Mạnh Quỳnh',
-    className: 'KTPM2311',
-    faculty: 'Công nghệ thông tin',
-    phone: '0900000002',
-    advisorEmail: 'cvht.ktpm@ctuet.edu.vn',
-  },
-  {
-    email: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    studentId: 'KTPM2311025',
-    fullName: 'Du Tuấn Kiệt',
-    className: 'KTPM2311',
-    faculty: 'Công nghệ thông tin',
-    phone: '0900000001',
-    advisorEmail: 'cvht.ktpm@ctuet.edu.vn',
+    // Merge: fixture tổng hợp, đồng bộ với tài khoản student mặc định của seed-user.
+    email: '110122000@student.ctuet.edu.vn',
+    studentId: '110122000',
+    fullName: 'Sinh viên kiểm thử mặc định',
+    className: 'TEST',
+    faculty: '',
+    phone: '',
+    advisorEmail: 'teacher01@ctuet.edu.vn',
   },
   {
     email: '110122001@student.ctuet.edu.vn',

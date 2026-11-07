@@ -27,11 +27,24 @@ export const useNotificationStore = defineStore('notification', () => {
   });
   let latestFetchId = 0;
   let sessionGeneration = 0;
+  let pendingFetch = null;
 
   const filteredNotifications = computed(() => notifications.value);
   const hasMore = computed(() => pagination.value.page < pagination.value.totalPages);
 
-  async function fetchNotifications({ page = 1, append = false } = {}) {
+  // Merge: các component cùng yêu cầu một trang dùng chung request, clear() hủy kết quả phiên cũ.
+  function fetchNotifications({ page = 1, append = false } = {}) {
+    const key = `${sessionGeneration}:${activeFilter.value}:${page}:${append}`;
+    if (pendingFetch?.key === key) return pendingFetch.promise;
+    const entry = { key, promise: null };
+    entry.promise = loadNotifications({ page, append }).finally(() => {
+      if (pendingFetch === entry) pendingFetch = null;
+    });
+    pendingFetch = entry;
+    return entry.promise;
+  }
+
+  async function loadNotifications({ page, append }) {
     const fetchId = ++latestFetchId;
     isLoading.value = true;
     error.value = null;
@@ -91,11 +104,19 @@ export const useNotificationStore = defineStore('notification', () => {
     return fetchNotifications({ page: pagination.value.page + 1, append: true });
   }
 
+  function invalidatePendingFetch() {
+    // Kết quả list bắt đầu trước thao tác đọc không được ghi đè trạng thái vừa cập nhật.
+    latestFetchId += 1;
+    pendingFetch = null;
+    isLoading.value = false;
+  }
+
   async function markAsRead(id) {
     const target = notifications.value.find((notification) => notification.id === id);
     if (!target || target.isRead) return true;
     if (isUpdating.value) return false;
 
+    invalidatePendingFetch();
     const generation = sessionGeneration;
     const previousUnreadCount = unreadCount.value;
     isUpdating.value = true;
@@ -131,6 +152,7 @@ export const useNotificationStore = defineStore('notification', () => {
     if (unreadCount.value === 0) return true;
     if (isUpdating.value) return false;
 
+    invalidatePendingFetch();
     const generation = sessionGeneration;
     const previousState = notifications.value.map(({ id, isRead }) => ({ id, isRead }));
     const previousUnreadCount = unreadCount.value;
@@ -167,6 +189,7 @@ export const useNotificationStore = defineStore('notification', () => {
 
   function clear() {
     sessionGeneration += 1;
+    pendingFetch = null;
     latestFetchId += 1;
     notifications.value = [];
     unreadCount.value = 0;

@@ -9,6 +9,58 @@ function createUploadError(message, code = 'UPLOAD_FAILED') {
   return error;
 }
 
+function getDevelopmentObjectKey(fileUrl) {
+  if (!fileUrl) return '';
+
+  try {
+    const pathname = new URL(fileUrl, window.location.origin).pathname;
+    const marker = '/cloud-upload/dev-mock/';
+    const markerIndex = pathname.indexOf(marker);
+    return markerIndex < 0
+      ? ''
+      : decodeURIComponent(pathname.slice(markerIndex + marker.length));
+  } catch {
+    return '';
+  }
+}
+
+/** Lấy preview qua API có kiểm tra quyền bằng objectKey hoặc URL đã lưu. */
+async function getProjectFilePreviewUrl(fileUrl, storedObjectKey) {
+  if (!fileUrl) return '';
+  const objectKey = storedObjectKey || getDevelopmentObjectKey(fileUrl);
+
+  const response = await httpClient.get('/cloud-upload/download', {
+    params: objectKey ? { objectKey } : { publicUrl: fileUrl },
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(response.data);
+}
+
+/** Mở file qua API đã xác thực; file cũ không có objectKey được tra bằng URL đã lưu. */
+async function openProjectFile(fileUrl, storedObjectKey) {
+  if (!fileUrl) throw createUploadError('Không tìm thấy đường dẫn tệp.', 'FILE_NOT_FOUND');
+  const objectKey = storedObjectKey || getDevelopmentObjectKey(fileUrl);
+
+  const openedWindow = window.open('about:blank', '_blank');
+  if (!openedWindow) {
+    throw createUploadError('Trình duyệt đang chặn cửa sổ mở tệp.', 'POPUP_BLOCKED');
+  }
+
+  openedWindow.opener = null;
+  try {
+    const response = await httpClient.get('/cloud-upload/download', {
+      params: objectKey ? { objectKey } : { publicUrl: fileUrl },
+      responseType: 'blob',
+    });
+    const objectUrl = URL.createObjectURL(response.data);
+    openedWindow.location.href = objectUrl;
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  } catch (error) {
+    openedWindow.close();
+    throw error;
+  }
+}
+
 async function getProjectFiles(projectId) {
   const response = await httpClient.get(`/cloud-upload/files/${projectId}`);
   return response.data?.data?.files || [];
@@ -93,4 +145,6 @@ export async function uploadProjectFile({ projectId, file, fileType }) {
 export default {
   uploadProjectFile,
   getProjectFiles,
+  getProjectFilePreviewUrl,
+  openProjectFile,
 };

@@ -4,8 +4,8 @@ const notificationService = require('../services/notificationService');
 const handleGetNotifications = async (req, res, next) => {
   try {
     const result = await notificationService.getNotifications({
-      userId: req.user.id,
       ...req.query,
+      userId: req.user.id,
     });
 
     return res.status(200).json({
@@ -58,8 +58,17 @@ const handleMarkAllNotificationsRead = async (req, res, next) => {
   }
 };
 
+/** Merge: POST của dev giữ khả năng tạo, quyền admin và schema được kiểm tra trước controller. */
+const handleCreateNotification = async (req, res, next) => {
+  try {
+    const notification = await notificationService.createNotification(req.body);
+    return res.status(201).json({ success: true, message: 'Tạo thông báo thành công.', data: notification });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
-  handleGetNotifications,
-  handleMarkNotificationRead,
-  handleMarkAllNotificationsRead,
+  handleGetNotifications, handleMarkNotificationRead, handleMarkAllNotificationsRead,
+  handleCreateNotification,
 };

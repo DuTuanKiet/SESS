@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const ProjectMember = require('../models/ProjectMember');
 const MentorAssignment = require('../models/MentorAssignment');
 const CloudFileUpload = require('../models/CloudFileUpload');
+const HumanEvaluation = require('../models/HumanEvaluation');
 const cloudUploadService = require('./cloudUploadService');
 const queueService = require('./queueService');
 const ApiError = require('../utils/apiError');
@@ -37,6 +38,7 @@ async function assertAcceptedMember(projectId, userId) {
 }
 
 async function assertCanViewProjectFiles({ project, projectId, user }) {
+  if (!user) throw ApiError.unauthorized('Yêu cầu đăng nhập để xem tệp dự án.', 'UNAUTHORIZED');
   const role = getUserRole(user);
   if (role === 'admin') return;
 
@@ -57,7 +59,14 @@ async function assertCanViewProjectFiles({ project, projectId, user }) {
     if (assignment) return;
   }
 
-  if (role === 'judge' && (project.judges || []).some((judgeId) => String(judgeId) === String(userId))) return;
+  if (role === 'judge') {
+    const isLegacyJudge = (project.judges || []).some((judgeId) => String(judgeId) === String(userId));
+    if (isLegacyJudge) return;
+
+    // Assigned judges retain access to their own history regardless of whether the round is OPEN.
+    const evaluation = await HumanEvaluation.findOne({ projectId, evaluatorId: userId }).select('_id').lean();
+    if (evaluation) return;
+  }
   throw ApiError.forbidden('Bạn không có quyền xem tệp của dự án này.', 'FORBIDDEN');
 }
 
@@ -156,6 +165,23 @@ async function listProjectFiles({ projectId, user }) {
   return { files };
 }
 
+async function downloadProjectFile({ objectKey, publicUrl, user }) {
+  if (STORAGE_PROVIDER === 'dev') {
+    if (objectKey) return getDevelopmentFile(objectKey, { user });
+    const fileRecord = await CloudFileUpload.findOne({ publicUrl, status: 'completed' }).lean();
+    if (!fileRecord) throw ApiError.notFound('Không tìm thấy tệp đã xác nhận.', 'FILE_NOT_FOUND');
+    return getDevelopmentFile(fileRecord.objectKey, { user });
+  }
+
+  const fileFilter = objectKey ? { objectKey } : { publicUrl };
+  const fileRecord = await CloudFileUpload.findOne({ ...fileFilter, status: 'completed' }).lean();
+  if (!fileRecord) throw ApiError.notFound('Không tìm thấy tệp đã xác nhận.', 'FILE_NOT_FOUND');
+  const project = await getProjectOrFail(fileRecord.projectId);
+  await assertCanViewProjectFiles({ project, projectId: fileRecord.projectId, user });
+  const stream = await cloudUploadService.downloadFile({ objectKey: fileRecord.objectKey });
+  return { fileRecord, stream };
+}
+
 function assertDevelopmentStorageEnabled() {
   if (STORAGE_PROVIDER !== 'dev' || (process.env.NODE_ENV || 'development') !== 'development') {
     throw ApiError.notFound('Không tìm thấy đường dẫn upload.', 'NOT_FOUND');
@@ -192,7 +218,7 @@ async function prepareDevelopmentUpload(objectKey) {
   return { fileRecord, filePath: resolveDevObjectPath(objectKey) };
 }
 
-async function getDevelopmentFile(objectKey) {
+async function getDevelopmentFile(objectKey, { user } = {}) {
   assertDevelopmentStorageEnabled();
   let fileRecord = await CloudFileUpload.findOne({ objectKey, status: 'completed' }).lean();
   if (!fileRecord && objectKey.startsWith('projects/')) {
@@ -201,6 +227,9 @@ async function getDevelopmentFile(objectKey) {
     fileRecord = await CloudFileUpload.findOne({ objectKey: objectKey.replace(/^uploads\//, ''), status: 'completed' }).lean();
   }
   if (!fileRecord) throw ApiError.notFound('Không tìm thấy tệp đã xác nhận.', 'FILE_NOT_FOUND');
+  const projectId = fileRecord.projectId;
+  const project = await getProjectOrFail(projectId);
+  await assertCanViewProjectFiles({ project, projectId, user });
   return { fileRecord, filePath: resolveDevObjectPath(objectKey) };
 }
 
@@ -208,6 +237,7 @@ module.exports = {
   requestPresignedUpload,
   confirmProjectUpload,
   listProjectFiles,
+  downloadProjectFile,
   prepareDevelopmentUpload,
   getDevelopmentFile,
 };

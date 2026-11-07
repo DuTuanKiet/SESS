@@ -213,16 +213,16 @@ const assertActivatedStudent = async (email, { session } = {}) => {
   return { invitee, whitelistStudent };
 };
 
-/** Gửi email mời tham gia dự án qua BullMQ (lỗi gửi mail không làm hỏng lời mời đã tạo) */
+/** Gửi email qua queue và fallback inline hiện có; lỗi email không làm hỏng lời mời đã tạo. */
 const notifyInvitation = async ({ project, inviter, invitee }) => {
   try {
     await queueService.enqueueProjectInvitationEmail({
       to: invitee.email,
       payload: {
-        projectTitle: project.title,
-        projectCode: project.code,
-        inviterName: inviter.fullName || inviter.email,
-        inviteeName: invitee.fullName,
+        projectTitle: project.title || project.name || '',
+        projectCode: project.code || '',
+        inviterName: inviter.fullName || inviter.email || '',
+        inviteeName: invitee.fullName || '',
       },
     });
   } catch (error) {

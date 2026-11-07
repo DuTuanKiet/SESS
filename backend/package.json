@@ -12,6 +12,7 @@
     "seed:e2e": "node scripts/seed.js --target=e2e",
     "seed:admin": "node scripts/seed-user.js --role=admin",
     "seed:student": "node scripts/seed-user.js --role=student",
+    "seed:judge": "node scripts/seed-user.js --role=judge",
     "seed:whitelist": "node scripts/seed-whitelist.js",
     "seed:notifications": "node scripts/seed-notification-fixtures.js",
     "cleanup": "node scripts/cleanup.js",
@@ -42,7 +43,9 @@
   },
   "devDependencies": {
     "eslint": "^10.10.0",
+    "jest": "^30.5.2",
     "nodemon": "^3.1.14",
-    "prettier": "^3.9.8"
+    "prettier": "^3.9.8",
+    "supertest": "^7.3.1"
   }
 }

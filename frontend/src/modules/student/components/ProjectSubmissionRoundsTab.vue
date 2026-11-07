@@ -141,9 +141,8 @@
                   </p>
                   <a
                     v-if="submissionForm.reportFile.url"
-                    :href="submissionForm.reportFile.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="#"
+                    @click.prevent="handleOpenProjectFile(submissionForm.reportFile.url, submissionForm.reportFile.objectKey)"
                     class="inline-block text-[11px] text-[#1E56D9] hover:underline truncate"
                   >
                     Mở tệp đã lưu
@@ -211,7 +210,7 @@
                 <div class="w-16 h-20 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                   <img
                     v-if="submissionForm.posterFile.previewUrl"
-                    :src="submissionForm.posterFile.previewUrl"
+                    :src="getSubmissionPreviewUrl(submissionForm.posterFile)"
                     alt="Poster preview"
                     class="w-full h-full object-cover"
                   />
@@ -300,9 +299,8 @@
                     </p>
                     <a
                       v-if="submissionForm.videoFile.url"
-                      :href="submissionForm.videoFile.url"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    href="#"
+                    @click.prevent="handleOpenProjectFile(submissionForm.videoFile.url, submissionForm.videoFile.objectKey)"
                       class="inline-block text-[11px] text-[#1E56D9] hover:underline truncate"
                     >
                       Mở video đã lưu
@@ -371,7 +369,11 @@
                 :key="idx"
                 class="relative aspect-square rounded-xl overflow-hidden border border-[#E4ECF7] group bg-white shadow-2xs"
               >
-                <img :src="img.previewUrl || img.url" :alt="img.name" class="w-full h-full object-cover" />
+                <img
+                  :src="getSubmissionPreviewUrl(img)"
+                  :alt="img.name"
+                  class="w-full h-full object-cover"
+                />
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
                   <span class="text-[10px] text-white font-medium truncate">{{ img.name }}</span>
                   <button
@@ -488,6 +490,7 @@ const emit = defineEmits(['refresh-project', 'submission-updated']);
 
 const toastStore = useToastStore();
 const authStore = useAuthStore();
+const authenticatedPreviewUrls = new Set();
 
 // Trạng thái cửa sổ nộp bài: 'OPEN' (Đang mở nộp), 'CLOSED' (Thời gian nộp bài đã kết thúc), 'PASSED' (Đã qua vòng)
 const windowStatus = ref('OPEN');
@@ -654,6 +657,7 @@ async function loadSubmissionData() {
           sizeBytes: img.fileSize || 0,
           previewUrl: img.url,
           url: img.url,
+          objectKey: img.objectKey,
         }));
       }
       if (data.receipt?.hash) {
@@ -668,6 +672,39 @@ async function loadSubmissionData() {
     }
   } catch (error) {
     console.warn('Lỗi đọc submissions từ server, sử dụng dữ liệu cục bộ:', error?.message);
+  }
+
+  await loadAuthenticatedPreviews();
+}
+
+async function loadAuthenticatedPreviews() {
+  const previewItems = [
+    submissionForm.value.posterFile,
+    ...submissionForm.value.productImages,
+  ].filter((item) => item?.url && !item.url.includes('images.unsplash.com'));
+
+  await Promise.all(previewItems.map(async (item) => {
+    if (item.previewUrl?.startsWith('blob:') && authenticatedPreviewUrls.has(item.previewUrl)) return;
+    try {
+      item.previewUrl = await cloudUploadService.getProjectFilePreviewUrl(item.url, item.objectKey);
+      if (item.previewUrl?.startsWith('blob:')) authenticatedPreviewUrls.add(item.previewUrl);
+    } catch (error) {
+      console.warn('Không tải được preview file dự án:', error?.message);
+    }
+  }));
+}
+
+function getSubmissionPreviewUrl(item) {
+  if (item?.previewUrl?.startsWith('blob:')) return item.previewUrl;
+  if (item?.url && !item.url.includes('images.unsplash.com')) return '';
+  return item?.previewUrl || item?.url || '';
+}
+
+async function handleOpenProjectFile(fileUrl, objectKey) {
+  try {
+    await cloudUploadService.openProjectFile(fileUrl, objectKey);
+  } catch (error) {
+    toastStore.add({ message: error?.message || 'Không thể mở tệp.', type: 'error' });
   }
 }
 
@@ -964,5 +1001,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  authenticatedPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
 });
 </script>

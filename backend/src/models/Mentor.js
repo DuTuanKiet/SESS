@@ -22,7 +22,10 @@ const mentorSchema = new mongoose.Schema(
     fields: { type: [String], default: [] },
     maxProjects: { type: Number, default: MENTOR_DEFAULT_MAX_PROJECTS, min: 1 },
     status: { type: String, enum: Object.values(MENTOR_STATUS), default: MENTOR_STATUS.ACTIVE, index: true },
-    bio: { type: String, trim: true, default: '' },
+    staffCode: { type: String, trim: true, default: '' },
+    faculty: { type: String, trim: true, default: '' },
+    phone: { type: String, trim: true, default: '' },
+    position: { type: String, trim: true, default: '' },
   },
   {
     timestamps: true,

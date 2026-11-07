@@ -319,7 +319,7 @@ function formatRelativeTime(dateString) {
 watch(
   () => String(authStore.user?._id ?? authStore.user?.id ?? ''),
   (userId) => {
-    notificationStore.clear();
+    // Auth store đã clear cache khi đổi phiên; không reset request chung ở mỗi component.
     if (userId) notificationStore.fetchNotifications();
   },
   { immediate: true },

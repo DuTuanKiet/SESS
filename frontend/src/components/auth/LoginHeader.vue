@@ -1,6 +1,8 @@
 <script setup>
 import logoCtut from '@/assets/logoCtut.png';
 
+// Merge: giữ template HEAD, gồm logo, cỡ chữ và màu của cổng đăng nhập đã chốt.
+
 //Trường Đại học Kỹ thuật - Công nghệ Cần Thơ (CTUT) và Hệ thống SESS
 
 defineProps({

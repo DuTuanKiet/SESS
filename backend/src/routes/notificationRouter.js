@@ -1,10 +1,11 @@
 const express = require('express');
 const notificationController = require('../controllers/notificationController');
-const { authenticate } = require('../middlewares/authMiddleware');
+const { authenticate, checkRole } = require('../middlewares/authMiddleware');
 const validate = require('../middlewares/validateMiddleware');
 const {
   notificationIdParamsSchema,
   notificationQuerySchema,
+  notificationBodySchema,
 } = require('../validations/notificationValidation');
 
 const router = express.Router();
@@ -28,5 +29,9 @@ router.patch(
   validate({ params: notificationIdParamsSchema }),
   notificationController.handleMarkNotificationRead,
 );
+
+// Merge: POST dev dùng cùng service, nhưng chỉ admin được tạo thông báo cho người khác.
+router.post('/', authenticate, checkRole('admin'), validate({ body: notificationBodySchema }),
+  notificationController.handleCreateNotification);
 
 module.exports = router;

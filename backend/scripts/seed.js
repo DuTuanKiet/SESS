@@ -33,9 +33,9 @@ const seedSteps = [
       '--verified',
     ],
   })),
-  { file: 'seed-user.js', args: ['--email=gv01@ctuet.edu.vn', '--role=teacher'] },
-  { file: 'seed-user.js', args: ['--email=mentor01@ctuet.edu.vn', '--role=mentor'] },
-  { file: 'seed-user.js', args: ['--email=judge01@ctuet.edu.vn', '--role=judge'] },
+  { file: 'seed-user.js', args: ['--role=teacher'] },
+  { file: 'seed-user.js', args: ['--role=mentor'] },
+  { file: 'seed-user.js', args: ['--role=judge'] },
 ];
 
 if (target === 'e2e') {

@@ -1,10 +1,12 @@
 const evaluationService = require('../services/evaluationService');
 
 /**
- * Controller cho vòng chấm điểm Rubric (trạng thái EVALUATED).
+ * @deprecated Legacy project-centric evaluation controller (EvaluationSubmission).
+ * Adapter endpoints for backward compatibility only.
+ * Unified pipeline: /api/v1/admin/evaluations/* and /api/v1/evaluator/* (HumanEvaluation).
  */
 
-/** POST /api/v1/projects/:projectId/judges - Gán giám khảo vào tiểu ban (Admin) */
+/** @deprecated Use POST /api/v1/admin/evaluations/assign */
 const handleAssignJudge = async (req, res, next) => {
   try {
     const { projectId } = req.params;

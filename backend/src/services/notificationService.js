@@ -1,3 +1,5 @@
+const { randomUUID } = require('node:crypto');
+const { normalizeNotification, recipientFilter, unreadFilter } = require('../utils/notificationCompatibility');
 const Notification = require('../models/Notification');
 const ProjectMember = require('../models/ProjectMember');
 const User = require('../models/User');
@@ -56,23 +58,10 @@ const createForRecipients = async ({
     uniqueRecipients.map(async (recipientId) => {
       const eventKey = `${eventName}:${getId(eventId)}:${recipientId}`;
       try {
-        await Notification.updateOne(
-          { eventKey },
-          {
-            $setOnInsert: {
-              recipientId,
-              title,
-              message,
-              type,
-              actionUrl,
-              metadata: metadata || {},
-              eventKey,
-            },
-          },
-          { upsert: true, runValidators: true, setDefaultsOnInsert: true },
-        );
+        await createNotification({
+          recipientId, title, message, type, actionUrl, metadata: metadata || {}, eventKey,
+        });
       } catch (error) {
-        if (error?.code === 11000) return;
         console.error(`[Notification] Không tạo được ${eventName} cho ${recipientId}:`, error.message);
       }
     }),
@@ -210,69 +199,87 @@ const notifyProjectCancellationApproved = async ({ project, request }) =>
     });
   });
 
-/** Lấy trang thông báo của user và unread count trên toàn bộ thông báo của user đó. */
-const getNotifications = async ({ userId, status = 'all', page = 1, limit = 20 }) => {
-  const filter = { recipientId: userId };
-  if (status === 'unread') filter.isRead = false;
+/** Tạo qua một đường upsert; retry cùng eventKey không tạo thêm thông báo, kể cả đã đọc. */
+const createNotification = async (payload) => {
+  const normalized = normalizeNotification(payload);
+  const eventKey = payload.eventKey || `manual:${randomUUID()}:${getId(normalized.recipientId)}`;
+  const data = { ...normalized, eventKey };
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { eventKey }, { $setOnInsert: data },
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
+    ).lean();
+    return normalizeNotification(notification);
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const existing = await Notification.findOne({ eventKey }).lean();
+    if (!existing) throw error;
+    return normalizeNotification(existing);
+  }
+};
 
-  const skip = (page - 1) * limit;
+/** Giữ thông báo phân công legacy khi retry sau merge, kể cả bản ghi đó đã đọc. */
+const createJudgeNotification = async (payload, { isResend = false } = {}) => {
+  if (!isResend) {
+    const existing = await Notification.findOne({
+      $and: [
+        recipientFilter(payload.recipientId),
+        { relatedEvaluationId: payload.relatedEvaluationId },
+        { $or: [{ eventKey: payload.eventKey }, { eventKey: null }, { eventKey: /^legacy:/ }] },
+      ],
+    }).lean();
+    if (existing) return normalizeNotification(existing);
+  }
+  return createNotification(payload);
+};
+
+/** Merge: lọc chủ sở hữu theo recipientId, fallback userId chỉ khi trường chuẩn chưa tồn tại. */
+const getNotifications = async ({ userId, status, unreadOnly, page = 1, limit = 20 }) => {
+  const effectiveStatus = status ?? (unreadOnly === true || unreadOnly === 'true' ? 'unread' : 'all');
+  const owner = recipientFilter(userId);
+  const filter = effectiveStatus === 'unread' ? { $and: [owner, unreadFilter()] } : owner;
   const [notifications, totalItems, unreadCount] = await Promise.all([
-    Notification.find(filter)
-      .select('title message type isRead actionUrl metadata createdAt')
-      .sort({ createdAt: -1, _id: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    Notification.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     Notification.countDocuments(filter),
-    Notification.countDocuments({ recipientId: userId, isRead: false }),
+    Notification.countDocuments({ $and: [owner, unreadFilter()] }),
   ]);
-
   return {
-    notifications,
-    unreadCount,
-    pagination: {
-      page,
-      limit,
-      totalItems,
-      totalPages: Math.ceil(totalItems / limit),
-    },
+    notifications: notifications.map(normalizeNotification), unreadCount,
+    pagination: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit) },
   };
 };
 
-/** Đánh dấu đã đọc trong phạm vi user hiện tại; gọi lại trên cùng bản ghi vẫn thành công. */
-const markNotificationRead = async ({ notificationId, userId }) => {
-  const notification = await Notification.findOneAndUpdate(
-    { _id: notificationId, recipientId: userId },
-    { $set: { isRead: true } },
-    { new: true },
-  )
-    .select('_id isRead')
-    .lean();
-
-  if (!notification) throw ApiError.notFound('Không tìm thấy thông báo', 'NOTIFICATION_NOT_FOUND');
-
-  const unreadCount = await Notification.countDocuments({ recipientId: userId, isRead: false });
-  return { notification, unreadCount };
+/** Endpoint mentor cũ vẫn trả toàn bộ danh sách; dùng cùng ownership và serializer với chuông. */
+const getMentorNotifications = async ({ userId }) => {
+  const notifications = await Notification.find(recipientFilter(userId))
+    .sort({ createdAt: -1, _id: -1 }).lean();
+  return notifications.map(normalizeNotification);
 };
 
-/** Đánh dấu đã đọc tất cả thông báo chỉ của user hiện tại. */
+/** Đọc một thông báo không phụ thuộc hook boolean; không cho sửa thông báo của người khác. */
+const markNotificationRead = async ({ notificationId, userId }) => {
+  const notification = await Notification.findOneAndUpdate(
+    { $and: [{ _id: notificationId }, recipientFilter(userId)] },
+    { $set: { isRead: true, read: true } }, { new: true },
+  ).lean();
+  if (!notification) throw ApiError.notFound('Không tìm thấy thông báo', 'NOTIFICATION_NOT_FOUND');
+  const unreadCount = await Notification.countDocuments({ $and: [recipientFilter(userId), unreadFilter()] });
+  return { notification: normalizeNotification(notification), unreadCount };
+};
+
+/** Đồng bộ cả bản ghi đã đọc nhưng còn lệch read/isRead; chỉ thao tác trong phạm vi người nhận. */
 const markAllNotificationsRead = async ({ userId }) => {
   const result = await Notification.updateMany(
-    { recipientId: userId, isRead: false },
-    { $set: { isRead: true } },
+    { $and: [recipientFilter(userId), { $or: [{ isRead: { $ne: true } }, { read: { $ne: true } }] }] },
+    { $set: { isRead: true, read: true } },
   );
-
-  return { modifiedCount: result.modifiedCount, unreadCount: 0 };
+  const unreadCount = await Notification.countDocuments({ $and: [recipientFilter(userId), unreadFilter()] });
+  return { modifiedCount: result.modifiedCount, unreadCount };
 };
 
 module.exports = {
-  notifyInvitationCreated,
-  notifyInvitationResponded,
-  notifyProjectSubmitted,
-  notifyMilestoneCommentAdded,
-  notifyMemberChangeApproved,
-  notifyProjectCancellationApproved,
-  getNotifications,
-  markNotificationRead,
+  notifyInvitationCreated, notifyInvitationResponded, notifyProjectSubmitted,
+  notifyMilestoneCommentAdded, notifyMemberChangeApproved, notifyProjectCancellationApproved,
+  createNotification, createJudgeNotification, getNotifications, getMentorNotifications, markNotificationRead,
   markAllNotificationsRead,
 };

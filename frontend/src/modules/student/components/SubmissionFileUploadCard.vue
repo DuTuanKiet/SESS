@@ -25,9 +25,8 @@
           <p class="text-[11px] text-[#4B5B7A]">{{ modelValue.size }} · {{ modelValue.uploadedAt }}</p>
           <a
             v-if="modelValue.url"
-            :href="modelValue.url"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#"
+            @click.prevent="handleOpenFile(modelValue.url, modelValue.objectKey)"
             class="block text-[11px] text-[#1E56D9] hover:underline truncate"
           >Mở tệp đã được xác nhận</a>
         </div>
@@ -136,5 +135,13 @@ async function handleFileChange(event) {
 function handleRemoveFile() {
   if (props.modelValue?.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(props.modelValue.previewUrl);
   emit('update:modelValue', null);
+}
+
+async function handleOpenFile(fileUrl, objectKey) {
+  try {
+    await cloudUploadService.openProjectFile(fileUrl, objectKey);
+  } catch (error) {
+    toastStore.add({ message: error?.message || 'Không thể mở tệp.', type: 'error' });
+  }
 }
 </script>

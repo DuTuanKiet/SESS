@@ -39,6 +39,10 @@ router.put(
   authController.handleChangePassword,
 );
 // Logout xác thực bằng refresh token nên không cần access token còn hiệu lực
+
+
+// ...
 router.post('/logout', authController.logout);
+router.get('/me', authenticate, authController.getMe);
 
 module.exports = router;
