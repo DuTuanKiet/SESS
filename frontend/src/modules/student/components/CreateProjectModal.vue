@@ -135,6 +135,7 @@
           :showAutoFillHint="true"
           :showNoteForOtherMembers="true"
           :leaderEditable="false"
+          :showAcademicRank="false"
         />
 
         <!-- KHỐI 3: TÓM TẮT Ý TƯỞNG / DỰ ÁN (THEO PHỤ LỤC 1) -->
@@ -147,11 +148,12 @@
 
           <div>
             <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              1. Mục tiêu ý tưởng / Dự án
+              1. Mục tiêu ý tưởng / Dự án <span class="text-rose-500">*</span>
             </label>
             <textarea
               v-model="newProjectForm.objectives"
-              rows="2"
+              rows="3"
+              required
               maxlength="2000"
               placeholder="Nêu rõ mục tiêu cốt lõi mà ý tưởng/dự án mong muốn đạt được (Ví dụ: Giảm chi phí, giải quyết vấn đề ô nhiễm, tối ưu quy trình...)"
               class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
@@ -160,47 +162,17 @@
 
           <div>
             <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">
-              2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng
+              2. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị của ý tưởng <span class="text-rose-500">*</span>
             </label>
             <textarea
               v-model="newProjectForm.abstract"
               rows="3"
+              required
               maxlength="2000"
               placeholder="Mô tả tóm tắt tính năng chính của sản phẩm/dịch vụ và giá trị mang lại cho người dùng..."
               class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
             ></textarea>
           </div>
-        </div>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">3. Vấn đề cần giải quyết</label>
-            <textarea v-model="newProjectForm.problemStatement" rows="3" maxlength="4000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">4. Giải pháp dự kiến</label>
-            <textarea v-model="newProjectForm.solution" rows="3" maxlength="4000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-[#0B1F4B] mb-1">5. Mô hình kinh doanh dự kiến</label>
-            <textarea v-model="newProjectForm.businessModel" rows="3" maxlength="2000" class="w-full px-3.5 py-2 text-xs rounded-xl bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"></textarea>
-          </div>
-        </div>
-
-        <!-- KHỐI 4: LINK TÀI LIỆU THUYẾT MINH ĐẦY ĐỦ THEO BIỂU MẪU (BẮT BUỘC) -->
-        <div class="p-4 sm:p-5 rounded-2xl bg-[#F1F7FF] border border-[#C7D7F5] space-y-2">
-          <label class="block text-xs font-bold text-[#0B1F4B]">
-              Đường dẫn tài liệu thuyết minh <span class="text-slate-400">(có thể bổ sung sau)</span>
-          </label>
-          <p class="text-[11px] text-[#4B5B7A] leading-relaxed">
-            Có thể bổ sung đường dẫn tài liệu sau khi lưu bản nháp.
-          </p>
-          <input
-            v-model="newProjectForm.attachmentUrl"
-            type="url"
-            placeholder="https://docs.google.com/document/d/... hoặc https://drive.google.com/..."
-            class="w-full px-3.5 py-2 text-xs rounded-xl bg-white border border-[#C7D7F5] focus:outline-hidden focus:border-[#1E56D9]"
-          />
         </div>
 
         <!-- Chân modal chứa nút bấm cố định -->
@@ -232,6 +204,7 @@ import { ref, computed, watch } from 'vue';
 import { X, Loader2, Trophy } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import projectService from '@/services/projectService';
+import userService from '@/services/userService';
 import { useToastStore } from '@/stores/toast';
 import ProposalAdvisorLeaderSection from '@/modules/student/components/ProposalAdvisorLeaderSection.vue';
 import { saveProjectCompetitionMeta } from '@/modules/student/utils/studentProjectHelpers';
@@ -298,9 +271,8 @@ const newProjectForm = ref({
   faculty: '',
   competitionId: 1,
   competitionTitle: '',
-  currentRound: 1,
   advisorInfo: {
-    hasAdvisor: false,
+    hasAdvisor: true,
     fullName: '',
     department: '',
     phone: '',
@@ -317,17 +289,26 @@ const newProjectForm = ref({
   },
   objectives: '',
   abstract: '',
-  problemStatement: '',
-  solution: '',
-  businessModel: '',
-  attachmentUrl: '',
 });
 
 /**
- * Khởi tạo dữ liệu mặc định từ thông tin tài khoản của sinh viên
+ * Khởi tạo dữ liệu mặc định từ thông tin tài khoản và hồ sơ UserProfile của sinh viên
  */
-function initializeForm() {
+async function initializeForm() {
   const user = authStore.user || {};
+  let latestPhone = user.phoneNumber || user.phone || '';
+
+  // Lấy thẳng số điện thoại mới nhất từ UserProfile (FR02)
+  try {
+    const profileRes = await userService.getMyProfileDetail();
+    const profile = profileRes?.data?.profile;
+    if (profile?.phone) {
+      latestPhone = profile.phone;
+    }
+  } catch {
+    // Fallback an toàn nếu có sự cố mạng
+  }
+
   if (props.preselectedCompetitionId) {
     selectedCompetitionId.value = props.preselectedCompetitionId;
   } else if (!selectedCompetitionId.value) {
@@ -340,9 +321,8 @@ function initializeForm() {
     faculty: user.faculty || '',
     competitionId: selectedCompetitionId.value,
     competitionTitle: selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-    currentRound: 1,
     advisorInfo: {
-      hasAdvisor: false,
+      hasAdvisor: true,
       fullName: '',
       department: '',
       phone: '',
@@ -354,15 +334,11 @@ function initializeForm() {
       studentId: user.studentId || '',
       className: user.className || '',
       faculty: user.faculty || '',
-      phone: user.phoneNumber || user.phone || '',
+      phone: latestPhone,
       email: user.email || '',
     },
     objectives: '',
     abstract: '',
-    problemStatement: '',
-    solution: '',
-    businessModel: '',
-    attachmentUrl: '',
   };
 }
 
@@ -406,13 +382,79 @@ async function handleCreateProject() {
     return;
   }
 
+  const title = (newProjectForm.value.title || '').trim();
+  const category = (newProjectForm.value.category || '').trim();
+  const objectives = (newProjectForm.value.objectives || '').trim();
+  const abstract = (newProjectForm.value.abstract || '').trim();
+
+  if (!title) {
+    toastStore.add({ message: 'Vui lòng nhập tên sản phẩm / ý tưởng dự án.', type: 'warning' });
+    return;
+  }
+  if (!category) {
+    toastStore.add({ message: 'Vui lòng chọn lĩnh vực dự thi.', type: 'warning' });
+    return;
+  }
+  if (!objectives) {
+    toastStore.add({ message: 'Vui lòng nhập mục tiêu ý tưởng / dự án.', type: 'warning' });
+    return;
+  }
+  if (!abstract) {
+    toastStore.add({ message: 'Vui lòng nhập mô tả ngắn gọn sản phẩm / dịch vụ.', type: 'warning' });
+    return;
+  }
+
+  const advisor = newProjectForm.value.advisorInfo || {};
+  const advisorName = (advisor.fullName || '').trim();
+  const advisorDepartment = (advisor.department || '').trim();
+  const advisorEmail = (advisor.email || '').trim();
+
+  if (!advisorName) {
+    toastStore.add({ message: 'Vui lòng nhập họ và tên của giảng viên hướng dẫn.', type: 'warning' });
+    return;
+  }
+  if (!advisorDepartment) {
+    toastStore.add({ message: 'Vui lòng nhập đơn vị công tác của giảng viên hướng dẫn.', type: 'warning' });
+    return;
+  }
+  if (!advisorEmail) {
+    toastStore.add({ message: 'Vui lòng nhập email của giảng viên hướng dẫn.', type: 'warning' });
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(advisorEmail)) {
+    toastStore.add({ message: 'Email giảng viên hướng dẫn không đúng định dạng.', type: 'warning' });
+    return;
+  }
+
   isSubmitting.value = true;
   try {
-    newProjectForm.value.competitionId = selectedCompetitionId.value;
-    newProjectForm.value.competitionTitle = selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026';
-    newProjectForm.value.currentRound = 1;
+    const payload = {
+      title,
+      category,
+      faculty: (newProjectForm.value.faculty || '').trim(),
+      competitionId: selectedCompetitionId.value,
+      competitionTitle: selectedCompetition.value?.title || 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
+      objectives,
+      abstract,
+      advisorInfo: {
+        hasAdvisor: true,
+        fullName: advisorName,
+        department: advisorDepartment,
+        phone: (advisor.phone || '').trim(),
+        email: advisorEmail.toLowerCase(),
+        academicRank: (advisor.academicRank || '').trim(),
+      },
+      leaderInfo: {
+        fullName: (newProjectForm.value.leaderInfo?.fullName || '').trim(),
+        studentId: (newProjectForm.value.leaderInfo?.studentId || '').trim(),
+        className: (newProjectForm.value.leaderInfo?.className || '').trim(),
+        faculty: (newProjectForm.value.leaderInfo?.faculty || '').trim(),
+        phone: (newProjectForm.value.leaderInfo?.phone || '').trim(),
+        email: (newProjectForm.value.leaderInfo?.email || '').trim(),
+      },
+    };
 
-    const res = await projectService.createProject(newProjectForm.value);
+    const res = await projectService.createProject(payload);
     if (res?.success) {
       const created = res.data?.project;
       if (created?._id) {
@@ -434,7 +476,15 @@ async function handleCreateProject() {
       emit('created', created);
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Không thể tạo đề tài', type: 'error' });
+    const resData = error.response?.data;
+    if (resData?.errors?.length) {
+      const errorMsg = resData.errors.map((e) => e.message).join(' | ');
+      toastStore.add({ message: errorMsg, type: 'error' });
+    } else if (resData?.message) {
+      toastStore.add({ message: resData.message, type: 'error' });
+    } else {
+      toastStore.add({ message: error.message || 'Không thể tạo đề tài', type: 'error' });
+    }
   } finally {
     isSubmitting.value = false;
   }

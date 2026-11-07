@@ -4,7 +4,7 @@ const projectMemberService = require('./projectMemberService');
 const { PROJECT_MEMBER_ROLES } = require('../utils/constants');
 const ApiError = require('../utils/apiError');
 
-const SUBMISSION_CATEGORIES = ['pitchDeck', 'demoVideo', 'sourceCode', 'businessModel'];
+const SUBMISSION_CATEGORIES = ['reportFile', 'pitchDeck', 'poster', 'demoVideo', 'sourceCode', 'businessModel'];
 
 const isRoundOpen = (round, now = new Date()) => {
   if (String(round.status || '').toUpperCase() !== 'OPEN') return false;
@@ -31,10 +31,21 @@ const toRoundResponse = (round, now = new Date()) => ({
       fileSize: item.fileSize ?? null,
       mimeType: item.mimeType || '',
       objectKey: item.objectKey || '',
-      updatedBy: item.updatedBy || null,
+      updatedBy: item.updatedBy || item.uploadedBy || null,
+      uploadedBy: item.uploadedBy || item.updatedBy || null,
       updatedAt: item.updatedAt || null,
     } : null];
   })),
+  productImages: Array.isArray(round.items?.productImages)
+    ? round.items.productImages.map((img) => ({
+        url: img.url,
+        fileName: img.fileName || '',
+        fileSize: img.fileSize ?? null,
+        mimeType: img.mimeType || '',
+        objectKey: img.objectKey || '',
+        previewUrl: img.url,
+      }))
+    : [],
   receipt: round.receipt?.hash ? {
     hash: round.receipt.hash,
     submittedAt: round.receipt.submittedAt,
@@ -46,12 +57,32 @@ const toRoundResponse = (round, now = new Date()) => ({
 
 async function loadProjectForMember(projectId, userId) {
   const { membership } = await projectMemberService.assertProjectMember(projectId, userId);
-  const project = await Project.findById(projectId)
-    .populate('submissionRounds.items.pitchDeck.updatedBy', 'fullName email profile.fullName')
-    .populate('submissionRounds.items.demoVideo.updatedBy', 'fullName email profile.fullName')
-    .populate('submissionRounds.items.sourceCode.updatedBy', 'fullName email profile.fullName')
-    .populate('submissionRounds.items.businessModel.updatedBy', 'fullName email profile.fullName');
+  const project = await Project.findById(projectId);
   if (!project) throw ApiError.notFound('Không tìm thấy dự án.', 'PROJECT_NOT_FOUND');
+
+  // Khởi tạo vòng nộp mặc định nếu dự án chưa có vòng nào
+  if (!project.submissionRounds || project.submissionRounds.length === 0) {
+    const roundNumber = project.currentRound || 1;
+    project.submissionRounds.push({
+      roundId: `round-${roundNumber}`,
+      roundNumber,
+      title: `Vòng ${roundNumber} - Vòng sơ loại`,
+      status: 'OPEN',
+      opensAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      closesAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    await project.save();
+  }
+
+  try {
+    await project.populate(SUBMISSION_CATEGORIES.map((category) => ({
+      path: `submissionRounds.items.${category}.updatedBy`,
+      select: 'fullName email profile.fullName',
+    })));
+  } catch {
+    // Không để lỗi populate làm hỏng luồng tải dự án
+  }
+
   return { project, membership };
 }
 
@@ -61,13 +92,14 @@ async function getProjectSubmissions({ projectId, userId }) {
   const rounds = project.submissionRounds.map((round) => toRoundResponse(round, now));
   const openRound = rounds.find((round) => round.isOpen) || null;
   const currentRoundView = openRound || rounds[rounds.length - 1] || null;
-  const canEdit = membership.role === PROJECT_MEMBER_ROLES.OWNER && Boolean(openRound);
+  const canEdit = (membership.role === PROJECT_MEMBER_ROLES.OWNER || !membership.role) && Boolean(openRound);
 
   return {
     rounds,
     currentRound: project.currentRound,
     openRound,
     items: currentRoundView?.items || Object.fromEntries(SUBMISSION_CATEGORIES.map((key) => [key, null])),
+    productImages: currentRoundView?.productImages || [],
     receipt: currentRoundView?.receipt || null,
     canEdit,
     hasOpenRound: Boolean(openRound),
@@ -76,7 +108,7 @@ async function getProjectSubmissions({ projectId, userId }) {
 
 async function updateProjectSubmissions({ projectId, userId, roundId, items }) {
   const { project, membership } = await loadProjectForMember(projectId, userId);
-  if (membership.role !== PROJECT_MEMBER_ROLES.OWNER) {
+  if (membership.role && membership.role !== PROJECT_MEMBER_ROLES.OWNER) {
     throw ApiError.forbidden('Chỉ Owner của dự án mới được cập nhật hồ sơ dự thi.', 'NOT_PROJECT_OWNER');
   }
 
@@ -98,6 +130,7 @@ async function updateProjectSubmissions({ projectId, userId, roundId, items }) {
         fileSize: null,
         mimeType: '',
         objectKey: '',
+        uploadedBy: null,
         updatedBy: null,
         updatedAt: null,
       };
@@ -115,11 +148,27 @@ async function updateProjectSubmissions({ projectId, userId, roundId, items }) {
       fileSize: submittedItem.fileSize ?? null,
       mimeType: submittedItem.mimeType || '',
       objectKey: submittedItem.objectKey || '',
+      uploadedBy: userId,
       updatedBy: userId,
       updatedAt: now,
     };
     round.items[category] = normalized;
     changedItems[category] = normalized;
+  }
+
+  // Hỗ trợ productImages dạng mảng
+  if (Array.isArray(items.productImages)) {
+    round.items.productImages = items.productImages.map((img) => ({
+      url: img.url || img.previewUrl || '',
+      fileName: img.fileName || img.name || '',
+      fileSize: img.fileSize ?? img.sizeBytes ?? null,
+      mimeType: img.mimeType || '',
+      objectKey: img.objectKey || '',
+      uploadedBy: userId,
+      updatedBy: userId,
+      updatedAt: now,
+    }));
+    changedItems.productImages = round.items.productImages;
   }
 
   const hash = crypto.createHash('sha256')
@@ -128,10 +177,15 @@ async function updateProjectSubmissions({ projectId, userId, roundId, items }) {
   round.receipt = { hash, submittedAt: now, submittedBy: userId };
   round.submittedAt = now;
   await project.save();
-  await project.populate(SUBMISSION_CATEGORIES.map((category) => ({
-    path: `submissionRounds.items.${category}.updatedBy`,
-    select: 'fullName email profile.fullName',
-  })));
+
+  try {
+    await project.populate(SUBMISSION_CATEGORIES.map((category) => ({
+      path: `submissionRounds.items.${category}.updatedBy`,
+      select: 'fullName email profile.fullName',
+    })));
+  } catch {
+    // Không để lỗi populate làm sập phản hồi lưu hồ sơ
+  }
 
   const updatedRound = project.submissionRounds.find((item) => getRoundId(item) === roundId);
   return {

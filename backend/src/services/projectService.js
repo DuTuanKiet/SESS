@@ -6,6 +6,7 @@ const ProjectMilestone = require('../models/ProjectMilestone');
 const ProjectCancellationRequest = require('../models/ProjectCancellationRequest');
 const ProjectMemberChangeRequest = require('../models/ProjectMemberChangeRequest');
 const User = require('../models/User');
+const UserProfile = require('../models/UserProfile');
 const whitelistService = require('./whitelistService');
 const MentorAssignment = require('../models/MentorAssignment');
 const auditService = require('./auditService');
@@ -413,15 +414,19 @@ const MAX_CODE_RETRY = 3;
 const assertAdvisorInfo = (value) => {
   if (value === undefined) return undefined;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw ApiError.badRequest('"advisorInfo" phải là đối tượng', 'INVALID_FIELD');
+    throw ApiError.badRequest('Thông tin giảng viên hướng dẫn là bắt buộc', 'INVALID_FIELD');
   }
 
+  const fullName = assertRequired(value.fullName, 'advisorInfo.fullName', 200);
+  const department = assertRequired(value.department ?? value.unit, 'advisorInfo.department', 200);
+  const email = assertRequired(value.email, 'advisorInfo.email', 254).toLowerCase();
+
   return {
-    hasAdvisor: value.hasAdvisor === true,
-    fullName: assertOptionalString(value.fullName, 'advisorInfo.fullName', 200) ?? '',
-    email: assertOptionalString(value.email, 'advisorInfo.email', 254)?.toLowerCase() ?? '',
+    hasAdvisor: true,
+    fullName,
+    email,
     phone: assertOptionalString(value.phone, 'advisorInfo.phone', 30) ?? '',
-    department: assertOptionalString(value.department ?? value.unit, 'advisorInfo.department', 200) ?? '',
+    department,
     academicRank: assertOptionalString(value.academicRank, 'advisorInfo.academicRank', 100) ?? '',
   };
 };
@@ -516,14 +521,16 @@ const createProject = async ({ owner, payload = {}, req } = {}) => {
 
   const writableData = buildProjectData(payload);
   const whitelistStudent = await whitelistService.findStudentByEmail(owner.email);
+  const userProfile = await UserProfile.findOne({ userId: owner._id }).lean();
   const faculty = String(whitelistStudent?.faculty ?? owner.faculty ?? '').trim();
+  const leaderPhone = userProfile?.phone || owner.phoneNumber || whitelistStudent?.phone || '';
   const leaderInfo = {
     fullName: whitelistStudent?.fullName || owner.fullName || '',
     studentId: whitelistStudent?.studentId || owner.studentId || '',
     className: whitelistStudent?.className || owner.className || '',
     faculty,
     email: whitelistStudent?.email || owner.email || '',
-    phone: whitelistStudent?.phone || owner.phoneNumber || '',
+    phone: leaderPhone,
   };
 
   let project;
@@ -613,13 +620,13 @@ const updateProject = async ({ projectId, userId, payload = {} }) => {
  * cho phiên bản hiện tại, chuyển trạng thái SUBMITTED và tăng version lên 1.
  */
 const submitProject = async ({ projectId, actor, req } = {}) => {
-  const submitted = await runTransaction(async (session) => {
+  const executeSubmit = async (session) => {
     const { project } = await projectMemberService.assertProjectMember(projectId, actor.id, { session });
     projectMemberService.assertProjectEditable(project);
 
     const missingFields = REQUIRED_SUBMIT_FIELDS.filter((field) => !isNonEmptyString(project[field]));
-    if (!isNonEmptyString(project.objectives) && !isNonEmptyString(project.solution)) {
-      missingFields.push('objectives or solution');
+    if (!isNonEmptyString(project.objectives)) {
+      missingFields.push('objectives');
     }
     if (missingFields.length) {
       throw ApiError.badRequest(
@@ -643,24 +650,28 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
       snapshotData,
     });
 
-    const [revision] = await ProjectRevision.create(
-      [{
-        projectId: project._id,
-        versionNumber: project.version,
-        snapshotData,
-        submittedAt,
-        submittedBy: actor.id,
-        digitalReceipt: receipt,
-      }],
-      { session },
-    );
+    const revisionDoc = {
+      projectId: project._id,
+      versionNumber: project.version,
+      snapshotData,
+      submittedAt,
+      submittedBy: actor.id,
+      digitalReceipt: receipt,
+    };
+    const [revision] = session
+      ? await ProjectRevision.create([revisionDoc], { session })
+      : await ProjectRevision.create([revisionDoc]);
 
     project.status = PROJECT_STATUS.SUBMITTED;
     project.version += 1;
     project.lastSubmittedAt = revision.submittedAt;
     project.digitalReceiptHash = receipt.hash;
     project.digitalReceiptTimestamp = receipt.timestamp;
-    await project.save({ session });
+    if (session) {
+      await project.save({ session });
+    } else {
+      await project.save();
+    }
 
     await logAuditAction({
       actor,
@@ -676,11 +687,20 @@ const submitProject = async ({ projectId, actor, req } = {}) => {
         digitalReceiptTimestamp: receipt.timestamp,
       },
       req,
-      session,
+      session: session || undefined,
     });
 
     return { project, revision, receipt };
-  });
+  };
+
+  let submitted;
+  try {
+    submitted = await runTransaction(async (session) => executeSubmit(session));
+  } catch (error) {
+    if (!isTransactionUnsupportedError(error)) throw error;
+    console.warn('[Project] MongoDB standalone không hỗ trợ transaction -> nộp bài không dùng transaction.');
+    submitted = await executeSubmit(null);
+  }
 
   const { project, revision, receipt } = submitted;
   await notificationService.notifyProjectSubmitted({ project, revision });

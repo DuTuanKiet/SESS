@@ -123,7 +123,7 @@
                     <td class="py-2.5 px-3 font-semibold text-[#0B1F4B]">{{ m.fullName }}</td>
                     <td class="py-2.5 px-3 font-mono font-medium text-[#0B1F4B]">{{ m.studentId || '--' }}</td>
                     <td class="py-2.5 px-3">{{ m.className || '--' }}</td>
-                    <td class="py-2.5 px-3">{{ m.phone || '--' }}</td>
+                    <td class="py-2.5 px-3 font-mono">{{ m.phone || m.phoneNumber || '--' }}</td>
                     <td class="py-2.5 px-3 text-right">
                       <span
                         class="px-2 py-0.5 rounded-full text-[10px] font-bold"
@@ -420,11 +420,17 @@ async function handleSaveProposal() {
       isEditingProposal.value = false;
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi lưu thay đổi', type: 'error' });
+    const resData = error.response?.data;
+    if (resData?.errors?.length) {
+      const errorMsg = resData.errors.map((e) => e.message).join(' | ');
+      toastStore.add({ message: errorMsg, type: 'error' });
+    } else if (resData?.message) {
+      toastStore.add({ message: resData.message, type: 'error' });
+    } else {
+      toastStore.add({ message: error.message || 'Lỗi lưu thay đổi', type: 'error' });
+    }
   } finally {
-    setTimeout(() => {
-      isSubmitting.value = false;
-    }, 600);
+    isSubmitting.value = false;
   }
 }
 </script>

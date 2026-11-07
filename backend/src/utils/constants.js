@@ -245,7 +245,7 @@ const LATE_SUBMISSION_DAYS = 3;
 const COMMENT_DEADLINE_DAYS = 5;
 
 /** Cloud Upload - Enterprise Edition */
-const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.mp4', '.png', '.jpg', '.jpeg']);
+const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.doc', '.mp4', '.png', '.jpg', '.jpeg']);
 const MAX_FILE_SIZE_VIDEO = 500 * 1024 * 1024; // 500MB
 const MAX_FILE_SIZE_POSTER = 10 * 1024 * 1024; // 10MB
 const MAX_FILE_SIZE_DOCUMENT = 50 * 1024 * 1024; // 50MB

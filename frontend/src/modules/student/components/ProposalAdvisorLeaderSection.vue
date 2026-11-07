@@ -9,26 +9,22 @@
       </p>
     </div>
 
-    <!-- 1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN -->
+    <!-- 1. THÔNG TIN GIẢNG VIÊN HƯỚNG DẪN -->
     <div class="bg-white p-4 sm:p-4.5 rounded-xl border border-[#E4ECF7] space-y-3">
       <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-[#0B1F4B]">1. THÔNG TIN GIẢNG VIÊN HỖ TRỢ, HƯỚNG DẪN</span>
+        <span class="text-xs font-bold text-[#0B1F4B]">1. THÔNG TIN GIẢNG VIÊN HƯỚNG DẪN</span>
       </div>
 
       <!-- Chế độ sửa -->
       <div v-if="isEditing" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-        <label class="sm:col-span-2 inline-flex items-center gap-2 font-semibold text-[#0B1F4B]">
-          <input v-model="advisorInfo.hasAdvisor" type="checkbox" class="accent-[#1E56D9]" />
-          Có giảng viên hỗ trợ / hướng dẫn
-        </label>
-        <template v-if="advisorInfo.hasAdvisor">
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.1. Họ và tên giảng viên
+            1.1. Họ và tên giảng viên <span class="text-rose-500">*</span>
           </label>
           <input
             v-model="advisorInfo.fullName"
             type="text"
+            required
             placeholder="TS. Nguyễn Văn Hướng"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -36,11 +32,12 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.2. Đơn vị công tác
+            1.2. Đơn vị công tác <span class="text-rose-500">*</span>
           </label>
           <input
             v-model="advisorInfo.department"
             type="text"
+            required
             placeholder="Khoa Công nghệ Thông tin - CTUT"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
@@ -60,16 +57,17 @@
 
         <div>
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">
-            1.4. Email trường
+            1.4. Email liên hệ <span class="text-rose-500">*</span>
           </label>
           <input
             v-model="advisorInfo.email"
             type="email"
+            required
             placeholder="giangvien@ctuet.edu.vn"
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
         </div>
-        <div>
+        <div v-if="showAcademicRank">
           <label class="block text-[11px] font-semibold text-[#4B5B7A] mb-1">Học hàm / học vị</label>
           <input
             v-model="advisorInfo.academicRank"
@@ -79,17 +77,13 @@
             class="w-full px-3 py-1.5 text-xs rounded-lg bg-[#F8FBFF] border border-[#E4ECF7] focus:bg-white focus:outline-hidden focus:border-[#1E56D9]"
           />
         </div>
-        </template>
-        <p v-else class="sm:col-span-2 text-[11px] text-[#4B5B7A] italic">
-          Chưa đăng ký giảng viên hỗ trợ hoặc hướng dẫn.
-        </p>
       </div>
 
       <!-- Chế độ xem -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.1. Họ và tên:</span>
-          <span class="font-bold text-[#0B1F4B]">{{ advisorInfo?.hasAdvisor ? (advisorInfo?.fullName || 'Chưa cập nhật') : 'Chưa đăng ký' }}</span>
+          <span class="font-bold text-[#0B1F4B]">{{ advisorInfo?.fullName || 'Chưa cập nhật' }}</span>
         </div>
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">1.2. Đơn vị:</span>
@@ -100,10 +94,10 @@
           <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo?.phone || 'Chưa cập nhật' }}</span>
         </div>
         <div class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
-          <span class="text-[#4B5B7A] text-[11px] block">1.4. Email:</span>
+          <span class="text-[#4B5B7A] text-[11px] block">1.4. Email liên hệ:</span>
           <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo?.email || 'Chưa cập nhật' }}</span>
         </div>
-        <div v-if="advisorInfo?.academicRank" class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
+        <div v-if="showAcademicRank && advisorInfo?.academicRank" class="p-2.5 bg-[#F8FBFF] rounded-lg border border-[#E4ECF7]">
           <span class="text-[#4B5B7A] text-[11px] block">Học hàm / học vị:</span>
           <span class="font-semibold text-[#0B1F4B]">{{ advisorInfo.academicRank }}</span>
         </div>
@@ -267,6 +261,10 @@ defineProps({
   showNoteForOtherMembers: {
     type: Boolean,
     default: true,
+  },
+  showAcademicRank: {
+    type: Boolean,
+    default: false,
   },
 });
 </script>

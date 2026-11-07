@@ -20,6 +20,7 @@ const EXT_TO_FILE_TYPE = {
   '.mp4': 'video',
   '.pdf': 'document',
   '.docx': 'document',
+  '.doc': 'document',
   '.png': 'poster',
   '.jpg': 'poster',
   '.jpeg': 'poster',
@@ -189,11 +190,17 @@ const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
     }
   }
 
+  const publicDomain = STORAGE_PUBLIC_DOMAIN || (STORAGE_PROVIDER === 'dev' ? 'http://localhost:5000' : STORAGE_ENDPOINT);
+  const publicUrl = STORAGE_PROVIDER === 'dev'
+    ? `${publicDomain}/api/v1/cloud-upload/dev-mock/${objectKey}`
+    : `${publicDomain}/${STORAGE_BUCKET}/${objectKey}`;
+
   return {
     objectKey,
     fileType,
     fileSize,
     checksum,
+    publicUrl,
     status: 'completed',
     confirmedAt: new Date(),
   };

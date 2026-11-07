@@ -77,6 +77,9 @@
           <span>Gửi lời mời</span>
         </button>
       </div>
+      <p class="text-[11px] text-[#4B5B7A] flex items-center gap-1.5 pt-0.5">
+        <span>💡 Lưu ý: Bạn học cần có email trường và đã đăng nhập kích hoạt tài khoản SESS để có thể nhận lời mời.</span>
+      </p>
     </div>
 
     <div class="bg-white rounded-2xl border border-[#E4ECF7] p-6 shadow-sm space-y-4">
@@ -253,27 +256,60 @@ const isCancellingLeave = ref(false);
 const acceptedMembers = computed(() => props.members.filter((m) => m.status === 'ACCEPTED'));
 const pendingInvites = computed(() => props.members.filter((m) => m.status === 'INVITED'));
 
+/**
+ * Ánh xạ thông báo lỗi an toàn cho chức năng mời thành viên.
+ * Bảo vệ thông tin tài khoản, phòng chống tấn công dò quét email (Account Enumeration Defense).
+ */
+function getSafeInviteErrorMessage(error) {
+  const resData = error.response?.data;
+  const code = resData?.code;
+
+  if (code === 'CANNOT_INVITE_SELF') {
+    return 'Bạn đã là Trưởng nhóm của đề tài này.';
+  }
+  if (code === 'PROJECT_LOCKED') {
+    return 'Đề tài hiện đang trong giai đoạn xét duyệt hoặc đã hoàn thành, không thể thêm thành viên.';
+  }
+  if (code === 'MEMBER_ALREADY_JOINED') {
+    return 'Thành viên này hiện đã tham gia vào đề tài.';
+  }
+  if (code === 'INVITATION_ALREADY_SENT') {
+    return 'Đã có lời mời đang chờ sinh viên này xác nhận.';
+  }
+
+  // Đối với các lỗi tài khoản (chưa có trong whitelist, chưa kích hoạt, hoặc sai vai trò):
+  // Trả về thông báo an toàn, trung lập để bảo mật nhưng vẫn có tính định hướng cho sinh viên:
+  return 'Không thể gửi lời mời. Vui lòng kiểm tra lại địa chỉ email hoặc đảm bảo bạn học đã kích hoạt tài khoản sinh viên trên hệ thống SESS.';
+}
+
 // Quản lý thành viên: Mời bạn học cùng trường
 async function handleInviteMember() {
-  const targetEmail = (inviteEmailInput.value || '').trim();
+  const targetEmail = (inviteEmailInput.value || '').trim().toLowerCase();
   if (!targetEmail || isSubmitting.value) return;
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+    toastStore.add({ message: 'Địa chỉ email không đúng định dạng.', type: 'warning' });
+    return;
+  }
+
   isSubmitting.value = true;
   try {
     const res = await projectService.inviteMember(props.projectId, targetEmail);
     if (res?.success) {
       inviteEmailInput.value = '';
       toastStore.add({
-        message: res.message || `Mời thành viên ${targetEmail} thành công! Lời mời đã được gửi.`,
+        message: `Lời mời tham gia đề tài đã được gửi thành công tới ${targetEmail}.`,
         type: 'success',
       });
       emit('refresh-members');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi gửi lời mời', type: 'error' });
+    const safeMsg = getSafeInviteErrorMessage(error);
+    toastStore.add({ message: safeMsg, type: 'error', duration: 5000 });
   } finally {
     setTimeout(() => {
       isSubmitting.value = false;
-    }, 800);
+    }, 500);
   }
 }
 
@@ -288,7 +324,8 @@ async function handleRemoveMember(userId) {
       emit('refresh-members');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi xóa thành viên', type: 'error' });
+    const resData = error.response?.data;
+    toastStore.add({ message: resData?.message || error.message || 'Lỗi xóa thành viên', type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
@@ -319,7 +356,8 @@ async function handleConfirmTransferOwnership() {
       emit('refresh-all');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi bàn giao quyền', type: 'error' });
+    const resData = error.response?.data;
+    toastStore.add({ message: resData?.message || error.message || 'Lỗi bàn giao quyền', type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
@@ -337,7 +375,8 @@ async function handleCancelInvitation(identifier) {
       emit('refresh-members');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi thu hồi lời mời', type: 'error' });
+    const resData = error.response?.data;
+    toastStore.add({ message: resData?.message || error.message || 'Lỗi thu hồi lời mời', type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
@@ -364,7 +403,8 @@ async function handleSubmitLeaveRequest(reason) {
       emit('refresh-all');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi gửi đơn xin rời nhóm', type: 'error' });
+    const resData = error.response?.data;
+    toastStore.add({ message: resData?.message || error.message || 'Lỗi gửi đơn xin rời nhóm', type: 'error' });
   } finally {
     isSubmitting.value = false;
   }
@@ -386,7 +426,8 @@ async function handleCancelLeaveRequest() {
       emit('refresh-all');
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi hủy đơn xin rời nhóm', type: 'error' });
+    const resData = error.response?.data;
+    toastStore.add({ message: resData?.message || error.message || 'Lỗi hủy đơn xin rời nhóm', type: 'error' });
   } finally {
     isCancellingLeave.value = false;
     isSubmitting.value = false;

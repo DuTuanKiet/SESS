@@ -370,11 +370,10 @@ async function handleConfirmFinalSubmit() {
       await fetchRevisions();
     }
   } catch (error) {
-    toastStore.add({ message: error.message || 'Lỗi nộp bài', type: 'error' });
+    const errorMsg = error.response?.data?.message || error.message || 'Lỗi nộp bài';
+    toastStore.add({ message: errorMsg, type: 'error' });
   } finally {
-    setTimeout(() => {
-      isSubmitting.value = false;
-    }, 1200);
+    isSubmitting.value = false;
   }
 }
 

@@ -14,7 +14,7 @@ const milestoneSchema = new mongoose.Schema(
 
 const advisorInfoSchema = new mongoose.Schema(
   {
-    hasAdvisor: { type: Boolean, default: false },
+    hasAdvisor: { type: Boolean, default: true },
     fullName: { type: String, trim: true, default: '', maxlength: 200 },
     email: { type: String, lowercase: true, trim: true, default: '', maxlength: 254 },
     phone: { type: String, trim: true, default: '', maxlength: 30 },
@@ -44,6 +44,7 @@ const submissionItemSchema = new mongoose.Schema(
     mimeType: { type: String, trim: true, default: '', maxlength: 150 },
     objectKey: { type: String, trim: true, default: '', maxlength: 1024 },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     updatedAt: { type: Date, default: null },
   },
   { _id: false },
@@ -69,8 +70,11 @@ const submissionRoundSchema = new mongoose.Schema(
     submittedAt: { type: Date, default: null },
     feedback: { type: String, trim: true, default: '', maxlength: 4000 },
     items: {
+      reportFile: { type: submissionItemSchema, default: () => ({}) },
       pitchDeck: { type: submissionItemSchema, default: () => ({}) },
+      poster: { type: submissionItemSchema, default: () => ({}) },
       demoVideo: { type: submissionItemSchema, default: () => ({}) },
+      productImages: { type: [submissionItemSchema], default: [] },
       sourceCode: { type: submissionItemSchema, default: () => ({}) },
       businessModel: { type: submissionItemSchema, default: () => ({}) },
     },

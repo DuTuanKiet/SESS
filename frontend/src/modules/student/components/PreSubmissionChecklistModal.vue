@@ -108,13 +108,17 @@ const preSubmissionChecklist = computed(() => ({
       props.project.category?.trim()
     ),
   },
-  objectiveOrSolution: {
-    label: '2. Có mục tiêu hoặc giải pháp dự kiến',
-    passed: Boolean(props.project.objectives?.trim() || props.project.solution?.trim()),
+  objectives: {
+    label: '2. Mục tiêu ý tưởng / dự án',
+    passed: Boolean(props.project.objectives?.trim()),
   },
   abstract: {
     label: '3. Mô tả ngắn gọn sản phẩm/dịch vụ và giá trị',
     passed: Boolean(props.project.abstract?.trim()),
+  },
+  advisorInfo: {
+    label: '4. Thông tin Giảng viên hướng dẫn',
+    passed: Boolean(props.project.advisorInfo?.fullName?.trim()),
   },
 }));
 

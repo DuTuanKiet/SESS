@@ -19,14 +19,17 @@ const submissionItemSchema = z.object({
 const updateProjectSubmissionsBodySchema = z.object({
   roundId: z.string().trim().min(1).max(100),
   items: z.object({
+    reportFile: submissionItemSchema.optional(),
     pitchDeck: submissionItemSchema.optional(),
+    poster: submissionItemSchema.optional(),
     demoVideo: submissionItemSchema.optional(),
+    productImages: z.array(submissionItemSchema).optional(),
     sourceCode: submissionItemSchema.optional(),
     businessModel: submissionItemSchema.optional(),
-  }).strict().refine((items) => Object.keys(items).length > 0, {
+  }).passthrough().refine((items) => Object.keys(items).length > 0, {
     message: 'Cần cập nhật ít nhất một hạng mục.',
   }),
-}).strict();
+}).passthrough();
 
 module.exports = {
   projectSubmissionParamsSchema,

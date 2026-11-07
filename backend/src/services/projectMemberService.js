@@ -436,13 +436,14 @@ const getProjectMembers = async ({ projectId, userId }) => {
   if (!memberships.length) return { members: [] };
 
   const users = await User.find({ _id: { $in: memberships.map((membership) => membership.userId) } })
-    .select('fullName email studentId className faculty')
+    .select('fullName email studentId className faculty phoneNumber')
     .lean();
   const userById = new Map(users.map((user) => [String(user._id), user]));
 
   return {
     members: memberships.map((membership) => {
       const user = userById.get(String(membership.userId)) ?? {};
+      const phone = user.phoneNumber || '';
       return {
         userId: String(membership.userId),
         fullName: user.fullName || user.email || membership.email || '',
@@ -450,6 +451,8 @@ const getProjectMembers = async ({ projectId, userId }) => {
         studentId: user.studentId || '',
         className: user.className || '',
         faculty: user.faculty || '',
+        phone,
+        phoneNumber: phone,
         role: membership.role,
         status: membership.status,
         joinedAt: membership.joinedAt,
