@@ -133,6 +133,13 @@ const routes = [
     meta: { roles: ['admin', 'ADMIN'], requiresAuth: true },
     children: [
       { path: '', name: 'admin-dashboard', component: () => import('@/modules/administration/pages/AdminDashboardPage.vue') },
+      { path: 'competitions', name: 'admin-competitions', component: () => import('@/modules/administration/pages/AdminCompetitionsStagesPage.vue') },
+      { path: 'rubrics', name: 'admin-rubrics', component: () => import('@/modules/administration/pages/AdminRubricsPage.vue') },
+      { path: 'judge-assignments', name: 'admin-judge-assignments', component: () => import('@/modules/administration/pages/AdminJudgeAssignmentsPage.vue') },
+      { path: 'projects', name: 'admin-projects', component: () => import('@/modules/administration/pages/AdminProjectsManagementPage.vue') },
+      { path: 'users', name: 'admin-users', component: () => import('@/modules/administration/pages/AdminUsersPage.vue') },
+      { path: 'audit-logs', name: 'admin-audit-logs', component: () => import('@/modules/administration/pages/AdminAuditLogsPage.vue') },
+      { path: 'reports', name: 'admin-reports', component: () => import('@/modules/administration/pages/AdminAuditLogsPage.vue') },
     ],
   },
 ];
@@ -236,12 +243,18 @@ router.beforeEach((to, from) => {
     return { path: ROUTE_PATHS.LOGIN, query: { redirect: to.fullPath } };
   }
 
-  // Role mismatch -> redirect to appropriate dashboard/home
-  if (isAuthenticated && to.meta && to.meta.roles) {
-    const allowedRoles = to.meta.roles.map((r) => String(r).toLowerCase());
-    if (!userRole || !allowedRoles.includes(userRole)) {
-      const targetPath = roleToPath[userRole] || ROUTE_PATHS.HOME;
-      return targetPath;
+  // Role mismatch / cross-workspace URL access -> redirect to the user's own workspace (BR03)
+  const workspacePrefixes = ['/admin', '/judge', '/student', '/advisor'];
+  if (isAuthenticated && userRole) {
+    const ownPath = roleToPath[userRole] || ROUTE_PATHS.HOME;
+    const ownPrefix = workspacePrefixes.find((p) => ownPath.startsWith(p));
+    const targetWorkspace = workspacePrefixes.find((p) => to.path === p || to.path.startsWith(p + '/'));
+    if (targetWorkspace && ownPrefix && targetWorkspace !== ownPrefix) {
+      return { path: ownPath, replace: true };
+    }
+    if (to.meta && to.meta.roles) {
+      const allowedRoles = to.meta.roles.map((r) => String(r).toLowerCase());
+      if (!allowedRoles.includes(userRole)) return { path: ownPath, replace: true };
     }
   }
 

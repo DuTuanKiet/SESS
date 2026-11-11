@@ -1,26 +1,26 @@
 <template>
-  <div class="space-y-10">
+  <div class="space-y-8">
     <div>
-      <h1 class="text-2xl font-bold text-[#0B1F4B] leading-none">Tiến độ & Cột mốc</h1>
-      <p class="mt-1 text-sm text-[#6B7B9A] leading-relaxed">Quan sát mốc thời gian, giao deadline và theo dõi tiến độ thực hiện của từng nhóm phụ trách.</p>
+      <h1 class="text-2xl font-semibold tracking-tight text-[#0f172a]">Tiến độ & Cột mốc</h1>
+      <p class="mt-1 text-sm text-slate-500">Quan sát mốc thời gian, giao deadline và theo dõi tiến độ thực hiện của từng nhóm phụ trách.</p>
     </div>
 
     <!-- Master: Chọn dự án -->
-    <div class="overflow-hidden rounded-2xl border border-[#E4ECF7] bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
-      <div class="px-8 py-7 border-b border-[#E4ECF7]">
-        <h2 class="text-lg font-bold text-[#0B1F4B] leading-none">Chọn dự án để xem tiến độ</h2>
-        <p class="mt-1 text-[11px] text-[#6B7B9A] uppercase tracking-wider leading-none">Dữ liệu cột mốc sẽ cập nhật ngay bên dưới sau khi chọn</p>
+    <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)]">
+      <div class="border-b border-slate-200/70 px-6 py-5 sm:px-8">
+        <h2 class="text-base font-semibold tracking-tight text-[#0f172a]">Chọn dự án để xem tiến độ</h2>
+        <p class="mt-1 text-[11px] uppercase tracking-wider text-slate-500">Dữ liệu cột mốc sẽ cập nhật ngay bên dưới sau khi chọn</p>
       </div>
-      <div class="px-8 pb-8">
+      <div class="px-6 pb-6 sm:px-8 sm:pb-8">
         <div class="max-w-xl">
-          <div class="flex items-center gap-3 mb-1">
-            <Search class="h-4 w-4 text-[#9BB4E8]" />
-            <label class="text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider leading-none">Dự án</label>
+          <div class="mb-1 flex items-center gap-3">
+            <Search class="h-4 w-4 text-slate-400" />
+            <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Dự án</label>
           </div>
           <select
             v-model="selectedProjectId"
             @change="fetchMilestones"
-            class="w-full rounded-xl border border-[#E4ECF7] bg-white px-4 py-3.5 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all appearance-none cursor-pointer"
+            class="w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15"
           >
             <option value="">-- Chọn một dự án --</option>
             <option v-for="p in projects" :key="p.id || p._id" :value="p.id || p._id">{{ p.name || p.title }} — {{ p.code || p.projectCode }}</option>
@@ -30,19 +30,19 @@
     </div>
 
     <!-- Detail: chưa chọn dự án -->
-    <div v-if="!selectedProjectId" class="min-h-[300px] flex flex-col items-center justify-center py-20 text-center">
-      <EmptyState :icon="FolderKanban" title="Hãy chọn một dự án" description="Chọn dự án từ danh sách ở trên để xem chi tiết tiến độ, các cột mốc và hạn hoàn thành." iconBg="bg-[#F1F7FF]" iconColor="text-[#9BB4E8]" />
+    <div v-if="!selectedProjectId" class="flex min-h-[280px] flex-col items-center justify-center py-16 text-center">
+      <EmptyState :icon="FolderKanban" title="Hãy chọn một dự án" description="Chọn dự án từ danh sách ở trên để xem chi tiết tiến độ, các cột mốc và hạn hoàn thành." iconBg="bg-slate-100" iconColor="text-slate-500" />
     </div>
 
     <!-- Detail: đang tải -->
-    <div v-else-if="milestonesLoading" class="p-16 space-y-4">
+    <div v-else-if="milestonesLoading" class="space-y-4 p-12">
       <div v-for="i in 4" :key="i" class="flex items-start gap-4">
         <SkeletonLoader type="avatar" :height="40" :width="40" border-radius="9999" />
         <div class="flex-1 space-y-2">
           <SkeletonLoader type="text" :height="20" :width="60" />
           <SkeletonLoader type="text" :height="16" :width="70" />
         </div>
-        <div class="flex flex-col items-end gap-2 w-full lg:w-auto">
+        <div class="flex w-full flex-col items-end gap-2 lg:w-auto">
           <SkeletonLoader type="badge" :height="24" :width="64" border-radius="9999" />
           <SkeletonLoader type="text" :height="18" :width="40" />
         </div>
@@ -50,11 +50,11 @@
     </div>
 
     <!-- Detail: lỗi -->
-    <div v-else-if="milestonesError" class="p-16 text-center">
-      <EmptyState :icon="AlertCircle" title="Không tải được tiến độ" :description="milestonesError" iconBg="bg-[#FEF3F2]" iconColor="text-[#C2410C]">
+    <div v-else-if="milestonesError" class="p-12 text-center">
+      <EmptyState :icon="AlertCircle" title="Không tải được tiến độ" :description="milestonesError" iconBg="bg-red-50" iconColor="text-red-600">
         <template #actions>
-          <button @click="fetchMilestones" class="inline-flex items-center gap-2 rounded-xl border border-[#E4ECF7] bg-white px-5 py-2.5 text-sm font-medium text-[#0B1F4B] shadow-sm hover:bg-[#F8FAFC] transition-colors">
-            <RefreshCw class="w-4 h-4 stroke-[1.5]" />
+          <button @click="fetchMilestones" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <RefreshCw class="h-4 w-4" />
             Thử lại
           </button>
         </template>
@@ -62,11 +62,11 @@
     </div>
 
     <!-- Detail: trống -->
-    <div v-else-if="milestones.length === 0" class="min-h-[300px] flex flex-col items-center justify-center py-20 text-center">
-      <EmptyState :icon="Clock" title="Chưa có cột mốc nào" description="Dự án này chưa có cột mốc. Bạn có thể tạo cột mốc đầu tiên để bắt đầu theo dõi tiến độ và giao deadline cho nhóm sinh viên." iconBg="bg-[#F1F7FF]" iconColor="text-[#9BB4E8]">
+    <div v-else-if="milestones.length === 0" class="flex min-h-[280px] flex-col items-center justify-center py-16 text-center">
+      <EmptyState :icon="Clock" title="Chưa có cột mốc nào" description="Dự án này chưa có cột mốc. Bạn có thể tạo cột mốc đầu tiên để bắt đầu theo dõi tiến độ và giao deadline cho nhóm sinh viên." iconBg="bg-slate-100" iconColor="text-slate-500">
         <template #actions>
-          <button @click="openCreateModal = true" class="inline-flex items-center gap-2 rounded-xl border border-[#E4ECF7] bg-white px-5 py-2.5 text-sm font-medium text-[#0B1F4B] shadow-sm hover:bg-[#F8FAFC] transition-colors">
-            <Plus class="w-4 h-4 stroke-[1.5]" />
+          <button @click="openCreateModal = true" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <Plus class="h-4 w-4" />
             Tạo cột mốc đầu tiên
           </button>
         </template>
@@ -74,33 +74,33 @@
     </div>
 
     <!-- Detail: danh sách cột mốc -->
-    <div v-else class="overflow-hidden rounded-2xl border border-[#E4ECF7] bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
-      <div class="px-8 py-7 border-b border-[#E4ECF7]">
-        <div class="flex items-center justify-between gap-4">
+    <div v-else class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)]">
+      <div class="border-b border-slate-200/70 px-6 py-5 sm:px-8">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="text-lg font-bold text-[#0B1F4B] leading-none">{{ selectedProject?.name || selectedProject?.title }}</h2>
-            <p class="mt-1 text-[11px] text-[#6B7B9A] uppercase tracking-wider leading-none">Cột mốc & hạn hoàn thành</p>
+            <h2 class="text-base font-semibold tracking-tight text-[#0f172a]">{{ selectedProject?.name || selectedProject?.title }}</h2>
+            <p class="mt-1 text-[11px] uppercase tracking-wider text-slate-500">Cột mốc & hạn hoàn thành</p>
           </div>
-          <button @click="openCreateModal = true" class="inline-flex items-center gap-2 rounded-xl border border-[#1E56D9] bg-[#1E56D9] px-4 py-2.5 text-xs font-bold text-white uppercase tracking-wider shadow-[0_4px_12px_rgba(30,86,217,0.25)] transition-all hover:bg-[#1d4ed8] hover:shadow-[0_6px_16px_rgba(30,86,217,0.35)] active:scale-95">
-            <Plus class="h-3.5 w-3.5 stroke-[1.5]" /> Tạo cột mốc
+          <button @click="openCreateModal = true" class="inline-flex items-center gap-2 rounded-lg bg-[#1e3a8a] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#172554]">
+            <Plus class="h-3.5 w-3.5" /> Tạo cột mốc
           </button>
         </div>
       </div>
-      <div class="divide-y divide-[#E4ECF7]">
-        <div v-for="m in milestones" :key="m.id || m._id" class="px-8 py-6 transition-colors hover:bg-[#F8FBFF]/60">
-          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div class="divide-y divide-slate-200/70">
+        <div v-for="m in milestones" :key="m.id || m._id" class="px-6 py-5 transition-colors hover:bg-slate-50/50 sm:px-8">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-start gap-4">
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#0B192C]/5 shrink-0">
-                <Clock class="h-4 w-4 stroke-[1.5] text-[#0B192C]" />
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                <Clock class="h-4 w-4 text-[#1e3a8a]" />
               </div>
               <div>
-                <p class="text-base font-semibold text-[#0B1F4B] leading-none">{{ m.title || m.name }}</p>
-                <p class="mt-1 text-[12px] text-[#6B7B9A] leading-relaxed">{{ m.description || "Không có mô tả." }}</p>
+                <p class="text-[15px] font-semibold text-[#0f172a]">{{ m.title || m.name }}</p>
+                <p class="mt-1 text-[13px] leading-relaxed text-slate-600">{{ m.description || "Không có mô tả." }}</p>
               </div>
             </div>
-            <div class="flex flex-col lg:flex-row items-end gap-3 w-full lg:w-auto">
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider leading-none" :class="statusBadge(m.status)">{{ statusLabel(m.status) }}</span>
-              <span class="text-[12px] font-medium text-[#0B1F4B] leading-none"><Calendar class="h-3.5 w-3.5 stroke-[1.5] mr-1.5" /> {{ formatDate(m.dueDate || m.deadline) }}</span>
+            <div class="flex w-full flex-col items-end gap-2 lg:w-auto lg:flex-row">
+              <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ring-1 ring-inset" :class="statusBadge(m.status)">{{ statusLabel(m.status) }}</span>
+              <span class="inline-flex items-center text-[12px] font-medium text-slate-600"><Calendar class="mr-1.5 h-3.5 w-3.5" /> {{ formatDate(m.dueDate || m.deadline) }}</span>
             </div>
           </div>
         </div>
@@ -108,36 +108,36 @@
     </div>
 
     <!-- Modal tạo cột mốc -->
-    <div v-if="openCreateModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" @click.self="openCreateModal = false">
-      <div class="bg-white rounded-2xl border border-[#E4ECF7] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.12)] w-full max-w-md mx-4" @click.stop>
-        <div class="px-7 py-6 border-b border-[#E4ECF7]">
-          <h3 class="text-lg font-bold text-[#0B1F4B] leading-none">Tạo cột mốc mới</h3>
-          <p class="mt-1 text-sm text-[#6B7B9A] leading-relaxed">Giao mốc thời gian cho dự án "{{ selectedProject?.name || selectedProject?.title }}"</p>
+    <div v-if="openCreateModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" @click.self="openCreateModal = false">
+      <div class="mx-4 w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-[0_20px_40px_-12px_rgba(15,23,42,0.18)]" @click.stop>
+        <div class="border-b border-slate-200/70 px-6 py-5">
+          <h3 class="text-base font-semibold tracking-tight text-[#0f172a]">Tạo cột mốc mới</h3>
+          <p class="mt-1 text-sm text-slate-500">Giao mốc thời gian cho dự án "{{ selectedProject?.name || selectedProject?.title }}"</p>
         </div>
-        <div class="px-7 pb-7 space-y-4">
+        <div class="space-y-4 px-6 pb-6">
           <div>
-            <label class="block text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider mb-2">Tiêu đề cột mốc *</label>
-            <input v-model="newMilestone.title" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" placeholder="Ví dụ: Hoàn thành bản thiết kế ban đầu" />
+            <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tiêu đề cột mốc *</label>
+            <input v-model="newMilestone.title" class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15" placeholder="Ví dụ: Hoàn thành bản thiết kế ban đầu" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider mb-2">Mô tả yêu cầu</label>
-            <textarea v-model="newMilestone.description" rows="3" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" placeholder="Yêu cầu cụ thể sinh viên cần hoàn thành tại mốc này…" />
+            <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Mô tả yêu cầu</label>
+            <textarea v-model="newMilestone.description" rows="3" class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15" placeholder="Yêu cầu cụ thể sinh viên cần hoàn thành tại mốc này…" />
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label class="block text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider mb-2">Ngày bắt đầu</label>
-              <input type="date" v-model="newMilestone.startDate" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" />
+              <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Ngày bắt đầu</label>
+              <input type="date" v-model="newMilestone.startDate" class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-[#6B7B9A] uppercase tracking-wider mb-2">Thời hạn *</label>
-<input type="date" v-model="newMilestone.dueDate" :min="tomorrowStr" class="w-full rounded-xl border border-[#E4ECF7] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0B1F4B] focus:ring-2 focus:ring-[#1E56D9]/30 focus:border-[#1E56D9] outline-none transition-all" />
-<p v-if="dueDateError" class="text-xs text-red-600 mt-1">Hạn chót phải là một ngày trong tương lai</p>
+              <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Thời hạn *</label>
+              <input type="date" v-model="newMilestone.dueDate" :min="tomorrowStr" class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15" />
+              <p v-if="dueDateError" class="mt-1 text-xs text-red-600">Hạn chót phải là một ngày trong tương lai</p>
             </div>
           </div>
         </div>
-        <div class="px-7 pt-5 pb-7 border-t border-[#E4ECF7] flex justify-end gap-3">
-          <button @click="openCreateModal = false" class="rounded-xl px-5 py-2.5 text-sm font-medium text-[#6B7B9A] bg-white border border-[#E4ECF7] transition-all hover:bg-[#F8FAFC]">Hủy</button>
-<button @click="createMilestone" :disabled="creating || !newMilestone.title || !newMilestone.dueDate || dueDateError" class="rounded-xl px-5 py-2.5 text-sm font-bold text-white bg-[#1E56D9] shadow-[0_4px_12px_rgba(30,86,217,0.25)] transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#1d4ed8] active:scale-95">Tạo cột mốc</button>
+        <div class="flex justify-end gap-3 border-t border-slate-200/70 px-6 py-4">
+          <button @click="openCreateModal = false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Hủy</button>
+          <button @click="createMilestone" :disabled="creating || !newMilestone.title || !newMilestone.dueDate || dueDateError" class="rounded-lg bg-[#1e3a8a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#172554] disabled:cursor-not-allowed disabled:opacity-60">Tạo cột mốc</button>
         </div>
       </div>
     </div>
@@ -252,12 +252,12 @@ const statusLabel = (s) => {
 
 const statusBadge = (s) => {
   const map = {
-    PENDING: "bg-amber-50 text-amber-700 border border-amber-100",
-    IN_PROGRESS: "bg-blue-50 text-blue-700 border border-blue-100",
-    COMPLETED: "bg-emerald-50 text-emerald-700 border border-emerald-100",
-    OVERDUE: "bg-rose-50 text-rose-700 border border-rose-100",
+    PENDING: "bg-amber-50 text-amber-700 ring-amber-200/70",
+    IN_PROGRESS: "bg-blue-50 text-blue-700 ring-blue-200/70",
+    COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200/70",
+    OVERDUE: "bg-rose-50 text-rose-700 ring-rose-200/70",
   }
-  return map[s] || "bg-slate-50 text-slate-700 border border-slate-100"
+  return map[s] || "bg-slate-50 text-slate-700 ring-slate-200/70"
 }
 
 const formatDate = (d) => {

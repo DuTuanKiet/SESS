@@ -100,6 +100,10 @@ const projectSchema = new mongoose.Schema(
 
     /** Tiểu ban giám khảo của dự án (dùng cho vòng chấm Rubric -> trạng thái EVALUATED) */
     judges: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
+
+    /** Cờ cảnh báo lệch điểm/lỗi cần Admin phân xử */
+    needsAdminReview: { type: Boolean, default: false, index: true },
+    adminReviewReason: { type: String, trim: true, default: '' },
   },
   {
     timestamps: true,

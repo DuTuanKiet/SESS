@@ -25,26 +25,32 @@
             <span v-if="unreadCount > 0" class="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#1e3a8a] px-1 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
           </button>
 
-          <button type="button" @click="handleLogout" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20" title="Đăng xuất">
-            <LogOut class="h-4 w-4" />
-          </button>
-
           <div class="hidden h-8 w-px bg-slate-200/80 md:block"></div>
 
-          <button type="button" class="group inline-flex min-w-0 max-w-[320px] items-center gap-3 rounded-2xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all duration-200 hover:-translate-y-px hover:border-indigo-200/70 hover:shadow-md" @click="activeTab = '/judge/account'">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 ring-1 ring-slate-200/70">
-              <img v-if="judgeAvatar" :src="judgeAvatar" alt="Avatar" class="h-full w-full object-cover" />
-              <User class="h-4 w-4 text-indigo-600" v-else />
-            </div>
-            <div class="hidden min-w-0 md:block">
-              <p class="truncate text-[13px] font-semibold tracking-tight text-slate-900">{{ judgeName }}</p>
-              <div class="flex min-w-0 items-center gap-1.5">
-                <p class="truncate text-[10px] font-medium text-slate-500">{{ judgeEmail }}</p>
-                <span class="hidden shrink-0 whitespace-nowrap rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200/70 2xl:inline-flex">{{ judgeRoleLabel }}</span>
+          <div class="relative">
+            <button type="button" class="group inline-flex min-w-0 max-w-[320px] items-center gap-3 rounded-xl border border-slate-200/70 bg-white px-2.5 py-1.5 text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20" :aria-expanded="profileOpen ? 'true' : 'false'" aria-haspopup="menu" @click.stop="profileOpen = !profileOpen">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200/70">
+                <img v-if="judgeAvatar" :src="judgeAvatar" alt="Avatar" class="h-full w-full object-cover" />
+                <User class="h-4 w-4 text-[#1e3a8a]" v-else />
               </div>
+              <div class="hidden min-w-0 md:block">
+                <p class="truncate text-[13px] font-semibold tracking-tight text-slate-900">{{ judgeName }}</p>
+                <div class="flex min-w-0 items-center gap-1.5">
+                  <p class="truncate text-[10px] font-medium text-slate-500">{{ judgeEmail }}</p>
+                  <span class="hidden shrink-0 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-slate-700 2xl:inline-flex">{{ judgeRoleLabel }}</span>
+                </div>
+              </div>
+              <ChevronDown class="hidden h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-slate-600 lg:block" :class="profileOpen ? 'rotate-180' : ''" />
+            </button>
+            <div v-if="profileOpen" class="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_40px_-20px_rgba(15,23,42,0.18)]" role="menu" @click.stop>
+              <div class="border-b border-slate-100 px-3 py-2.5">
+                <p class="truncate text-[13px] font-semibold text-slate-900">{{ judgeName }}</p>
+                <p class="truncate text-[11px] text-slate-500">{{ judgeEmail }}</p>
+              </div>
+              <button type="button" class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[14px] font-medium text-slate-700 transition hover:bg-slate-50 hover:text-[#1e3a8a]" @click="profileOpen = false; activeTab = '/judge/account'"><UserIcon class="h-4 w-4" />Tài khoản & bảo mật</button>
+              <button type="button" class="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[14px] font-medium text-slate-600 transition hover:bg-red-50 hover:text-red-700" title="Đăng xuất khỏi hệ thống" @click="profileOpen = false; handleLogout()"><LogOut class="h-4 w-4 text-red-500/80" />Đăng xuất</button>
             </div>
-            <ChevronDown class="hidden h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-slate-600 lg:block" />
-          </button>
+          </div>
         </div>
       </div>
 
@@ -69,7 +75,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { evaluatorService } from '@/services/evaluatorService';
@@ -88,6 +94,7 @@ import {
 const router = useRouter();
 const authStore = useAuthStore();
 const unreadCount = ref(0);
+const profileOpen = ref(false);
 
 const judgeUser = computed(() => authStore.user);
 
@@ -145,7 +152,14 @@ function handleLogout() {
   router.push('/');
 }
 
+function closeProfile() { profileOpen.value = false; }
+
 onMounted(() => {
   loadUnreadCount();
+  document.addEventListener('click', closeProfile);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeProfile);
 });
 </script>

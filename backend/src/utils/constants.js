@@ -72,8 +72,10 @@ const LOCKED_PROJECT_STATUSES = Object.freeze([
   PROJECT_STATUS.SUBMITTED,
   PROJECT_STATUS.IN_REVIEW,
   PROJECT_STATUS.UNDER_MENTORSHIP,
+  PROJECT_STATUS.EVALUATED,
   PROJECT_STATUS.APPROVED,
   PROJECT_STATUS.COMPLETED,
+  PROJECT_STATUS.REJECTED,
 ]);
 
 /** Trạng thái dự án được coi là "đã kết thúc" (không tính là dự án đang hoạt động) */
@@ -183,6 +185,10 @@ const AUDIT_ACTIONS = Object.freeze({
   ASSIGN_JUDGE_EVALUATION: 'ASSIGN_JUDGE_EVALUATION',
   SUBMIT_EVALUATION_SCORE: 'SUBMIT_EVALUATION_SCORE',
   MIGRATE_EVALUATION_SUBMISSION: 'MIGRATE_EVALUATION_SUBMISSION',
+  SCORE_OUTLIER_DETECTED: 'SCORE_OUTLIER_DETECTED',
+  CREATE_APPEAL: 'CREATE_APPEAL',
+  REVIEW_APPEAL: 'REVIEW_APPEAL',
+  STAGE_WINDOW_CHANGED: 'STAGE_WINDOW_CHANGED',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR05-FR08 */
@@ -200,6 +206,7 @@ const AUDIT_ENTITIES = Object.freeze({
   // Vòng đời nâng cao (Enterprise)
   PROJECT_CANCELLATION_REQUESTS: 'ProjectCancellationRequests',
   EVALUATION_SUBMISSIONS: 'EvaluationSubmissions',
+  APPEALS: 'Appeals',
 });
 
 /** Thực thể bị tác động bởi AuditLog - cách gọi của FR01-FR04 */

@@ -10,6 +10,7 @@ const { AUDIT_ACTIONS, AUDIT_ENTITIES, PROJECT_STATUS, RUBRIC_STATUS } = require
 const { assertObjectId, assertRequired } = require('../utils/validation');
 const judgeWhitelistService = require('./judgeWhitelistService');
 const projectService = require('./projectService');
+const { assertNoJudgeConflictOfInterest } = require('./coiService');
 
 /**
  * @deprecated LEGACY EvaluationService (project-centric, EvaluationSubmission).
@@ -81,6 +82,7 @@ const assignJudge = async ({ projectId, judgeId, actor, req }) => {
     );
   }
   await judgeWhitelistService.assertJudgeInWhitelist(judge.email);
+  await assertNoJudgeConflictOfInterest({ projectId: project._id, judgeId: judge._id, actor, req, logAudit: logAuditAction });
 
   const panel = (project.judges ?? []).map(String);
   if (!panel.includes(String(judgeId))) {

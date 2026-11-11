@@ -16,8 +16,9 @@ const AuditLog = require('../models/AuditLog');
  * @param {object|string} params.targetId      Id của thực thể bị tác động
  * @param {object} [params.oldValues]          Giá trị trước khi thay đổi
  * @param {object} [params.newValues]          Giá trị sau khi thay đổi
- * @param {object} [params.req]                Express request (lấy IP)
+ * @param {object} [params.req]                Express request (lấy IP, requestId)
  * @param {string} [params.ipAddress]          IP trực tiếp (không cần req)
+ * @param {string} [params.requestId]          Request correlation ID
  * @param {object} [params.session]            Mongoose session (dùng trong transaction)
  */
 const logAuditAction = async ({
@@ -29,6 +30,7 @@ const logAuditAction = async ({
   newValues,
   req,
   ipAddress,
+  requestId,
   session,
 } = {}) => {
   try {
@@ -51,6 +53,7 @@ const logAuditAction = async ({
           oldValues: oldValues ?? null,
           newValues: newValues ?? null,
           ipAddress: ipAddress ?? (req?.ip ?? ''),
+          requestId: requestId ?? (req?.requestId ?? ''),
           timestamp: new Date(),
         },
       ],

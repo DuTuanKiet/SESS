@@ -1,30 +1,30 @@
 <template>
-  <div class="bg-white rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] p-6 space-y-4">
-    <h2 class="text-base font-bold text-slate-900">Gửi Email Hàng Loạt đến Sinh viên</h2>
+  <div class="space-y-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] sm:p-6">
+    <h2 class="text-base font-semibold tracking-tight text-[#0f172a]">Gửi Email Hàng Loạt đến Sinh viên</h2>
 
     <!-- Bước 1: Chọn đề tài -->
     <div v-if="step === 1">
-      <p class="text-xs text-slate-500 mb-2">Bước 1: Chọn đề tài cần gửi</p>
+      <p class="mb-2 text-xs font-medium text-slate-500">Bước 1: Chọn đề tài cần gửi</p>
       <div class="space-y-2">
-        <label v-for="p in projects" :key="p.id || p._id" class="flex items-start gap-2 text-sm text-slate-700 border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition">
-          <input type="checkbox" v-model="selectedProjectIds" :value="p.id || p._id" class="accent-[#0F4C81] mt-1" />
+        <label v-for="p in projects" :key="p.id || p._id" class="flex cursor-pointer items-start gap-2 rounded-xl border border-slate-200/70 p-3 text-sm text-slate-700 transition hover:bg-slate-50">
+          <input type="checkbox" v-model="selectedProjectIds" :value="p.id || p._id" class="mt-1 accent-[#1e3a8a]" />
           <div class="flex-1">
-            <p class="font-medium text-slate-900">{{ p.title || p.name }}</p>
+            <p class="font-medium text-[#0f172a]">{{ p.title || p.name }}</p>
             <p class="text-xs text-slate-500">{{ (p.members || []).length }} thành viên + Nhóm trưởng</p>
           </div>
-          <span class="text-xs text-[#0F4C81] font-medium">{{ selectedProjectIds.includes(p.id || p._id) ? 'Đã chọn' : 'Chọn' }}</span>
+          <span class="text-xs font-medium text-[#1e3a8a]">{{ selectedProjectIds.includes(p.id || p._id) ? 'Đã chọn' : 'Chọn' }}</span>
         </label>
       </div>
-      <p class="text-xs text-slate-500 mt-2">Đã chọn: {{ selectedProjectIds.length }} đề tài</p>
-      <button @click="goStep2" :disabled="selectedProjectIds.length === 0" class="text-xs font-medium text-white bg-[#0F4C81] px-3 py-1.5 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#0B3B66] transition-colors">Tiếp tục chọn người nhận</button>
+      <p class="mt-2 text-xs text-slate-500">Đã chọn: {{ selectedProjectIds.length }} đề tài</p>
+      <button @click="goStep2" :disabled="selectedProjectIds.length === 0" class="mt-2 rounded-lg bg-[#1e3a8a] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#172554] disabled:cursor-not-allowed disabled:opacity-60">Tiếp tục chọn người nhận</button>
     </div>
 
     <!-- Bước 2: Chọn từng email cá nhân -->
     <div v-else>
-      <div class="flex items-center gap-2 mb-4">
-        <button @click="step = 1" class="text-xs text-[#0F4C81] underline hover:text-[#0B3B66]">← Quay lại chọn đề tài</button>
-        <span class="text-xs text-slate-400">|</span>
-        <p class="text-xs font-semibold text-slate-900">Bước 2: Chọn email người nhận</p>
+      <div class="mb-4 flex items-center gap-2">
+        <button @click="step = 1" class="text-xs font-medium text-[#1e3a8a] hover:text-[#172554]">← Quay lại chọn đề tài</button>
+        <span class="text-xs text-slate-300">|</span>
+        <p class="text-xs font-semibold text-[#0f172a]">Bước 2: Chọn email người nhận</p>
       </div>
 
       <div v-if="recipientsLoading" class="p-4 text-center text-sm text-slate-500">Đang tải danh sách người nhận…</div>
@@ -32,38 +32,38 @@
       <div v-else-if="totalRecipients === 0" class="p-4 text-center text-sm text-slate-500">Không có địa chỉ email nào để chọn.</div>
 
       <div v-else class="space-y-4">
-        <div v-for="(recips, pid) in recipientMap" :key="pid" class="border border-slate-100 rounded-xl p-3">
-          <div class="flex items-center justify-between mb-3">
+        <div v-for="(recips, pid) in recipientMap" :key="pid" class="rounded-xl border border-slate-200/70 p-3">
+          <div class="mb-3 flex items-center justify-between">
             <div>
-              <p class="font-semibold text-slate-900">{{ projectNameMap[pid] || 'Đề tài' }}</p>
+              <p class="font-semibold text-[#0f172a]">{{ projectNameMap[pid] || 'Đề tài' }}</p>
               <p class="text-xs text-slate-500">{{ recips.length }} người nhận có sẵn</p>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="toggleAll(pid, true)" class="text-[10px] text-slate-600 hover:text-[#0F4C81] underline px-1">Chọn tất cả</button>
-              <button @click="toggleAll(pid, false)" class="text-[10px] text-slate-600 hover:text-[#0F4C81] underline px-1">Bỏ chọn tất cả</button>
+              <button @click="toggleAll(pid, true)" class="px-1 text-[10px] text-slate-600 underline hover:text-[#1e3a8a]">Chọn tất cả</button>
+              <button @click="toggleAll(pid, false)" class="px-1 text-[10px] text-slate-600 underline hover:text-[#1e3a8a]">Bỏ chọn tất cả</button>
             </div>
           </div>
 
           <!-- Nhóm trưởng -->
-          <div v-if="leaderOf(pid)" class="mb-2 pb-2 border-b border-slate-50">
-            <label class="flex items-center gap-2 border border-[#FDE68A] rounded-lg p-2 bg-[#FFF7ED] cursor-pointer transition">
-              <input type="checkbox" v-model="selectedEmails" :value="leaderOf(pid).email" class="accent-[#0F4C81] mt-0.5" />
+          <div v-if="leaderOf(pid)" class="mb-2 border-b border-slate-100 pb-2">
+            <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/50 p-2 transition">
+              <input type="checkbox" v-model="selectedEmails" :value="leaderOf(pid).email" class="mt-0.5 accent-[#1e3a8a]" />
               <div class="flex-1">
-                <p class="text-sm text-slate-900 break-words">{{ leaderOf(pid).name }}</p>
-                <p class="text-xs text-slate-500">{{ leaderOf(pid).email }} <span class="text-[#0F4C81] text-xs font-medium">(Nhóm trưởng)</span></p>
+                <p class="break-words text-sm text-[#0f172a]">{{ leaderOf(pid).name }}</p>
+                <p class="text-xs text-slate-500">{{ leaderOf(pid).email }} <span class="text-xs font-medium text-[#1e3a8a]">(Nhóm trưởng)</span></p>
               </div>
             </label>
           </div>
 
           <!-- Thành viên -->
           <div v-if="membersOf(pid).length > 0">
-            <p class="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1 ml-1">Thành viên</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <label v-for="r in membersOf(pid)" :key="r.email" class="flex items-center gap-2 border border-slate-100 rounded-lg p-2 hover:bg-[#F8FBFF] cursor-pointer transition">
-                <input type="checkbox" v-model="selectedEmails" :value="r.email" class="accent-[#0F4C81] mt-0.5" />
+            <p class="mb-1 ml-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Thành viên</p>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label v-for="r in membersOf(pid)" :key="r.email" class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200/70 p-2 transition hover:bg-slate-50">
+                <input type="checkbox" v-model="selectedEmails" :value="r.email" class="mt-0.5 accent-[#1e3a8a]" />
                 <div class="flex-1">
-                  <p class="text-sm text-slate-900 break-words">{{ r.name }}</p>
-                  <p class="text-xs text-slate-500">{{ r.email }} <span v-if="r.role" class="text-[#1E56D9] text-xs">{{ `(${r.role})` }}</span></p>
+                  <p class="break-words text-sm text-[#0f172a]">{{ r.name }}</p>
+                  <p class="text-xs text-slate-500">{{ r.email }} <span v-if="r.role" class="text-xs text-slate-600">{{ `(${r.role})` }}</span></p>
                 </div>
               </label>
             </div>
@@ -71,12 +71,12 @@
 
           <!-- Fallback if no separate leader/members split -->
           <div v-if="leaderOf(pid) === null && membersOf(pid).length === 0 && recips.length > 0">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <label v-for="r in recips" :key="r.email" class="flex items-center gap-2 border border-slate-100 rounded-lg p-2 hover:bg-[#F8FBFF] cursor-pointer transition">
-                <input type="checkbox" v-model="selectedEmails" :value="r.email" class="accent-[#0F4C81] mt-0.5" />
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label v-for="r in recips" :key="r.email" class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200/70 p-2 transition hover:bg-slate-50">
+                <input type="checkbox" v-model="selectedEmails" :value="r.email" class="mt-0.5 accent-[#1e3a8a]" />
                 <div class="flex-1">
-                  <p class="text-sm text-slate-900 break-words">{{ r.name }}</p>
-                  <p class="text-xs text-slate-500">{{ r.email }} <span class="text-[#0F4C81]">{{ r.isLeader ? '(Nhóm trưởng)' : '' }}</span></p>
+                  <p class="break-words text-sm text-[#0f172a]">{{ r.name }}</p>
+                  <p class="text-xs text-slate-500">{{ r.email }} <span class="text-[#1e3a8a]">{{ r.isLeader ? '(Nhóm trưởng)' : '' }}</span></p>
                 </div>
               </label>
             </div>
@@ -84,18 +84,18 @@
         </div>
       </div>
 
-      <p class="text-xs text-slate-500 mt-2">Tổng email đã chọn: <span class="font-semibold text-[#0F4C81]">{{ selectedEmails.length }}</span></p>
+      <p class="mt-2 text-xs text-slate-500">Tổng email đã chọn: <span class="font-semibold text-[#1e3a8a]">{{ selectedEmails.length }}</span></p>
 
-      <div class="pt-4 border-t border-slate-100">
-        <p class="text-xs text-slate-500 mb-1">Tiêu đề</p>
-        <input v-model="subject" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white" />
+      <div class="border-t border-slate-200/70 pt-4">
+        <p class="mb-1 text-xs font-medium text-slate-500">Tiêu đề</p>
+        <input v-model="subject" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15" />
       </div>
       <div>
-        <p class="text-xs text-slate-500 mb-1">Nội dung</p>
-        <textarea v-model="body" rows="6" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white"></textarea>
+        <p class="mb-1 text-xs font-medium text-slate-500">Nội dung</p>
+        <textarea v-model="body" rows="6" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#0f172a] outline-none transition focus:border-[#1e3a8a] focus:ring-2 focus:ring-blue-500/15"></textarea>
       </div>
-      <button @click="send" :disabled="sending || selectedEmails.length === 0" class="w-full text-xs font-medium text-white bg-[#0F4C81] px-4 py-2.5 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed hover:bg-[#0B3B66] transition-colors">{{ sending ? 'Đang gửi...' : 'Gửi email đến các địa chỉ đã chọn' }}</button>
-      <p v-if="status" class="text-sm text-emerald-600 mt-2">{{ status }}</p>
+      <button @click="send" :disabled="sending || selectedEmails.length === 0" class="w-full rounded-lg bg-[#1e3a8a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#172554] disabled:cursor-not-allowed disabled:opacity-60">{{ sending ? 'Đang gửi...' : 'Gửi email đến các địa chỉ đã chọn' }}</button>
+      <p v-if="status" class="mt-2 text-sm text-emerald-600">{{ status }}</p>
     </div>
   </div>
 </template>

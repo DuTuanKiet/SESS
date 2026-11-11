@@ -99,7 +99,7 @@ async function handleGetUnassignedProjects(req, res, next) {
 async function handleUpdateProjectStatus(req, res, next) {
   try {
     const { projectId } = req.params;
-    const { status, note, force, forceReason } = req.body;
+    const { status, note, force, forceReason, needsAdminReview } = req.body || {};
     const adminId = req.user.id;
 
     const data = await projectService.updateProjectStatus(projectId, status, {
@@ -107,6 +107,7 @@ async function handleUpdateProjectStatus(req, res, next) {
       note,
       force: Boolean(force),
       forceReason,
+      needsAdminReview: typeof needsAdminReview === 'boolean' ? needsAdminReview : undefined,
     });
 
     return res.status(200).json({

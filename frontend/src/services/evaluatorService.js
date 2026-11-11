@@ -20,7 +20,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async getWorkspace(evaluationId) {
     try {
       const res = await httpClient.get(`/evaluator/workspace/${evaluationId}`);
@@ -29,7 +28,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async getSummary(evaluationId) {
     try {
       const res = await httpClient.get(`/evaluator/summary/${evaluationId}`);
@@ -38,7 +36,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async submitEvaluation(evaluationId, { scores, generalFeedback, actionType }) {
     try {
       const res = await httpClient.post(`/evaluator/submit/${evaluationId}`, {
@@ -51,7 +48,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async getNotifications({ unreadOnly, limit } = {}) {
     try {
       const params = {};
@@ -63,7 +59,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async markNotificationAsRead(notificationId) {
     try {
       const res = await httpClient.patch(`/notifications/${notificationId}/read`);
@@ -72,7 +67,6 @@ export const evaluatorService = {
       throw normalizeError(error);
     }
   },
-
   async markAllNotificationsAsRead() {
     try {
       const res = await httpClient.patch('/notifications/read-all');

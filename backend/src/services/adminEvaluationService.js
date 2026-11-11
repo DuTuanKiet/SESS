@@ -7,6 +7,8 @@ const Notification = require('../models/Notification');
 const ApiError = require('../utils/apiError');
 const { createAuditLog } = require('./auditService');
 const { AUDIT_ACTIONS, AUDIT_ENTITIES, RUBRIC_STATUS } = require('../utils/constants');
+const { assertNoJudgeConflictOfInterest } = require('./coiService');
+const { logAuditAction } = require('../utils/audit');
 
 function isJudgeUser(user) {
   const role = String(user?.role || user?.systemRole || '').toLowerCase();
@@ -115,6 +117,8 @@ async function assignJudgeToProject({
   if (!isJudgeUser(evaluator)) {
     throw ApiError.badRequest('Người được phân công phải có vai trò giám khảo.', 'INVALID_JUDGE_ROLE');
   }
+
+  await assertNoJudgeConflictOfInterest({ projectId: project._id, judgeId: evaluator._id, actor: adminUser, req, logAudit: logAuditAction });
 
   const rubric = await resolveRubricVersion({ rubricVersionId, evaluationRound: round });
 

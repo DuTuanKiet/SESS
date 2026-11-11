@@ -21,6 +21,68 @@ const SAMPLE_ADDRESS_PATTERN =
 /** Kiểm tra 1 địa chỉ có phải địa chỉ mẫu (seed/fixture) hay không */
 const isSampleAddress = (email) => SAMPLE_ADDRESS_PATTERN.test(normalizeEmail(email));
 
+/** Chuẩn hóa IP hiển thị (ẩn loopback/raw dev) để email chuyên nghiệp, tránh bị thắc mắc */
+const formatClientIp = (ip) => {
+  const raw = String(ip || '').trim();
+  if (!raw) return 'Không xác định';
+  if (raw === '::1' || raw === '127.0.0.1' || raw === '::ffff:127.0.0.1' || raw === 'localhost') {
+    return 'Localhost (Mạng nội bộ / Máy chủ phát triển)';
+  }
+  if (raw.startsWith('::ffff:')) return raw.slice(7);
+  return raw;
+};
+
+/** Bóc tách User-Agent thành mô tả ngắn gọn, thân thiện (không in chuỗi UA thô) */
+const parseUserAgent = (ua) => {
+  const s = String(ua || '').trim();
+  if (!s) return 'Thiết bị bảo mật / Không xác định';
+
+  const isMobile = /Mobile|Android|iPhone|iPad|iPod/i.test(s);
+  let os = '';
+  if (/Windows NT 10|Windows NT 11|Windows 10|Windows 11/i.test(s)) os = 'Windows';
+  else if (/Windows/i.test(s)) os = 'Windows';
+  else if (/Mac OS X|Macintosh/i.test(s)) os = 'macOS';
+  else if (/Android/i.test(s)) os = 'Android';
+  else if (/iPhone|iPad|iPod/i.test(s)) os = 'iOS';
+  else if (/Linux/i.test(s)) os = 'Linux';
+
+  let browser = '';
+  if (/Edg\//.test(s)) browser = 'Microsoft Edge';
+  else if (/OPR\/|Opera\//.test(s)) browser = 'Opera';
+  else if (/Chrome\//.test(s) && !/Edg\//.test(s)) browser = 'Google Chrome';
+  else if (/Firefox\//.test(s)) browser = 'Mozilla Firefox';
+  else if (/Safari\//.test(s) && !/Chrome\//.test(s)) browser = 'Safari';
+
+  const parts = [os, browser].filter(Boolean);
+  if (parts.length) return parts.join(' / ');
+  if (isMobile) return 'Thiết bị di động / Trình duyệt web tiêu chuẩn';
+  return 'Trình duyệt web tiêu chuẩn';
+};
+
+/** Định dạng thời gian kiểu Việt Nam thân thiện: DD/MM/YYYY lúc HH:mm */
+const formatLoginTime = (date = new Date()) => {
+  const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  try {
+    const datePart = new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(d);
+    const timePart = new Intl.DateTimeFormat('vi-VN', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(d);
+    return `${datePart} lúc ${timePart}`;
+  } catch (e) {
+    return formatDateTime(d);
+  }
+};
+
+/** Logo CTUT công khai (URL trực tiếp, không localhost/Base64) — hiển thị ổn định trên Gmail/Outlook */
+const CTUT_LOGO_URL = 'https://tuyensinh.ctuet.edu.vn/University/14_CTUET/img/logo.png';
+
+const renderCtutLogoImg = (size = 56) => {
+  const s = Math.max(40, Number(size) || 56);
+  return `<img src="${CTUT_LOGO_URL}" alt="CTUT - Trường Đại học Kỹ thuật - Công nghệ Cần Thơ" width="${s}" height="${s}" border="0" style="display:block;width:${s}px;height:${s}px;max-width:${s}px;object-fit:contain;margin:0 auto;border:0;outline:none;text-decoration:none;" />`;
+};
+
 /**
  * Quyết định ĐÍCH GỬI THỰC TẾ cho mọi email của hệ thống.
  *
@@ -191,8 +253,8 @@ const BRAND = {
   tagline: 'Nền tảng Hỗ trợ Khởi nghiệp Sinh viên',
   systemName: 'Hệ thống Hỗ trợ Khởi nghiệp Sinh viên (SESS)',
   university: 'Trường Đại học Kỹ thuật - Công nghệ Cần Thơ (CTUT)',
-  primary: '#1A365D',
-  primaryDark: '#12294A',
+  primary: '#1e3a8a',
+  primaryDark: '#172554',
 };
 
 /** Định dạng thời gian kiểu Việt Nam: DD/MM/YYYY HH:mm:ss */
@@ -204,37 +266,35 @@ const formatDateTime = (date = new Date()) => {
   ].join(' ');
 };
 
-/**
- * Khung HTML email dùng chung: table-based + inline style để hiển thị đúng trên Gmail/Outlook.
- */
-const renderEmailLayout = ({ heading, preheader, contentHtml }) => `<!DOCTYPE html>
+const renderEmailLayout = ({ heading, preheader, contentHtml, brandExtra = '' }) => `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${heading}</title>
+  <style>
+    @keyframes sessFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#eef1f6;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2430;">
+<body style="margin:0;padding:0;background-color:#eef2f7;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef1f6;padding:24px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef2f7;padding:28px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(11,61,145,0.12);">
+        <table role="presentation" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px;max-width:100%;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
           <tr>
-            <td style="background-color:${BRAND.primary};background-image:linear-gradient(135deg,${BRAND.primary} 0%,${BRAND.primaryDark} 100%);padding:28px 32px;">
-              <p style="margin:0;font-size:22px;font-weight:700;letter-spacing:1px;color:#ffffff;">${BRAND.name}</p>
-              <p style="margin:6px 0 0;font-size:13px;color:#cfe0ff;">${BRAND.tagline}</p>
+            <td align="center" style="background-color:${BRAND.primary};background-image:linear-gradient(135deg,${BRAND.primary} 0%,${BRAND.primaryDark} 100%);padding:22px 28px;text-align:center;">
+              ${brandExtra || ''}
             </td>
           </tr>
           <tr>
-            <td style="padding:32px;">${contentHtml}</td>
+            <td style="padding:30px 28px 28px;">${contentHtml}</td>
           </tr>
           <tr>
-            <td style="border-top:1px solid #e3e8f0;background-color:#fafbfd;padding:20px 32px;">
-              <p style="margin:0;font-size:13px;color:#3d4657;">Trân trọng,</p>
-              <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:${BRAND.primary};">Nhóm phát triển ${BRAND.name}</p>
-              <p style="margin:2px 0 0;font-size:12px;color:#5a6472;">${BRAND.university}</p>
-              <p style="margin:10px 0 0;font-size:11px;color:#8b93a5;">Email tự động, vui lòng không trả lời trực tiếp.</p>
+            <td style="border-top:1px solid #e5edf5;background-color:#f8fafc;padding:18px 28px;">
+              <p style="margin:0;font-size:13px;color:#475569;">Trân trọng,</p>
+              <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:${BRAND.primary};">Cổng thông tin SESS - ${BRAND.university}</p>
+              <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">Email tự động từ hệ thống, vui lòng không trả lời trực tiếp thư này.</p>
             </td>
           </tr>
         </table>
@@ -308,54 +368,71 @@ const renderDetailRow = (label, value, highlight = false) => `
             </tr>`;
 
 /** Dựng nội dung email thông báo đăng nhập thành công (bảo mật tài khoản) */
-const renderLoginNotificationEmail = (to, { fullName, studentId, className, loginAt = new Date() } = {}) => {
-  const loginTime = formatDateTime(loginAt);
+const renderLoginNotificationEmail = (to, { fullName, studentId, className, loginAt = new Date(), ip, userAgent, device } = {}) => {
+  const loginTime = formatLoginTime(loginAt);
   const greetingName = fullName || 'bạn';
-  const studentCode = studentId || 'Chưa cập nhật';
-  const studentClass = className || 'Chưa cập nhật';
+  const studentCode = studentId || null;
+  const studentClass = className || null;
+  const deviceLabel = device || parseUserAgent(userAgent);
+  const ipLabel = formatClientIp(ip);
+
+  const row = (label, value, { highlight = false } = {}) => `
+            <tr>
+              <td style="padding:10px 0;font-size:13px;color:#64748b;width:185px;vertical-align:top;border-bottom:1px solid #eef2f7;">${label}</td>
+              <td style="padding:10px 0;font-size:14px;font-weight:600;color:${highlight ? '#15803d' : '#0f172a'};border-bottom:1px solid #eef2f7;">${value || '—'}</td>
+            </tr>`;
 
   const contentHtml = `
-    <p style="margin:0 0 16px;font-size:16px;font-weight:600;color:#1f2430;">Xin chào ${greetingName},</p>
-    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3d4657;">
-      Tài khoản của bạn đã được xác thực và đăng nhập thành công vào hệ thống <strong>${BRAND.name}</strong>.
-    </p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f6;border-radius:10px;">
-      <tr>
-        <td style="padding:18px 22px;">
-          <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.6px;color:${BRAND.primary};text-transform:uppercase;">Chi tiết phiên đăng nhập</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-            ${renderDetailRow('Email sinh viên', to)}
-            ${renderDetailRow('Mã số sinh viên', studentCode)}
-            ${renderDetailRow('Lớp', studentClass)}
-            ${renderDetailRow('Thời gian', loginTime)}
-            ${renderDetailRow('Trạng thái', 'Thành công', true)}
-          </table>
-        </td>
-      </tr>
-    </table>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;">
-      <tr>
-        <td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#b91c1c;">
-          <strong>Cảnh báo bảo mật:</strong> Nếu đây không phải là thao tác của bạn, vui lòng liên hệ ngay với
-          Giảng viên cố vấn hoặc Ban quản trị hệ thống để bảo vệ tài khoản.
-        </td>
-      </tr>
-    </table>`;
+    <div style="animation:sessFade .6s ease-out both;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="display:inline-block;width:52px;height:52px;line-height:52px;border-radius:999px;background:#ecfdf3;color:#15803d;font-size:26px;font-weight:700;box-shadow:0 0 0 6px rgba(21,128,61,0.10);">✓</div>
+      </div>
+      <h2 style="margin:0 0 8px;font-size:20px;line-height:1.35;color:#0f172a;text-align:center;">Đăng nhập thành công</h2>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#475569;text-align:center;">
+        Xin chào <strong>${greetingName}</strong>, hệ thống <strong>${BRAND.name}</strong> ghi nhận một phiên đăng nhập mới vào tài khoản của bạn.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="padding:18px 20px 8px;">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.08em;color:${BRAND.primary};text-transform:uppercase;">Chi tiết phiên đăng nhập</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              ${row('Tài khoản', to)}
+              ${studentCode ? row('Mã số sinh viên', studentCode) : ''}
+              ${studentClass ? row('Lớp', studentClass) : ''}
+              ${row('Thời gian', loginTime)}
+              ${row('Thiết bị truy cập', deviceLabel)}
+              ${row('Địa điểm / IP', ipLabel)}
+              ${row('Trạng thái', 'Xác thực thành công', { highlight: true })}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:13px;line-height:1.7;color:#92400e;">
+            <strong style="color:#78350f;">&#128274; Cảnh báo bảo mật:</strong> Nếu đây không phải là bạn, vui lòng liên hệ ngay với <strong>Quản trị viên</strong> hoặc tiến hành đổi mật khẩu để bảo vệ tài khoản.
+          </td>
+        </tr>
+      </table>
+    </div>`;
 
   const text = [
     `Xin chào ${greetingName},`,
     '',
-    `Tài khoản của bạn đã được xác thực và đăng nhập thành công vào hệ thống ${BRAND.name}.`,
+    `Hệ thống ${BRAND.name} ghi nhận một phiên đăng nhập mới vào tài khoản của bạn.`,
     '',
     '--- Chi tiết phiên đăng nhập ---',
-    `Email sinh viên   : ${to}`,
-    `Mã số sinh viên   : ${studentCode}`,
-    `Lớp               : ${studentClass}`,
-    `Thời gian         : ${loginTime}`,
-    'Trạng thái        : Thành công',
+    `Tài khoản      : ${to}`,
+    ...(studentCode ? [`Mã số sinh viên: ${studentCode}`] : []),
+    ...(studentClass ? [`Lớp            : ${studentClass}`] : []),
+    `Thời gian      : ${loginTime}`,
+    `Thiết bị       : ${deviceLabel}`,
+    `Địa điểm/IP    : ${ipLabel}`,
+    'Trạng thái     : Xác thực thành công',
     '',
-    'Cảnh báo bảo mật: Nếu đây không phải là thao tác của bạn, vui lòng liên hệ ngay với Giảng viên cố vấn',
-    'hoặc Ban quản trị hệ thống để bảo vệ tài khoản.',
+    'Cảnh báo bảo mật: Nếu đây không phải là bạn, vui lòng liên hệ ngay với Quản trị viên hoặc tiến hành đổi mật khẩu để bảo vệ tài khoản.',
     '',
     'Trân trọng,',
     `Nhóm phát triển ${BRAND.name}`,
@@ -364,12 +441,13 @@ const renderLoginNotificationEmail = (to, { fullName, studentId, className, logi
 
   return {
     to,
-    subject: 'SESS - CTUT: Thông báo đăng nhập thành công',
+    subject: '[SESS - CTUT] Thông báo bảo mật: Đăng nhập thành công',
     text,
     html: renderEmailLayout({
       heading: 'Thông báo đăng nhập thành công',
-      preheader: `Đăng nhập thành công vào ${BRAND.name} lúc ${loginTime}`,
+      preheader: `Đăng nhập ${BRAND.name} - ${loginTime} - ${deviceLabel}`,
       contentHtml,
+      brandExtra: renderCtutLogoImg(48),
     }),
   };
 };
@@ -582,6 +660,9 @@ module.exports = {
   renderOtpEmail,
   renderWelcomeEmail,
   renderLoginNotificationEmail,
+  formatClientIp,
+  parseUserAgent,
+  formatLoginTime,
   resolveDeliveryTarget,
   isSampleAddress,
   PRIMARY_TEST_RECIPIENT,

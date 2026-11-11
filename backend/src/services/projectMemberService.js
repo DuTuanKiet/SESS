@@ -19,6 +19,7 @@ const {
   AUDIT_ACTIONS,
   AUDIT_TARGETS,
   USER_ROLES,
+  PROJECT_STATUS,
 } = require('../utils/constants');
 const { assertEnum, assertEmail, isValidObjectIdLike } = require('../utils/validation');
 const { logAuditAction } = require('../utils/audit');
@@ -152,6 +153,9 @@ const notifyInvitation = async ({ project, inviter, invitee }) => {
 const inviteMember = async ({ projectId, inviter, email, req }) => {
   const { project } = await assertProjectOwner(projectId, inviter.id);
   assertProjectEditable(project);
+  if (project.status !== PROJECT_STATUS.DRAFT) {
+    throw ApiError.badRequest('Du an da SUBMITTED hoac vao giai doan sau: khong duoc moi/xoa thanh vien truc tiep. Vui long tao ProjectMemberChangeRequest cho Admin phe duyet.', 'MEMBER_CHANGE_REQUIRES_APPROVAL', { status: project.status });
+  }
 
   const inviteeEmail = assertEmail(email);
 
@@ -233,6 +237,9 @@ const respondInvitation = async ({ invitationId, userId, response }) => {
 const removeMember = async ({ projectId, requester, targetUserId, req }) => {
   const { project } = await assertProjectOwner(projectId, requester.id);
   assertProjectEditable(project);
+  if (project.status !== PROJECT_STATUS.DRAFT) {
+    throw ApiError.badRequest('Du an da SUBMITTED hoac vao giai doan sau: khong duoc xoa thanh vien truc tiep. Vui long tao ProjectMemberChangeRequest cho Admin phe duyet.', 'MEMBER_CHANGE_REQUIRES_APPROVAL', { status: project.status });
+  }
 
   const targetMembership = await findMembership(project._id, targetUserId);
   if (!targetMembership) throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
@@ -341,7 +348,10 @@ const requestMemberChange = async ({
   req,
 }) => {
   const { project } = await assertProjectOwner(projectId, requester.id);
-  assertProjectEditable(project);
+  // Sau SUBMITTED, chi duoc thay doi nhan su qua request + Admin duyet
+  if ([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED].includes(project.status)) {
+    throw ApiError.badRequest(PROJECT_LOCKED_MESSAGE, 'PROJECT_LOCKED', { status: project.status });
+  }
 
   assertEnum(type, [CHANGE_REQUEST_ADD, CHANGE_REQUEST_REMOVE], 'type', 'INVALID_CHANGE_TYPE');
 

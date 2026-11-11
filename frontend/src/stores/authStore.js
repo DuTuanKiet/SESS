@@ -1,10 +1,18 @@
 import { defineStore } from 'pinia';
 import { authApi } from '@/services/api/authApi';
-
-const ACCESS_TOKEN_KEY = 'accessToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
-const USER_KEY = 'user';
-const REMEMBERED_EMAIL_KEY = 'sess_remembered_email';
+import {
+  ACCESS_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  USER_KEY,
+  REMEMBERED_EMAIL_KEY,
+  readSessionValue,
+  writeSessionValue,
+  clearSessionAuth,
+  normalizeUserId,
+  bindTabUser,
+  hasSessionConflict,
+} from '@/stores/sessionAuth';
+import { useEvaluatorStore } from '@/stores/evaluatorStore';
 
 function safeParseUser(raw) {
   if (!raw) return null;
@@ -20,67 +28,39 @@ function safeParseUser(raw) {
   }
 }
 
-function getStoredToken() {
-  try {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-    if (!token || token === 'undefined' || token === 'null' || String(token).trim() === '') {
-      return null;
-    }
-    return token;
-  } catch {
-    return null;
-  }
+function readToken(key) {
+  const token = readSessionValue(key);
+  if (!token || token === 'undefined' || token === 'null' || String(token).trim() === '') return null;
+  return token;
 }
 
-function getStoredRefreshToken() {
-  try {
-    const token = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!token || token === 'undefined' || token === 'null' || String(token).trim() === '') {
-      return null;
-    }
-    return token;
-  } catch {
-    return null;
-  }
+function readUser() {
+  return safeParseUser(readSessionValue(USER_KEY));
 }
 
-function getStoredUser() {
+function resetUserScopedStores() {
+  // BR03: clear workspace/cache state when user context changes.
+  try { useEvaluatorStore().$reset(); } catch {}
   try {
-    const raw = localStorage.getItem(USER_KEY);
-    return safeParseUser(raw);
-  } catch {
-    return null;
-  }
+    const keys = ['projectDraft', 'judgeWorkspaceDraft', 'adminWorkspaceDraft'];
+    for (const k of keys) {
+      sessionStorage?.removeItem?.(k);
+      // keep localStorage draft only if no conflict; safer to clear tab-local copies
+    }
+  } catch {}
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: () => {
-    const accessToken = getStoredToken();
-    const user = getStoredUser();
-    if (accessToken && !user) {
-      try {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-      } catch {}
-      return { accessToken: null, refreshToken: null, user: null, portalType: 'user' };
-    }
-    if (!accessToken && user) {
-      try {
-        localStorage.removeItem(USER_KEY);
-      } catch {}
-      return { accessToken: null, refreshToken: null, user: null, portalType: 'user' };
-    }
-    return {
-      accessToken,
-      refreshToken: getStoredRefreshToken(),
-      user,
-      portalType: 'user',
-    };
-  },
+  state: () => ({
+    accessToken: null,
+    refreshToken: null,
+    user: null,
+    portalType: 'user',
+    sessionConflict: false,
+  }),
 
   getters: {
-    isAuthenticated: (state) => !!state.accessToken && !!state.user,
+    isAuthenticated: (state) => !!state.accessToken && !!state.user && !state.sessionConflict,
     isAdmin: (state) => {
       const role = (state.user?.role || state.user?.systemRole || '').toLowerCase();
       return role === 'admin';
@@ -105,20 +85,23 @@ export const useAuthStore = defineStore('auth', {
       try {
         const res = await authApi.getMe();
         const user = res.data?.data || res.data?.user || null;
-        this.user = user;
-        if (user) {
-          try { localStorage.setItem(USER_KEY, JSON.stringify(user)); } catch {}
-        }
+        this._applyUser(user, { resetIfChanged: true });
         return user;
       } catch (e) {
         this.clearAuth();
         throw e;
       }
     },
+
     initAuth() {
-      const accessToken = getStoredToken();
-      const user = getStoredUser();
-      const refreshToken = getStoredRefreshToken();
+      if (hasSessionConflict()) {
+        this.sessionConflict = true;
+        this.clearAuth();
+        return;
+      }
+      const accessToken = readToken(ACCESS_TOKEN_KEY);
+      const user = readUser();
+      const refreshToken = readToken(REFRESH_TOKEN_KEY);
       if (!accessToken || !user) {
         this.clearAuth();
         return;
@@ -126,25 +109,51 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
       this.user = user;
+      const bind = bindTabUser(user);
+      if (bind.conflict) {
+        this.sessionConflict = true;
+        this.clearAuth();
+      }
+    },
+
+    _applyUser(userData, { resetIfChanged = false } = {}) {
+      const prevId = normalizeUserId(this.user);
+      const nextId = normalizeUserId(userData);
+      if (resetIfChanged && prevId && nextId && prevId !== nextId) {
+        resetUserScopedStores();
+        clearSessionAuth();
+      }
+      this.user = userData || null;
+      if (userData) {
+        writeSessionValue(USER_KEY, JSON.stringify(userData));
+        const bind = bindTabUser(userData);
+        if (bind.conflict) this.sessionConflict = true;
+      } else {
+        writeSessionValue(USER_KEY, null);
+      }
     },
 
     setSession({ user: userData, tokens, portal = 'user' }) {
-      this.user = userData || null;
+      const incomingId = normalizeUserId(userData);
+      const existingTab = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('sess_tab_user_id') : null;
+      if (existingTab && incomingId && existingTab !== incomingId) {
+        // BR02/BR03: cross-user login in same tab � reset all user-scoped state before switching.
+        resetUserScopedStores();
+        clearSessionAuth();
+      }
       this.portalType = portal;
       if (tokens?.accessToken) {
         this.accessToken = tokens.accessToken;
-        try { localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken); } catch {}
+        writeSessionValue(ACCESS_TOKEN_KEY, tokens.accessToken);
       } else if (tokens?.token) {
         this.accessToken = tokens.token;
-        try { localStorage.setItem(ACCESS_TOKEN_KEY, tokens.token); } catch {}
+        writeSessionValue(ACCESS_TOKEN_KEY, tokens.token);
       }
       if (tokens?.refreshToken) {
         this.refreshToken = tokens.refreshToken;
-        try { localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken); } catch {}
+        writeSessionValue(REFRESH_TOKEN_KEY, tokens.refreshToken);
       }
-      if (userData) {
-        try { localStorage.setItem(USER_KEY, JSON.stringify(userData)); } catch {}
-      }
+      this._applyUser(userData, { resetIfChanged: false });
     },
 
     clearAuth() {
@@ -152,15 +161,11 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = null;
       this.refreshToken = null;
       this.portalType = 'user';
-      try {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        sessionStorage.clear();
-      } catch {}
+      try { clearSessionAuth(); sessionStorage?.clear?.(); } catch {}
     },
 
     logout() {
+      resetUserScopedStores();
       this.clearAuth();
     },
 
@@ -175,17 +180,20 @@ export const useAuthStore = defineStore('auth', {
     },
 
     getRememberedEmail() {
-      try {
-        return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
-      } catch {
-        return '';
-      }
+      try { return localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''; } catch { return ''; }
     },
 
     clearRememberedEmail() {
-      try {
-        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-      } catch {}
+      try { localStorage.removeItem(REMEMBERED_EMAIL_KEY); } catch {}
+    },
+
+    handleStorageConflict() {
+      // localStorage auth changed in another tab; this tab keeps its own sessionStorage session.
+      // If this tab has no bound session, force re-auth.
+      if (!this.accessToken || !this.user) {
+        this.sessionConflict = true;
+        this.clearAuth();
+      }
     },
   },
 });

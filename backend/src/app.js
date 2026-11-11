@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { randomUUID } = require('crypto');
 const env = require('./config/env');
 const apiRoutes = require('./routes');
 const { notFoundHandler, errorHandler: apiErrorHandler } = require('./middlewares/errorMiddleware');
@@ -7,6 +8,13 @@ const { apiLimiter } = require('./middlewares/rateLimitMiddleware');
 const { errorHandler: legacyErrorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
+
+// Per-request context (BR01/BR05): stable requestId for tracing/audit across concurrent requests.
+app.use((req, res, next) => {
+  req.requestId = req.get('x-request-id') || randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // Middlewares cơ bản
 const corsOptions = {

@@ -34,14 +34,16 @@ const login = async (req, res) => {
   const userRole = data.user?.role || data.user?.systemRole || '';
   data.redirectPath = redirectPathByRole(userRole);
 
-  // Non-blocking login notification email
+  // Non-blocking login notification email (professional template; IP/UA normalized in mailerService)
   (async () => {
     try {
-      await mailerService.sendMail({
-        to: data.user.email,
-        subject: '[SESS] Thông báo: Phát hiện đăng nhập thành công vào tài khoản của bạn',
-        text: `Xin chào ${data.user.fullName || ''},\nThời gian: ${new Date().toISOString()}\nIP: ${req.ip}\nThiết bị: ${req.get('user-agent')}\nNếu không phải bạn, liên hệ quản trị viên.`,
-        html: `<p>Xin chào ${data.user.fullName || ''},</p><p>Thời gian: ${new Date().toISOString()}</p><p>IP: ${req.ip}</p><p>Thiết bị: ${req.get('user-agent')}</p><p>Nếu không phải bạn, liên hệ quản trị viên hoặc đổi mật khẩu ngay.</p>`,
+      await mailerService.sendLoginNotificationEmail(data.user.email, {
+        fullName: data.user.fullName || data.user.name,
+        studentId: data.user.studentId || data.user.studentCode,
+        className: data.user.className || data.user.class,
+        loginAt: new Date(),
+        ip: req.ip || req.headers['x-forwarded-for'],
+        userAgent: req.get('user-agent'),
       });
     } catch (e) {
       console.error('Login notify email failed:', e.message);
@@ -60,11 +62,13 @@ const loginWithGoogle = async (req, res) => {
 
   (async () => {
     try {
-      await mailerService.sendMail({
-        to: data.user.email,
-        subject: '[SESS] Thông báo: Phát hiện đăng nhập thành công vào tài khoản của bạn',
-        text: `Xin chào ${data.user.fullName || ''},\nThời gian: ${new Date().toISOString()}\nIP: ${req.ip}\nThiết bị: ${req.get('user-agent')}\nNếu không phải bạn, liên hệ quản trị viên.`,
-        html: `<p>Xin chào ${data.user.fullName || ''},</p><p>Thời gian: ${new Date().toISOString()}</p><p>IP: ${req.ip}</p><p>Thiết bị: ${req.get('user-agent')}</p><p>Nếu không phải bạn, liên hệ quản trị viên hoặc đổi mật khẩu ngay.</p>`,
+      await mailerService.sendLoginNotificationEmail(data.user.email, {
+        fullName: data.user.fullName || data.user.name,
+        studentId: data.user.studentId || data.user.studentCode,
+        className: data.user.className || data.user.class,
+        loginAt: new Date(),
+        ip: req.ip || req.headers['x-forwarded-for'],
+        userAgent: req.get('user-agent'),
       });
     } catch (e) { console.error('Login notify email failed:', e.message); }
   })();

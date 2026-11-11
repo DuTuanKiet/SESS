@@ -1,7 +1,8 @@
-﻿<template>
+<template>
   <div class="min-h-screen flex flex-col bg-white">
     <Navbar />
-    <main class="flex-1">
+    <!-- pt-[64px] (sm: pt-16) reserves exact space for fixed Navbar (--nav-h:64px) to prevent overlap -->
+    <main class="flex-1 pt-16">
       <router-view />
     </main>
     <Footer />

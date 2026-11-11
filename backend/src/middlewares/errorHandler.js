@@ -10,6 +10,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     return res.status(409).json({
       success: false,
       code: 'CONFLICT',
+      requestId: req?.requestId,
       message: 'Dữ liệu bị trùng lặp. Thao tác này vi phạm ràng buộc duy nhất.',
     });
   }
@@ -19,7 +20,16 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     return res.status(400).json({
       success: false,
       code: 'INVALID_ID_FORMAT',
+      requestId: req?.requestId,
       message: `ID '${err.value}' không đúng định dạng ObjectId hợp lệ.`,
+    });
+  }
+  if (err.name === 'VersionError') {
+    return res.status(409).json({
+      success: false,
+      code: 'CONFLICT',
+      requestId: req?.requestId,
+      message: 'Dữ liệu đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại và thử lại.',
     });
   }
 
@@ -28,15 +38,17 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     return res.status(err.statusCode).json({
       success: false,
       code: err.code || 'BUSINESS_ERROR',
+      requestId: req?.requestId,
       message: err.message,
     });
   }
 
   // Lỗi không xác định - ghi log nội bộ, không lộ chi tiết ra ngoài
-  console.error('[ErrorHandler]', err);
+  console.error('[ErrorHandler]', { requestId: req?.requestId, err });
   return res.status(500).json({
     success: false,
     code: 'INTERNAL_SERVER_ERROR',
+    requestId: req?.requestId,
     message: 'Hệ thống gặp sự cố. Vui lòng thử lại sau.',
   });
 }

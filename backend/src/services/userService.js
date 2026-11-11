@@ -253,7 +253,7 @@ const acceptNda = async (user, version = '') => {
 
   await logAuditAction({
     actor: targetUser,
-    action: AUDIT_ACTIONS.CHANGE_USER_ROLE, // Tái tạo mã action gần nhất phù hợp; có thể thêm ACCEPT_NDA sau
+    action: AUDIT_ACTIONS.ACCEPT_NDA,
     targetEntity: AUDIT_TARGETS.USER,
     targetId: targetUser._id,
     oldValues: { ndaAccepted: false },

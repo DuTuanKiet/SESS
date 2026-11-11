@@ -38,6 +38,7 @@ const auditLogSchema = new mongoose.Schema(
     oldValues: { type: mongoose.Schema.Types.Mixed, default: null },
     newValues: { type: mongoose.Schema.Types.Mixed, default: null },
     ipAddress: { type: String, trim: true, default: '' },
+    requestId: { type: String, trim: true, default: '', index: true },
     timestamp: { type: Date, default: Date.now, index: true },
     // FR05-FR08 truy vấn audit theo createdAt
     createdAt: { type: Date, default: Date.now, index: true },

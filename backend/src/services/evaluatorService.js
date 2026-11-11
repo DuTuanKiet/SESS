@@ -4,7 +4,9 @@ const HumanEvaluation = require('../models/HumanEvaluation');
 const Project = require('../models/Project');
 const { createAuditLog } = require('../services/auditService');
 const ApiError = require('../utils/apiError');
-const { AUDIT_ACTIONS, AUDIT_ENTITIES, RUBRIC_STATUS } = require('../utils/constants');
+const { AUDIT_ACTIONS, AUDIT_ENTITIES, RUBRIC_STATUS, PROJECT_STATUS } = require('../utils/constants');
+const Notification = require('../models/Notification');
+const projectStateMachine = require('../utils/projectStateMachine');
 
 const DEVIATION_THRESHOLD = 2.5; // điểm trên thang 10 (đã quy đổi trọng số)
 
@@ -115,13 +117,13 @@ async function getWorkspace(evaluationId, userId, isAdmin = false) {
   const rubric = await EvaluationRubric.findById(evaluation.rubricVersionId).lean();
   if (!rubric) throw ApiError.notFound('Không tìm thấy bộ tiêu chí chấm điểm.', 'RUBRIC_NOT_FOUND');
 
-  const deviation = evaluation.status === 'SUBMITTED' ? await computeDeviationWarning(evaluation, evaluation.totalScore) : null;
+  const deviation = (evaluation.status === 'SUBMITTED' || isAdmin) ? await computeDeviationWarning(evaluation, evaluation.totalScore) : null;
 
   return {
     evaluation: {
       ...evaluation.toObject(),
       isLocked: evaluation.status === 'SUBMITTED',
-      deviation,
+      deviation: (evaluation.status === 'SUBMITTED' || isAdmin) ? deviation : null,
     },
     project: evaluation.projectId,
     rubric,
@@ -267,7 +269,78 @@ async function submitEvaluation(evaluationId, body, userId, isAdmin, req) {
     evaluation.submittedAt = null;
   }
 
+  // BR06 optimistic concurrency on evaluation doc (draft/submit)
+  const expectedEvalV = body?.expectedVersion ?? body?.__v ?? body?.evaluationVersion;
+  if (expectedEvalV !== undefined && expectedEvalV !== null && expectedEvalV !== '') {
+    const currentV = Number(evaluation.__v);
+    const givenV = Number(expectedEvalV);
+    if (Number.isFinite(currentV) && Number.isFinite(givenV) && currentV !== givenV) {
+      throw ApiError.conflict('Phi?u ch?m di?m d� du?c c?p nh?t ? phi�n kh�c. Vui l�ng t?i l?i tru?c khi luu.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
+    }
+  }
   await evaluation.save();
+
+  let projectStatusUpdated = null;
+  let deviationAlertCreated = false;
+  if (actionType === 'SUBMIT') {
+    const roundEvaluations = await HumanEvaluation.find({
+      evaluationRoundId: evaluation.evaluationRoundId,
+      projectId: evaluation.projectId,
+    }).select('status').lean();
+    const allSubmitted = roundEvaluations.length > 0 && roundEvaluations.every((e) => e.status === 'SUBMITTED');
+    if (deviation?.hasDeviationWarning) {
+      await Project.updateOne({ _id: evaluation.projectId }, { $set: { needsAdminReview: true, adminReviewReason: `Score deviation ${deviation.deviationFromAverage} (avg ${deviation.peerAverageScore}, threshold ${deviation.threshold})` } }).catch(() => {});
+      await createAuditLog({
+        userId: null,
+        action: AUDIT_ACTIONS.SCORE_OUTLIER_DETECTED,
+        targetEntity: AUDIT_ENTITIES.EVALUATION_SUBMISSIONS,
+        targetId: evaluation._id,
+        oldValues: null,
+        newValues: {
+          projectId: evaluation.projectId,
+          evaluationRoundId: evaluation.evaluationRoundId,
+          evaluatorId: evaluation.evaluatorId,
+          totalScore,
+          deviationFromAverage: deviation.deviationFromAverage,
+          peerAverageScore: deviation.peerAverageScore,
+          threshold: deviation.threshold,
+        },
+        req,
+      });
+      try {
+        await Notification.create({
+          recipientRole: 'admin',
+          title: 'Canh bao lech diem cham thi',
+          content: `Phieu cham ${evaluation._id} co diem lech ${deviation.deviationFromAverage} so voi trung binh (${deviation.peerAverageScore}). Can hoi y xu ly.`,
+          type: 'warning',
+          link: `/admin/evaluations/outliers?projectId=${evaluation.projectId}&roundId=${evaluation.evaluationRoundId}`,
+          relatedEvaluationId: evaluation._id,
+          relatedProjectId: evaluation.projectId,
+        });
+        deviationAlertCreated = true;
+      } catch {}
+    }
+    if (allSubmitted && !deviation?.hasDeviationWarning) {
+      // BR06: atomic project transition to avoid duplicate auto-EVALUATED on concurrent judge submits
+      const transitioned = await Project.findOneAndUpdate(
+        { _id: evaluation.projectId, status: PROJECT_STATUS.UNDER_MENTORSHIP },
+        { $set: { status: PROJECT_STATUS.EVALUATED } },
+        { new: false, projection: { status: 1 } }
+      ).lean();
+      if (transitioned && projectStateMachine.isValidTransition({ currentStatus: transitioned.status, targetStatus: PROJECT_STATUS.EVALUATED })) {
+        projectStatusUpdated = { from: transitioned.status, to: PROJECT_STATUS.EVALUATED };
+        await createAuditLog({
+          userId: null,
+          action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS,
+          targetEntity: AUDIT_ENTITIES.PROJECTS,
+          targetId: evaluation.projectId,
+          oldValues: { status: transitioned.status },
+          newValues: { status: PROJECT_STATUS.EVALUATED, reason: 'AUTO_ALL_JUDGES_SUBMITTED_NO_OUTLIER', evaluationRoundId: evaluation.evaluationRoundId },
+          req,
+        });
+      }
+    }
+  }
 
   const action = actionType === 'SUBMIT' ? AUDIT_ACTIONS.SUBMIT_EVALUATION_SCORE : 'SAVE_EVALUATION_DRAFT';
   await createAuditLog({
@@ -283,6 +356,8 @@ async function submitEvaluation(evaluationId, body, userId, isAdmin, req) {
       projectId: evaluation.projectId,
       evaluationRoundId: evaluation.evaluationRoundId,
       deviationWarning: deviation?.hasDeviationWarning || false,
+      projectStatusUpdated,
+      deviationAlertCreated,
     },
     req,
   });
@@ -301,7 +376,9 @@ async function submitEvaluation(evaluationId, body, userId, isAdmin, req) {
   return {
     ...populated,
     isLocked: populated?.status === 'SUBMITTED',
-    deviation,
+    deviation: populated?.status === 'SUBMITTED' || isAdmin ? deviation : null,
+    projectStatusUpdated,
+    deviationAlertCreated,
   };
 }
 
@@ -324,7 +401,8 @@ async function getEvaluationSummary(evaluationId, userId, isAdmin = false) {
     .lean();
 
   const submitted = peerEvaluations.filter((item) => item.status === 'SUBMITTED');
-  const averageScore = submitted.length
+  const canViewPeerStats = isAdmin || evaluation.status === 'SUBMITTED';
+  const averageScore = canViewPeerStats && submitted.length
     ? round2(submitted.reduce((sum, item) => sum + Number(item.totalScore || 0), 0) / submitted.length)
     : null;
 
@@ -332,9 +410,9 @@ async function getEvaluationSummary(evaluationId, userId, isAdmin = false) {
     evaluationId: evaluation._id,
     projectId: evaluation.projectId,
     evaluationRoundId: evaluation.evaluationRoundId,
-    panelCount: peerEvaluations.length,
-    submittedCount: submitted.length,
-    draftCount: peerEvaluations.length - submitted.length,
+    panelCount: canViewPeerStats ? peerEvaluations.length : null,
+    submittedCount: canViewPeerStats ? submitted.length : null,
+    draftCount: canViewPeerStats ? (peerEvaluations.length - submitted.length) : null,
     averageScore,
     myStatus: evaluation.status,
     myTotalScore: evaluation.totalScore,

@@ -1,11 +1,11 @@
 <template>
-  <div class="space-y-10">
+  <div class="space-y-8">
     <div>
-      <h1 class="text-2xl font-bold text-[#0B1F4B] leading-none">Hồ sơ & Vinh danh</h1>
-      <p class="mt-1 text-sm text-[#6B7B9A] leading-relaxed">Thông tin cá nhân, đơn vị công tác và lịch sử thành tích hướng dẫn dự án khởi nghiệp.</p>
+      <h1 class="text-2xl font-semibold tracking-tight text-[#0f172a]">Hồ sơ & Vinh danh</h1>
+      <p class="mt-1 text-sm text-slate-500">Thông tin cá nhân, đơn vị công tác và lịch sử thành tích hướng dẫn dự án khởi nghiệp.</p>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] p-6">
+    <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] sm:p-6">
       <MentorInfoCard :profile="profile" />
     </div>
     <MentorHonorHistoryCard :history="history" :loading="historyLoading" />

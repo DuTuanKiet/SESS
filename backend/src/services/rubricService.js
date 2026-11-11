@@ -73,7 +73,7 @@ async function _applyRubricMutation({ rubric, changes: { name, description, crit
         );
         newRubric = created;
 
-        // Bản cũ tiếp tục giữ status ACTIVE để phục vụ các đợt chấm điểm hiện tại của Hội đồng và AI Evaluator.
+        // Bản cũ tiếp tục giữ status ACTIVE để phục vụ các đợt chấm điểm hiện tại của Hội đồng.
         // Bản cũ chỉ được chuyển thành DEPRECATED khi bản mới chính thức được kích hoạt (activateRubric).
 
         await createAuditLog({

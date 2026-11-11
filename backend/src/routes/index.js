@@ -21,6 +21,7 @@ const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRo
 const votingRouter = require('./votingRouter');
 const newsRouter = require('./newsRouter');
 const notificationRouter = require('./notificationRoutes');
+const appealRouter = require('./appealRouter');
 
 // --- Routes vòng đời nâng cao (Enterprise Edition) ---
 const projectCancellationRoutes = require('./projectCancellationRoutes');
@@ -93,6 +94,7 @@ router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
 router.use('/public/votes', votingRouter);
 router.use('/news', newsRouter);
 router.use('/notifications', notificationRouter);
+router.use('/', appealRouter);
 
 // ---------------------------------------------------------------------------
 // /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)

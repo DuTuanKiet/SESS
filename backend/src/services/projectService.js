@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const ProjectRevision = require('../models/ProjectRevision');
+const EvaluationRound = require('../models/EvaluationRound');
 const ProjectMember = require('../models/ProjectMember');
 const User = require('../models/User');
 const StudentWhitelist = require('../models/StudentWhitelist');
@@ -121,114 +122,94 @@ async function updateProjectStatus(
     forceReason = '',
     extraAllowedTargets = [],
     transitionContext = '',
+    needsAdminReview,
   } = {},
 ) {
   if (!Object.values(PROJECT_STATUS).includes(status)) {
-    throw createError('Trạng thái dự án không hợp lệ.', 400, 'INVALID_PROJECT_STATUS');
+    throw createError('Tr?ng th�i d? �n kh�ng h?p l?.', 400, 'INVALID_PROJECT_STATUS');
   }
 
   const executeStatusUpdate = async (session) => {
     const project = await Project.findById(projectId).session(session || null);
     if (!project) {
-      throw createError('Không tìm thấy dự án để cập nhật trạng thái.', 404, 'PROJECT_NOT_FOUND');
+      throw createError('Kh�ng t�m th?y d? �n d? c?p nh?t tr?ng th�i.', 404, 'PROJECT_NOT_FOUND');
     }
+
+    const resolvedStatuses = new Set([PROJECT_STATUS.EVALUATED, PROJECT_STATUS.APPROVED, PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED]);
+    const shouldClearReview = needsAdminReview === false || resolvedStatuses.has(status);
 
     if (project.status === status) {
-      throw createError('Dự án đã ở trạng thái này.', 400, 'PROJECT_STATUS_UNCHANGED');
+      // Allow admin to clear outlier-review flag without changing status.
+      if (shouldClearReview && project.needsAdminReview) {
+        const old = { needsAdminReview: project.needsAdminReview, adminReviewReason: project.adminReviewReason || '' };
+        project.needsAdminReview = false;
+        project.adminReviewReason = '';
+        await project.save({ session: session || undefined });
+        if (adminId) {
+          await auditService.createAuditLog({
+            userId: adminId, action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS, targetEntity: AUDIT_ENTITIES.PROJECTS, targetId: project._id,
+            oldValues: old, newValues: { status, needsAdminReview: false, adminReviewReason: '', note: note || '' }, session: session || undefined,
+          });
+        }
+        return { project: project.toObject(), completedAssignment: null, forced: false, allowedTransitions: projectStateMachine.getAllowedTransitions(project.status) };
+      }
+      throw createError('D? �n d� ? tr?ng th�i n�y.', 400, 'PROJECT_STATUS_UNCHANGED');
     }
 
-    // State Machine: chỉ cho phép chuyển trạng thái theo ma trận nghiêm ngặt.
-    // Admin có thể cưỡng chế (FORCE_OVERRIDE) trạng thái kết thúc nếu có lý do kiểm toán.
     const transition = projectStateMachine.assertValidTransition({
-      currentStatus: project.status,
-      targetStatus: status,
-      force,
-      forceReason,
-      extraAllowedTargets,
-      context: transitionContext,
+      currentStatus: project.status, targetStatus: status, force, forceReason, extraAllowedTargets, context: transitionContext,
     });
 
     const oldStatus = project.status;
+    const oldReview = { needsAdminReview: !!project.needsAdminReview, adminReviewReason: project.adminReviewReason || '' };
     project.status = status;
+    if (shouldClearReview) {
+      project.needsAdminReview = false;
+      project.adminReviewReason = '';
+    } else if (typeof needsAdminReview === 'boolean') {
+      project.needsAdminReview = needsAdminReview;
+      if (needsAdminReview === false) project.adminReviewReason = '';
+    }
     await project.save({ session: session || undefined });
 
     let completedAssignment = null;
-
-    // Ràng buộc nghiêm ngặt: CHỈ KHI status chính xác là 'Completed' mới hoàn thành assignment
     if (status === PROJECT_STATUS.COMPLETED) {
-      const activeAssignment = await MentorAssignment.findOne({
-        projectId,
-        status: ASSIGNMENT_STATUS.ASSIGNED,
-      }).session(session || null);
-
+      const activeAssignment = await MentorAssignment.findOne({ projectId, status: ASSIGNMENT_STATUS.ASSIGNED }).session(session || null);
       if (activeAssignment) {
         const now = new Date();
         activeAssignment.status = ASSIGNMENT_STATUS.COMPLETED;
         activeAssignment.endedAt = now;
         await activeAssignment.save({ session: session || undefined });
-
-        completedAssignment = {
-          assignmentId: activeAssignment._id,
-          mentorId: activeAssignment.mentorId,
-          status: activeAssignment.status,
-          endedAt: activeAssignment.endedAt,
-        };
+        completedAssignment = { assignmentId: activeAssignment._id, mentorId: activeAssignment.mentorId, status: activeAssignment.status, endedAt: activeAssignment.endedAt };
       }
     }
 
-    // Ghi nhận AuditLog nếu thao tác do Admin thực hiện (FR14)
     if (adminId) {
       await auditService.createAuditLog({
-        userId: adminId,
-        action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS,
-        targetEntity: AUDIT_ENTITIES.PROJECTS,
-        targetId: project._id,
-        oldValues: { status: oldStatus },
+        userId: adminId, action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS, targetEntity: AUDIT_ENTITIES.PROJECTS, targetId: project._id,
+        oldValues: { status: oldStatus, ...oldReview },
         newValues: {
-          status,
-          note: note || '',
-          forced: transition.forced,
-          forceReason: transition.forced ? forceReason : '',
-          completedAssignment: completedAssignment
-            ? {
-                assignmentId: completedAssignment.assignmentId,
-                mentorId: completedAssignment.mentorId,
-              }
-            : null,
+          status, note: note || '', forced: transition.forced, forceReason: transition.forced ? forceReason : '',
+          needsAdminReview: !!project.needsAdminReview, adminReviewReason: project.adminReviewReason || '',
+          completedAssignment: completedAssignment ? { assignmentId: completedAssignment.assignmentId, mentorId: completedAssignment.mentorId } : null,
         },
         session: session || undefined,
       });
     }
 
-    return {
-      project: project.toObject(),
-      completedAssignment,
-      forced: transition.forced,
-      allowedTransitions: projectStateMachine.getAllowedTransitions(project.status),
-    };
+    return { project: project.toObject(), completedAssignment, forced: transition.forced, allowedTransitions: projectStateMachine.getAllowedTransitions(project.status) };
   };
 
-  // Nếu caller đã truyền session (vd: assignMentorToProject), sử dụng session đó
-  if (externalSession) {
-    return executeStatusUpdate(externalSession);
-  }
-
-  // Nếu chưa có session, tự mở Mongoose Transaction để bảo đảm ACID khi cập nhật đa collection.
-  // MongoDB standalone (môi trường dev) KHÔNG hỗ trợ transaction -> tự động fallback
-  // sang chế độ không transaction để luồng nghiệp vụ vẫn hoạt động.
+  if (externalSession) return executeStatusUpdate(externalSession);
   const session = await mongoose.startSession();
   try {
     let result;
     try {
-      await session.withTransaction(async () => {
-        result = await executeStatusUpdate(session);
-      });
+      await session.withTransaction(async () => { result = await executeStatusUpdate(session); });
       return result;
     } catch (error) {
       if (!isTransactionUnsupportedError(error)) throw error;
-      console.warn(
-        '[Project] MongoDB không hỗ trợ transaction (standalone) -> cập nhật trạng thái không transaction.',
-      );
+      console.warn('[Project] MongoDB kh�ng h? tr? transaction (standalone) -> c?p nh?t tr?ng th�i kh�ng transaction.');
       return await executeStatusUpdate(null);
     }
   } finally {
@@ -236,16 +217,6 @@ async function updateProjectStatus(
   }
 }
 
-/**
- * Kiểm tra user là Owner của dự án. Ném 403 nếu không phải Owner.
- * Thiết kế theo Kịch bản B:
- * - Ưu tiên 1: Chuẩn FR01-FR04 qua bảng ProjectMember độc lập
- * - Ưu tiên 2: Trường liên kết trực tiếp project.ownerId
- * - Fallback: Mảng nhúng project.members (tương thích ngược với test fixtures FR05)
- * @param {string|ObjectId} studentId - ID của sinh viên
- * @param {string|ObjectId} projectId - ID của dự án
- * @returns {Promise<Object>} project document đã tìm thấy
- */
 async function verifyProjectOwner(studentId, projectId) {
   const project = await Project.findById(projectId).lean();
   if (!project) {
@@ -514,15 +485,36 @@ const createProject = async ({ owner, payload = {}, req } = {}) => {
  * RÀNG BUỘC: chỉ OWNER/MEMBER (đã chấp nhận lời mời) được sửa VÀ dự án phải ở
  * trạng thái DRAFT hoặc NEED_REVISION. Các trạng thái khác -> 403 Forbidden.
  */
+const assertOptimisticVersion = (doc, payload = {}) => {
+  if (!payload || typeof payload !== 'object') return;
+  const expectedV = payload.expectedVersion ?? payload.__v ?? payload.version;
+  if (expectedV !== undefined && expectedV !== null && expectedV !== '') {
+    const currentV = Number(doc?.__v);
+    const givenV = Number(expectedV);
+    if (Number.isFinite(currentV) && Number.isFinite(givenV) && currentV !== givenV) {
+      throw ApiError.conflict('D? li?u d? �n d� thay d?i ? phi�n kh�c. Vui l�ng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
+    }
+  }
+  const expectedAt = payload.lastKnownUpdatedAt ?? payload.expectedUpdatedAt;
+  if (expectedAt) {
+    const currentAt = doc?.updatedAt ? new Date(doc.updatedAt).getTime() : NaN;
+    const givenAt = new Date(expectedAt).getTime();
+    if (Number.isFinite(currentAt) && Number.isFinite(givenAt) && currentAt !== givenAt) {
+      throw ApiError.conflict('D? li?u d? �n d� thay d?i ? phi�n kh�c. Vui l�ng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentUpdatedAt: doc?.updatedAt, expectedUpdatedAt: expectedAt });
+    }
+  }
+};
+
 const updateProject = async ({ projectId, userId, payload = {} }) => {
   const { project } = await projectMemberService.assertProjectMember(projectId, userId);
 
-  // Đóng băng dự án: chỉ sửa được khi DRAFT/NEED_REVISION
+  // ��ng bang d? �n: ch? s?a du?c khi DRAFT/NEED_REVISION
   projectMemberService.assertProjectEditable(project);
+  assertOptimisticVersion(project, payload);
 
   const data = buildProjectData(payload);
   if (!Object.keys(data).length) {
-    throw ApiError.badRequest('Không có thông tin nào để cập nhật', 'NOTHING_TO_UPDATE');
+    throw ApiError.badRequest('Kh�ng c� th�ng tin n�o d? c?p nh?t', 'NOTHING_TO_UPDATE');
   }
 
   project.set(data);
@@ -535,11 +527,36 @@ const updateProject = async ({ projectId, userId, payload = {} }) => {
  * Fail fast nếu thiếu trường cốt lõi; nộp thành công -> lưu snapshot ProjectRevision
  * cho phiên bản hiện tại, chuyển trạng thái SUBMITTED và tăng version lên 1.
  */
-const submitProject = async ({ projectId, actor, req } = {}) => {
+const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnownUpdatedAt } = {}) => {
   const { project } = await projectMemberService.assertProjectMember(projectId, actor.id);
 
-  // Đóng băng dự án: đã nộp/đang xét duyệt thì không nộp lại
+  // ��ng bang d? �n: d� n?p/dang x�t duy?t th� kh�ng n?p l?i
   projectMemberService.assertProjectEditable(project);
+  assertOptimisticVersion(project, { expectedVersion, __v: expectedVersion, lastKnownUpdatedAt });
+  // Deadline enforcement: if an active round defines submission window, enforce it
+  const now = new Date();
+  const activeRound = await EvaluationRound.findOne({
+    isActive: { $ne: false },
+    $or: [{ submissionOpenAt: { $ne: null } }, { submissionCloseAt: { $ne: null } }],
+  }).sort({ submissionOpenAt: -1, createdAt: -1 }).lean();
+  if (activeRound && (activeRound.submissionOpenAt || activeRound.submissionCloseAt)) {
+    const openAt = activeRound.submissionOpenAt ? new Date(activeRound.submissionOpenAt) : null;
+    const closeAt = activeRound.submissionCloseAt ? new Date(activeRound.submissionCloseAt) : null;
+    if ((openAt && now < openAt) || (closeAt && now > closeAt)) {
+      throw ApiError.badRequest(
+        `Ngoai thoi gian nop bai cua vong thi${activeRound.roundName ? ` "${activeRound.roundName}"` : ''}. Vui long nop trong khoang thoi gian cho phep.`,
+        'SUBMISSION_WINDOW_CLOSED',
+        {
+          roundId: activeRound._id,
+          roundName: activeRound.roundName,
+          stageType: activeRound.stageType,
+          submissionOpenAt: activeRound.submissionOpenAt,
+          submissionCloseAt: activeRound.submissionCloseAt,
+          now,
+        }
+      );
+    }
+  }
 
   const missingFields = REQUIRED_SUBMIT_FIELDS.filter((field) => !isNonEmptyString(project[field]));
   if (missingFields.length) {

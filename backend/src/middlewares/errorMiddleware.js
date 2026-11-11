@@ -24,6 +24,9 @@ const normalizeError = (error) => {
     const field = Object.keys(error.keyValue ?? {}).join(', ') || 'không xác định';
     return ApiError.conflict(`Giá trị của trường "${field}" đã tồn tại`, 'DUPLICATE_KEY');
   }
+  if (error.name === 'VersionError') {
+    return ApiError.conflict('Dữ liệu đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại và thử lại.', 'CONFLICT');
+  }
   if (error.name === 'TokenExpiredError') {
     return ApiError.unauthorized('Token đã hết hạn, vui lòng làm mới phiên đăng nhập', 'TOKEN_EXPIRED');
   }
@@ -41,15 +44,16 @@ const normalizeError = (error) => {
   );
 };
 
-const errorHandler = (error, _req, res, _next) => {
+const errorHandler = (error, req, res, _next) => {
   const normalized = normalizeError(error);
 
   if (normalized.statusCode >= 500) {
-    console.error('[Error]', error);
+    console.error('[Error]', { requestId: req?.requestId, error });
   }
 
   const body = { success: false, message: normalized.message, code: normalized.code };
   if (normalized.details) body.errors = normalized.details;
+  if (req?.requestId) body.requestId = req.requestId;
   if (!env.isProduction && normalized.statusCode >= 500) body.stack = error.stack;
 
   res.status(normalized.statusCode).json(body);
