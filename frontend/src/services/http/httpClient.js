@@ -8,11 +8,13 @@ const httpClient = axios.create({
 
 httpClient.interceptors.request.use((config) => {
   if (hasSessionConflict()) {
-    clearAuthSession();
+    clearSessionAuth();
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
       window.location.href = '/auth/login';
     }
-    error.__SESSION_CONFLICT__ = true; return Promise.reject(Object.assign(new Error('SESSION_CONFLICT'), { code: 'ERR_CANCELED', __SESSION_CONFLICT__: true }));
+    const sessionConflictError = new Error('SESSION_CONFLICT');
+    Object.assign(sessionConflictError, { code: 'ERR_CANCELED', __SESSION_CONFLICT__: true });
+    return Promise.reject(sessionConflictError);
   }
   const token = getAccessToken();
   if (token) {
@@ -33,7 +35,7 @@ httpClient.interceptors.response.use(
     const originalRequest = error.config || {};
 
     if (hasSessionConflict()) {
-      clearAuthSession();
+      clearSessionAuth();
       if (typeof window !== 'undefined') window.location.href = '/auth/login';
       return Promise.reject(error);
     }
@@ -55,12 +57,12 @@ httpClient.interceptors.response.use(
             return httpClient(originalRequest);
           }
         } catch (refreshError) {
-          clearAuthSession();
+          clearSessionAuth();
           if (typeof window !== 'undefined') window.location.href = '/auth/login';
           return Promise.reject(refreshError);
         }
       } else {
-        clearAuthSession();
+        clearSessionAuth();
       }
     }
 

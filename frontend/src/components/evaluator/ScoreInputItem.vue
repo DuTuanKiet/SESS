@@ -42,7 +42,7 @@ function handleCommentInput(event) {
 }
 
 function adjust(delta) {
-  if (disabled) return;
+  if (props.disabled) return;
   const current = props.value == null ? 0 : props.value;
   let next = current + delta;
   if (next < props.criterion.minScore) next = props.criterion.minScore;

@@ -69,7 +69,7 @@ export function hasSessionConflict() {
   if (typeof sessionStorage === 'undefined') return false;
   const tabId = safeGet(sessionStorage, TAB_USER_ID_KEY);
   if (!tabId) return false;
-  let user = null;
+  let user;
   try { user = JSON.parse(safeGet(sessionStorage, USER_KEY) || 'null'); } catch { user = null; }
   const userId = normalizeUserId(user);
   return !!(userId && userId !== tabId);
