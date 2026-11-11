@@ -22,7 +22,7 @@ const processConfirmUpload = async (data) => {
   const fileRecord = await CloudFileUpload.findOne({ objectKey, uploadedBy });
   if (fileRecord) {
     fileRecord.status = 'completed';
-    fileRecord.publicUrl = confirmed.publicUrl || '';
+    fileRecord.publicUrl = confirmed.publicUrl || fileRecord.publicUrl || '';
     fileRecord.checksum = checksum || '';
     await fileRecord.save();
   }

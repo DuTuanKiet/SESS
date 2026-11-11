@@ -21,16 +21,16 @@ const cloudFileUploadSchema = new mongoose.Schema(
       index: true,
     },
     /** Tên file gốc */
-    originalName: { type: String, required: true, trim: true },
-    /** Loại file: 'video' | 'poster' | 'document' */
+    originalName: { type: String, required: true, trim: true, maxlength: 255 },
+    /** Loại file: 'video' | 'poster' | 'document' | 'image' */
     fileType: {
       type: String,
-      enum: ['video', 'poster', 'document'],
+      enum: ['video', 'poster', 'document', 'image'],
       required: true,
       index: true,
     },
     /** MIME type */
-    mimeType: { type: String, required: true, trim: true },
+    mimeType: { type: String, required: true, trim: true, maxlength: 150 },
     /** Kích thước file (byte) */
     fileSize: { type: Number, required: true, min: 0 },
     /** Đường dẫn object key trong bucket */
@@ -41,6 +41,7 @@ const cloudFileUploadSchema = new mongoose.Schema(
     presignedUrl: { type: String, trim: true, default: '' },
     /** Hạn dùng của presigned upload URL */
     presignedExpiresAt: { type: Date, default: null },
+    uploadedAt: { type: Date, default: null },
     /** Trạng thái upload: 'pending' | 'completed' | 'failed' */
     status: {
       type: String,

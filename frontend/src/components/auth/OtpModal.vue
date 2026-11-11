@@ -14,6 +14,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  infoMessage: {
+    type: String,
+    default: '',
+  },
   errorMessage: {
     type: String,
     default: '',
@@ -140,11 +144,19 @@ function handleClose() {
           Xác thực mã OTP Email
         </h3>
         <p class="mt-1 text-xs text-slate-500">
-          Mã xác nhận 6 số đã được gửi tới email:
+          Mã xác thực được gửi tới email:
         </p>
         <p class="font-semibold text-xs text-blue-900 mt-0.5 break-all">
           {{ email }}
         </p>
+      </div>
+
+      <div
+        v-if="infoMessage"
+        class="mt-4 p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs text-center"
+        role="status"
+      >
+        {{ infoMessage }}
       </div>
 
       <!-- Thông báo lỗi -->

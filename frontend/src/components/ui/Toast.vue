@@ -1,93 +1,88 @@
 <script setup>
 import { useToastStore } from '@/stores/toast';
+import {
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  X,
+} from 'lucide-vue-next';
 
+/**
+ * Component hiển thị thông báo Toast toàn cục
+ * Tuân thủ quy chuẩn frontend-code-standard và bảng màu SESS
+ */
 const toastStore = useToastStore();
 
 const typeClasses = {
-  error: 'bg-red-50 border-red-200 text-red-700',
-  success: 'bg-green-50 border-green-200 text-green-700',
-  info: 'bg-blue-50 border-blue-200 text-blue-700',
-  warning: 'bg-amber-50 border-amber-200 text-amber-700',
+  error: 'bg-rose-50 border-rose-200 text-rose-900 shadow-rose-900/5',
+  success: 'bg-emerald-50 border-emerald-200 text-emerald-900 shadow-emerald-900/5',
+  info: 'bg-[#F1F7FF] border-[#C7D7F5] text-[#0B1F4B] shadow-blue-900/5',
+  warning: 'bg-amber-50 border-amber-200 text-amber-900 shadow-amber-900/5',
 };
 
-const typeIcons = {
-  error: 'text-red-600',
-  success: 'text-green-600',
-  info: 'text-blue-600',
+const iconComponents = {
+  error: AlertCircle,
+  success: CheckCircle2,
+  info: Info,
+  warning: AlertTriangle,
+};
+
+const iconClasses = {
+  error: 'text-rose-600',
+  success: 'text-emerald-600',
+  info: 'text-[#1E56D9]',
   warning: 'text-amber-600',
 };
 </script>
 
 <template>
-  <div
-    v-for="toast in toastStore.toasts"
-    :key="toast.id"
-    class="fixed top-4 right-4 z-[100] w-full max-w-sm mb-3 p-3 rounded-xl border shadow-lg transition-all duration-300 transform translate-x-full opacity-0 animate-[slideIn_0.3s_ease-out forwards]"
-    :class="typeClasses[toast.type]"
-  >
-    <div class="flex items-start gap-2">
-      <svg
-        class="w-5 h-5 shrink-0 mt-0.5"
-        :class="typeIcons[toast.type]"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
+  <!-- Container cố định ở góc trên bên phải, hỗ trợ xếp chồng danh sách Toast -->
+  <div class="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+    <TransitionGroup name="toast-slide">
+      <div
+        v-for="toast in toastStore.toasts"
+        :key="toast.id"
+        class="pointer-events-auto w-full p-4 rounded-2xl border shadow-md flex items-start gap-3 transition-all duration-300"
+        :class="typeClasses[toast.type] || typeClasses.info"
+        role="alert"
       >
-        <path
-          v-if="toast.type === 'error'"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+        <component
+          :is="iconComponents[toast.type] || Info"
+          class="w-5 h-5 shrink-0 mt-0.5"
+          :class="iconClasses[toast.type] || iconClasses.info"
         />
-        <path
-          v-else-if="toast.type === 'success'"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M5 13l4 4L19 7"
-        />
-        <path
-          v-else-if="toast.type === 'info'"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-        <path
-          v-else
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        />
-      </svg>
-      <div class="flex-1">
-        <p class="text-sm font-medium">{{ toast.message }}</p>
+
+        <div class="flex-1 min-w-0">
+          <p class="text-xs sm:text-sm font-semibold leading-snug break-words">
+            {{ toast.message }}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          @click="toastStore.remove(toast.id)"
+          class="text-slate-400 hover:text-slate-700 transition-colors p-1 -mr-1 -mt-1 rounded-lg cursor-pointer"
+          aria-label="Đóng thông báo"
+        >
+          <X class="w-4 h-4" />
+        </button>
       </div>
-      <button
-        type="button"
-        @click="toastStore.remove(toast.id)"
-        class="text-slate-400 hover:text-slate-600 focus:outline-hidden p-1"
-        aria-label="Đóng thông báo"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
-<style>
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+<style scoped>
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-slide-enter-from {
+  opacity: 0;
+  transform: translateX(100%);
+}
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateX(100%) scale(0.95);
 }
 </style>

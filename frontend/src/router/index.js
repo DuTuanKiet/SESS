@@ -2,8 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 import PublicLayout from '@/layouts/PublicLayout.vue';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import StudentLayout from '@/layouts/StudentLayout.vue';
 import AdvisorLayout from '@/layouts/AdvisorLayout.vue';
 import JudgeLayout from '@/layouts/JudgeLayout.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
@@ -19,8 +17,8 @@ import NewsDetailPage from '@/modules/public-site/pages/NewsDetailPage.vue';
 import ContactPage from '@/modules/public-site/pages/ContactPage.vue';
 import NotFoundPage from '@/modules/public-site/pages/NotFoundPage.vue';
 
-import LoginView from '@/modules/auth/pages/LoginView.vue';
-import AdminLoginView from '@/modules/auth/pages/AdminLoginView.vue';
+import { authRoutes } from './auth';
+import { studentRoutes } from './student';
 
 import EvaluatorAssignmentsView from '@/views/EvaluatorAssignmentsView.vue';
 import EvaluatorWorkspaceView from '@/views/EvaluatorWorkspaceView.vue';
@@ -68,7 +66,11 @@ const routes = [
       { path: 'support', name: 'support', component: NotFoundPage },
       { path: 'resources', name: 'resources', component: NotFoundPage },
       { path: 'competitions/:id', name: 'competition-detail', component: CompetitionsView },
-      { path: 'competitions/:id/submit', name: 'competition-submit', component: CompetitionsView },
+      {
+        path: 'competitions/:id/submit',
+        name: 'competition-submit',
+        redirect: (to) => ({ path: '/student/projects', query: { registerCompetitionId: to.params.id } }),
+      },
       { path: 'competitions/:id/results', name: 'competition-results', component: CompetitionsView },
     ],
   },
@@ -91,6 +93,9 @@ const routes = [
     meta: { roles: ['student', 'STUDENT'], requiresAuth: true },
     children: [
       { path: '', name: 'student-dashboard', component: () => import('@/modules/competitions/pages/StudentDashboardPage.vue') },
+      { path: 'profile', name: 'student-profile', component: () => import('@/modules/student/pages/StudentProfilePage.vue') },
+      { path: 'projects', name: 'student-projects', component: () => import('@/modules/student/pages/StudentProjectsPage.vue') },
+      { path: 'projects/:id', name: 'student-project-detail', component: () => import('@/modules/student/pages/StudentProjectDetailPage.vue') },
     ],
   },
   {
@@ -172,46 +177,46 @@ router.beforeEach((to, from) => {
   }
 
   const routeTitle = {
-    home: 'Trang chủ | Cổng thông tin SESS - CTUT',
-    about: 'Giới thiệu | Cổng thông tin SESS - CTUT',
-    competitions: 'Cuộc thi | Cổng thông tin SESS - CTUT',
-    rules: 'Thể lệ | Cổng thông tin SESS - CTUT',
-    criteria: 'Tiêu chí đánh giá | Cổng thông tin SESS - CTUT',
-    news: 'Tin tức & Sự kiện | Cổng thông tin SESS - CTUT',
-    'news-detail': 'Tin tức | Cổng thông tin SESS - CTUT',
-    contact: 'Liên hệ | Cổng thông tin SESS - CTUT',
-    support: 'Hỗ trợ | Cổng thông tin SESS - CTUT',
-    resources: 'Tài nguyên | Cổng thông tin SESS - CTUT',
-    login: 'Đăng nhập | Cổng thông tin SESS - CTUT',
-    'admin-login': 'Đăng nhập Quản trị | Cổng thông tin SESS - CTUT',
-    'student-dashboard': 'Tổng quan Sinh viên | SESS - CTUT',
-    'advisor-dashboard': 'Tổng quan Cố vấn | SESS - CTUT',
-    'advisor-projects': 'Dự án phụ trách | SESS - CTUT',
-    'advisor-timeline-global': 'Tiến độ | SESS - CTUT',
-    'advisor-project-timeline': 'Tiến độ dự án | SESS - CTUT',
-    'advisor-mentoring-global': 'Đánh giá & Cố vấn | SESS - CTUT',
-    'advisor-project-mentoring': 'Đánh giá dự án | SESS - CTUT',
-    'advisor-notifications': 'Thông báo | SESS - CTUT',
-    'advisor-send-email': 'Gửi email | SESS - CTUT',
-    'advisor-profile': 'Hồ sơ cố vấn | SESS - CTUT',
-    'advisor-guidelines': 'Hướng dẫn | SESS - CTUT',
-    'advisor-criteria': 'Tiêu chí | SESS - CTUT',
-    'advisor-account': 'Tài khoản | SESS - CTUT',
-    'judge-dashboard': 'Tổng quan Ban Giám Khảo | SESS - CTUT',
-    'judge-assignments': 'Dự án phân công | SESS - CTUT',
-    'judge-evaluations': 'Phiếu chấm điểm | SESS - CTUT',
-    'judge-workspace': 'Chấm điểm dự án | SESS - CTUT',
-    'judge-history': 'Lịch sử đánh giá | SESS - CTUT',
-    'judge-notifications': 'Thông báo | SESS - CTUT',
-    'judge-account': 'Tài khoản & Bảo mật | SESS - CTUT',
-    'admin-dashboard': 'Tổng quan Quản trị | SESS - CTUT',
-    'not-found': 'Không tìm thấy trang | SESS - CTUT',
+    home: 'Trang chá»§ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    about: 'Giá»›i thiá»‡u | Cá»•ng thÃ´ng tin SESS - CTUT',
+    competitions: 'Cuá»™c thi | Cá»•ng thÃ´ng tin SESS - CTUT',
+    rules: 'Thá»ƒ lá»‡ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    criteria: 'TiÃªu chÃ­ Ä‘Ã¡nh giÃ¡ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    news: 'Tin tá»©c & Sá»± kiá»‡n | Cá»•ng thÃ´ng tin SESS - CTUT',
+    'news-detail': 'Tin tá»©c | Cá»•ng thÃ´ng tin SESS - CTUT',
+    contact: 'LiÃªn há»‡ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    support: 'Há»— trá»£ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    resources: 'TÃ i nguyÃªn | Cá»•ng thÃ´ng tin SESS - CTUT',
+    login: 'ÄÄƒng nháº­p | Cá»•ng thÃ´ng tin SESS - CTUT',
+    'admin-login': 'ÄÄƒng nháº­p Quáº£n trá»‹ | Cá»•ng thÃ´ng tin SESS - CTUT',
+    'student-dashboard': 'Tá»•ng quan Sinh viÃªn | SESS - CTUT',
+    'advisor-dashboard': 'Tá»•ng quan Cá»‘ váº¥n | SESS - CTUT',
+    'advisor-projects': 'Dá»± Ã¡n phá»¥ trÃ¡ch | SESS - CTUT',
+    'advisor-timeline-global': 'Tiáº¿n Ä‘á»™ | SESS - CTUT',
+    'advisor-project-timeline': 'Tiáº¿n Ä‘á»™ dá»± Ã¡n | SESS - CTUT',
+    'advisor-mentoring-global': 'ÄÃ¡nh giÃ¡ & Cá»‘ váº¥n | SESS - CTUT',
+    'advisor-project-mentoring': 'ÄÃ¡nh giÃ¡ dá»± Ã¡n | SESS - CTUT',
+    'advisor-notifications': 'ThÃ´ng bÃ¡o | SESS - CTUT',
+    'advisor-send-email': 'Gá»­i email | SESS - CTUT',
+    'advisor-profile': 'Há»“ sÆ¡ cá»‘ váº¥n | SESS - CTUT',
+    'advisor-guidelines': 'HÆ°á»›ng dáº«n | SESS - CTUT',
+    'advisor-criteria': 'TiÃªu chÃ­ | SESS - CTUT',
+    'advisor-account': 'TÃ i khoáº£n | SESS - CTUT',
+    'judge-dashboard': 'Tá»•ng quan Ban GiÃ¡m Kháº£o | SESS - CTUT',
+    'judge-assignments': 'Dá»± Ã¡n phÃ¢n cÃ´ng | SESS - CTUT',
+    'judge-evaluations': 'Phiáº¿u cháº¥m Ä‘iá»ƒm | SESS - CTUT',
+    'judge-workspace': 'Cháº¥m Ä‘iá»ƒm dá»± Ã¡n | SESS - CTUT',
+    'judge-history': 'Lá»‹ch sá»­ Ä‘Ã¡nh giÃ¡ | SESS - CTUT',
+    'judge-notifications': 'ThÃ´ng bÃ¡o | SESS - CTUT',
+    'judge-account': 'TÃ i khoáº£n & Báº£o máº­t | SESS - CTUT',
+    'admin-dashboard': 'Tá»•ng quan Quáº£n trá»‹ | SESS - CTUT',
+    'not-found': 'KhÃ´ng tÃ¬m tháº¥y trang | SESS - CTUT',
   };
-  const portalTitle = to.path.startsWith('/admin') ? 'Quản trị | SESS - CTUT'
-    : to.path.startsWith('/judge') ? 'Ban Giám Khảo | SESS - CTUT'
-    : to.path.startsWith('/advisor') ? 'Giảng viên Cố vấn | SESS - CTUT'
-    : to.path.startsWith('/student') ? 'Sinh viên | SESS - CTUT'
-    : 'Cổng thông tin SESS - CTUT';
+  const portalTitle = to.path.startsWith('/admin') ? 'Quáº£n trá»‹ | SESS - CTUT'
+    : to.path.startsWith('/judge') ? 'Ban GiÃ¡m Kháº£o | SESS - CTUT'
+    : to.path.startsWith('/advisor') ? 'Giáº£ng viÃªn Cá»‘ váº¥n | SESS - CTUT'
+    : to.path.startsWith('/student') ? 'Sinh viÃªn | SESS - CTUT'
+    : 'Cá»•ng thÃ´ng tin SESS - CTUT';
   document.title = routeTitle[to.name] || portalTitle;
 
   const currentUser = authStore.user;
@@ -222,7 +227,7 @@ router.beforeEach((to, from) => {
   const requiresAuth = to.matched.some((record) => record.meta && record.meta.requiresAuth);
   const isAuthPage = to.path === ROUTE_PATHS.LOGIN || to.path.startsWith('/auth') || to.path === '/admin/login';
 
-  // If somehow stale/invalid auth state
+// If somehow stale/invalid auth state
   if (authStore.accessToken && !currentUser) {
     try {
       authStore.clearAuth();
@@ -243,7 +248,7 @@ router.beforeEach((to, from) => {
     return { path: ROUTE_PATHS.LOGIN, query: { redirect: to.fullPath } };
   }
 
-  // Role mismatch / cross-workspace URL access -> redirect to the user's own workspace (BR03)
+// Role mismatch / cross-workspace URL access -> redirect to the user's own workspace (BR03)
   const workspacePrefixes = ['/admin', '/judge', '/student', '/advisor'];
   if (isAuthenticated && userRole) {
     const ownPath = roleToPath[userRole] || ROUTE_PATHS.HOME;
@@ -262,3 +267,4 @@ router.beforeEach((to, from) => {
 });
 
 export default router;
+

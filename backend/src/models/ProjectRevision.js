@@ -7,12 +7,18 @@ const mongoose = require('mongoose');
  */
 const projectRevisionSchema = new mongoose.Schema(
   {
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
-    versionNumber: { type: Number, required: true, min: 1 },
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true, index: true, immutable: true },
+    versionNumber: { type: Number, required: true, min: 1, immutable: true },
     /** Toàn bộ dữ liệu dự án tại thời điểm nộp */
-    snapshotData: { type: mongoose.Schema.Types.Mixed, required: true },
-    submittedAt: { type: Date, default: Date.now },
-    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    snapshotData: { type: mongoose.Schema.Types.Mixed, required: true, immutable: true },
+    /** Biên nhận riêng của phiên bản để lịch sử không phụ thuộc biên nhận mới nhất trên Project. */
+    digitalReceipt: {
+      hash: { type: String, trim: true, default: '', immutable: true },
+      timestamp: { type: Date, default: null, immutable: true },
+      timestampMillis: { type: Number, default: null, immutable: true },
+    },
+    submittedAt: { type: Date, default: Date.now, immutable: true },
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, immutable: true },
     feedbackFromMentor: { type: String, trim: true, default: '' },
   },
   {

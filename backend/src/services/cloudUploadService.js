@@ -1,4 +1,6 @@
 const crypto = require('node:crypto');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 const axios = require('axios');
 const {
   STORAGE_PROVIDER,
@@ -13,11 +15,23 @@ const {
 } = require('../utils/constants');
 const ApiError = require('../utils/apiError');
 
-/** Map extension -> fileType */
+/** Map extension -> các loại fileType được phép */
+const EXT_TO_ALLOWED_TYPES = {
+  '.mp4': ['video'],
+  '.pdf': ['document'],
+  '.docx': ['document'],
+  '.doc': ['document'],
+  '.png': ['poster', 'image'],
+  '.jpg': ['poster', 'image'],
+  '.jpeg': ['poster', 'image'],
+};
+
+/** Map extension -> fileType mặc định (tương thích ngược) */
 const EXT_TO_FILE_TYPE = {
   '.mp4': 'video',
   '.pdf': 'document',
   '.docx': 'document',
+  '.doc': 'document',
   '.png': 'poster',
   '.jpg': 'poster',
   '.jpeg': 'poster',
@@ -27,7 +41,8 @@ const EXT_TO_FILE_TYPE = {
 const buildObjectKey = ({ projectId, userId, originalName, fileType }) => {
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const timestamp = Date.now();
-  return `uploads/projects/${projectId}/${fileType}/${timestamp}-${userId}-${safeName}`;
+  const uploadId = crypto.randomUUID();
+  return `projects/${projectId}/${fileType}/${timestamp}-${uploadId}-${userId}-${safeName}`;
 };
 
 /** Kiểm tra định dạng file và kích thước */
@@ -40,8 +55,8 @@ const validateUploadFile = ({ originalName, fileType, fileSize }) => {
     );
   }
 
-  const expectedType = EXT_TO_FILE_TYPE[fileExtension];
-  if (expectedType && fileType !== expectedType) {
+  const allowedTypes = EXT_TO_ALLOWED_TYPES[fileExtension];
+  if (allowedTypes && !allowedTypes.includes(fileType)) {
     throw ApiError.badRequest(
       `Loại file "${fileType}" không khớp với định dạng "${fileExtension}"`,
       'INVALID_FILE_TYPE',
@@ -72,8 +87,11 @@ const generatePresignedUploadUrl = async ({
   validateUploadFile({ originalName, fileType, fileSize });
   const objectKey = buildObjectKey({ projectId, userId, originalName, fileType });
 
-  // Dev mode: không có storage thật -> trả mock URL để frontend test
-  if (STORAGE_PROVIDER === 'dev' || !STORAGE_ENDPOINT) {
+  // Dev mode: URL local chỉ được cấp khi ứng dụng đang chạy development.
+  if (STORAGE_PROVIDER === 'dev') {
+    if ((process.env.NODE_ENV || 'development') !== 'development') {
+      throw ApiError.serviceUnavailable('Cloud Storage chưa được cấu hình cho môi trường này.', 'STORAGE_NOT_CONFIGURED');
+    }
     const presignedUrl = `${STORAGE_PUBLIC_DOMAIN || 'http://localhost:5000'}/api/v1/cloud-upload/dev-mock/${objectKey}`;
     return {
       uploadUrl: presignedUrl,
@@ -86,6 +104,10 @@ const generatePresignedUploadUrl = async ({
       headers: { 'Content-Type': '' },
       note: 'DEV MODE: Không có Cloud Storage thật. Sử dụng mock URL.',
     };
+  }
+
+  if (!STORAGE_ENDPOINT) {
+    throw ApiError.serviceUnavailable('Cloud Storage chưa được cấu hình.', 'STORAGE_NOT_CONFIGURED');
   }
 
   // S3-compatible (MinIO / R2 / AWS S3) - tạo Presigned URL bằng axios + signature v2 đơn giản
@@ -147,20 +169,52 @@ const generatePresignedUploadUrl = async ({
 /** Xác nhận file đã upload xong (gọi sau khi client upload thành công) */
 const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
   // Nếu storage thật, có thể gọi HEAD object để kiểm tra tồn tại
-  if (STORAGE_PROVIDER !== 'dev' && STORAGE_ENDPOINT) {
+  if (STORAGE_PROVIDER === 'dev') {
+    if ((process.env.NODE_ENV || 'development') !== 'development') {
+      throw ApiError.serviceUnavailable('Cloud Storage chưa được cấu hình cho môi trường này.', 'STORAGE_NOT_CONFIGURED');
+    }
+    const root = path.resolve(__dirname, '../../uploads/dev');
+    const normalizedKey = objectKey.startsWith('uploads/projects/')
+      ? objectKey.replace(/^uploads\//, '')
+      : objectKey;
+    const filePath = path.resolve(root, normalizedKey);
+    if (!filePath.startsWith(`${root}${path.sep}`)) {
+      throw ApiError.badRequest('objectKey không hợp lệ.', 'INVALID_OBJECT_KEY');
+    }
+    try {
+      const fileStats = await fs.stat(filePath);
+      if (!fileStats.isFile() || fileStats.size !== Number(fileSize)) {
+        throw ApiError.badRequest('Kích thước file đã tải lên không khớp.', 'UPLOAD_SIZE_MISMATCH');
+      }
+    } catch (error) {
+      if (error.statusCode) throw error;
+      throw ApiError.notFound('File chưa được tải lên bộ nhớ development.', 'FILE_NOT_FOUND_IN_STORAGE');
+    }
+  } else if (STORAGE_ENDPOINT) {
+    let storageResponse;
     try {
       const headUrl = `${STORAGE_ENDPOINT}/${STORAGE_BUCKET}/${encodeURIComponent(objectKey)}`;
-      await axios.head(headUrl);
+      storageResponse = await axios.head(headUrl);
     } catch {
       throw ApiError.notFound('File chưa được upload lên Cloud Storage', 'FILE_NOT_FOUND_IN_STORAGE');
     }
+    const storedSize = storageResponse.headers?.['content-length'];
+    if (storedSize !== undefined && Number(storedSize) !== Number(fileSize)) {
+      throw ApiError.badRequest('Kích thước file đã tải lên không khớp.', 'UPLOAD_SIZE_MISMATCH');
+    }
   }
+
+  const publicDomain = STORAGE_PUBLIC_DOMAIN || (STORAGE_PROVIDER === 'dev' ? 'http://localhost:5000' : STORAGE_ENDPOINT);
+  const publicUrl = STORAGE_PROVIDER === 'dev'
+    ? `${publicDomain}/api/v1/cloud-upload/dev-mock/${objectKey}`
+    : `${publicDomain}/${STORAGE_BUCKET}/${objectKey}`;
 
   return {
     objectKey,
     fileType,
     fileSize,
     checksum,
+    publicUrl,
     status: 'completed',
     confirmedAt: new Date(),
   };
@@ -168,6 +222,7 @@ const confirmUpload = async ({ objectKey, fileType, fileSize, checksum }) => {
 
 module.exports = {
   EXT_TO_FILE_TYPE,
+  EXT_TO_ALLOWED_TYPES,
   validateUploadFile,
   buildObjectKey,
   generatePresignedUploadUrl,

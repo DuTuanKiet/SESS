@@ -3,8 +3,17 @@ const ApiError = require('../utils/apiError');
 const { normalizeEmail } = require('../utils/validation');
 const { STUDENT_NOT_IN_WHITELIST_MESSAGE } = require('../utils/constants');
 
-/** Tìm thông tin sinh viên trong danh sách nhà trường (null nếu không tồn tại) */
-const findStudentByEmail = (email) => StudentWhitelist.findOne({ email: normalizeEmail(email) });
+/**
+ * Tìm thông tin sinh viên trong danh sách nhà trường (null nếu không tồn tại).
+ * @param {string} email
+ * @param {object} [options]
+ * @param {import('mongoose').ClientSession} [options.session]
+ */
+const findStudentByEmail = (email, { session } = {}) => {
+  const query = StudentWhitelist.findOne({ email: normalizeEmail(email) });
+  if (session) query.session(session);
+  return query;
+};
 
 /**
  * BẮT BUỘC: email sinh viên phải có trong danh sách sinh viên của trường mới được tiếp tục.

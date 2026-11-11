@@ -108,19 +108,43 @@ const updateMilestoneBodySchema = z
     { message: 'Ngày kết thúc phải sau ngày bắt đầu.', path: ['dueDate'] }
   );
 
-// Schema body nộp minh chứng (Student)
-const submitEvidenceBodySchema = z.object({
-  url: z
-    .string({ required_error: 'URL minh chứng là bắt buộc.' })
-    .url({ message: 'URL minh chứng không đúng định dạng.' })
-    .trim(),
-  note: z
-    .string()
-    .max(1000, { message: 'Ghi chú tối đa 1000 ký tự.' })
-    .trim()
-    .optional()
-    .default(''),
-});
+// Schema body nộp minh chứng hỗ trợ cả tên cũ/mới, sau đó chuẩn hóa về url/note.
+const submitEvidenceBodySchema = z
+  .object({
+    url: z.string().trim().url('URL minh chứng không đúng định dạng.').refine((value) => /^https?:\/\//i.test(value), 'URL minh chứng phải dùng HTTP hoặc HTTPS.').optional(),
+    fileUrl: z.string().trim().url('URL minh chứng không đúng định dạng.').refine((value) => /^https?:\/\//i.test(value), 'URL minh chứng phải dùng HTTP hoặc HTTPS.').optional(),
+    fileName: z.string().trim().max(255, 'Tên file tối đa 255 ký tự.').optional().default(''),
+    note: z.string().max(1000, 'Ghi chú tối đa 1000 ký tự.').trim().optional(),
+    submissionNote: z.string().max(1000, 'Ghi chú tối đa 1000 ký tự.').trim().optional(),
+  })
+  .superRefine((data, context) => {
+    if (!data.url && !data.fileUrl) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Cần cung cấp URL minh chứng.',
+        path: ['url'],
+      });
+    }
+    if (data.url && data.fileUrl && data.url !== data.fileUrl) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'url và fileUrl không được có giá trị khác nhau.',
+        path: ['fileUrl'],
+      });
+    }
+    if (data.note !== undefined && data.submissionNote !== undefined && data.note !== data.submissionNote) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'note và submissionNote không được có giá trị khác nhau.',
+        path: ['submissionNote'],
+      });
+    }
+  })
+  .transform((data) => ({
+    url: data.url ?? data.fileUrl,
+    fileName: data.fileName,
+    note: data.note ?? data.submissionNote ?? '',
+  }));
 
 // Schema body góp ý milestone (Mentor) — FR07
 const addCommentBodySchema = z.object({

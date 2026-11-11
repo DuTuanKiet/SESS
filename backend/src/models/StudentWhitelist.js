@@ -22,6 +22,7 @@ const studentWhitelistSchema = new mongoose.Schema(
     studentId: { type: String, required: [true, 'Mã số sinh viên là bắt buộc'], trim: true, index: true },
     fullName: { type: String, required: [true, 'Họ tên sinh viên là bắt buộc'], trim: true },
     className: { type: String, trim: true, default: '' },
+    faculty: { type: String, trim: true, default: '' },
     phone: { type: String, trim: true, default: '' },
     /** Email Giảng viên cố vấn học tập (CVHT) của lớp */
     advisorEmail: { type: String, lowercase: true, trim: true, default: '' },

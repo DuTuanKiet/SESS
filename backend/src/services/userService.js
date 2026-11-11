@@ -114,8 +114,10 @@ const createUser = async ({ payload = {}, actor, req }) => {
   if (existingUser) throw ApiError.conflict('Email này đã được sử dụng', 'EMAIL_ALREADY_EXISTS');
 
   // Tài khoản sinh viên bắt buộc phải có trong danh sách của trường
+  let faculty = '';
   if (role === USER_ROLES.STUDENT) {
-    await whitelistService.assertStudentInWhitelist(email);
+    const whitelistStudent = await whitelistService.assertStudentInWhitelist(email);
+    faculty = whitelistStudent.faculty ?? '';
   }
 
   const user = new User({
@@ -124,6 +126,7 @@ const createUser = async ({ payload = {}, actor, req }) => {
     role,
     fullName: payload.fullName?.trim() ?? '',
     studentId: payload.studentId?.trim() || undefined,
+    faculty,
     status: USER_STATUS.ACTIVE,
     authProvider: AUTH_PROVIDERS.LOCAL,
     isEmailVerified: Boolean(payload.isEmailVerified),
@@ -146,7 +149,7 @@ const createUser = async ({ payload = {}, actor, req }) => {
 };
 
 /** Trường do nhà trường quản lý - sinh viên KHÔNG được sửa */
-const SCHOOL_MANAGED_FIELDS = ['email', 'fullName', 'studentId', 'className', 'advisorEmail'];
+const SCHOOL_MANAGED_FIELDS = ['email', 'fullName', 'studentId', 'className', 'faculty', 'advisorEmail'];
 
 /** Trường bổ trợ sinh viên được phép cập nhật */
 const EDITABLE_PROFILE_FIELDS = ['bio', 'skills', 'phone', 'avatarUrl', 'socialLinks'];
@@ -179,6 +182,7 @@ const ensureProfile = async (user) => {
     fullName: whitelistStudent?.fullName || user.fullName || '',
     studentId: whitelistStudent?.studentId || user.studentId || '',
     className: whitelistStudent?.className || user.className || '',
+    faculty: whitelistStudent?.faculty ?? '',
     advisorEmail: whitelistStudent?.advisorEmail || user.advisorEmail || '',
   };
 

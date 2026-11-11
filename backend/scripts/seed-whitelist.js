@@ -9,11 +9,23 @@
  *   npm run seed:whitelist
  *   node scripts/seed-whitelist.js --imported
  */
-const path = require('node:path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const { blockDotenvConfig, getTestMongoUri } = require('./testDatabaseGuard');
+blockDotenvConfig();
+
+const parseArgs = (argv) =>
+  argv.reduce((accumulator, argument) => {
+    if (!argument.startsWith('--')) return accumulator;
+    const [key, value] = argument.slice(2).split('=');
+    accumulator[key] = value === undefined ? true : value;
+    return accumulator;
+  }, {});
+
+const args = parseArgs(process.argv.slice(2));
+const target = String(args.target || 'integration');
+const mongoUri = getTestMongoUri(target);
+process.env.MONGO_URI = mongoUri;
 
 const mongoose = require('mongoose');
-const env = require('../src/config/env');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const { GLOBAL_TEST_EMAIL, GLOBAL_TEST_STUDENT_ID } = require('../src/utils/constants');
 
@@ -22,8 +34,18 @@ const SAMPLE_STUDENTS = [
   {
     email: GLOBAL_TEST_EMAIL,
     studentId: GLOBAL_TEST_STUDENT_ID,
-    fullName: 'Dư Tuấn Kiệt',
+    fullName: 'Hồ Lê Mạnh Quỳnh',
     className: 'KTPM2311',
+    faculty: 'Công nghệ thông tin',
+    phone: '0900000002',
+    advisorEmail: 'cvht.ktpm@ctuet.edu.vn',
+  },
+  {
+    email: 'dtkietktpm2311025@student.ctuet.edu.vn',
+    studentId: 'KTPM2311025',
+    fullName: 'Du Tuấn Kiệt',
+    className: 'KTPM2311',
+    faculty: 'Công nghệ thông tin',
     phone: '0900000001',
     advisorEmail: 'cvht.ktpm@ctuet.edu.vn',
   },
@@ -32,6 +54,7 @@ const SAMPLE_STUDENTS = [
     studentId: '110122001',
     fullName: 'Nguyễn Văn A',
     className: 'KTPM K23B',
+    faculty: '',
     phone: '0900000002',
     advisorEmail: 'cvht.ktpm@ctuet.edu.vn',
   },
@@ -40,6 +63,7 @@ const SAMPLE_STUDENTS = [
     studentId: '110122002',
     fullName: 'Trần Thị B',
     className: 'HTTT K23A',
+    faculty: '',
     phone: '0900000003',
     advisorEmail: 'cvht.httt@ctuet.edu.vn',
   },
@@ -48,6 +72,7 @@ const SAMPLE_STUDENTS = [
     studentId: '110122003',
     fullName: 'Lê Văn C',
     className: 'HTTT K23B',
+    faculty: '',
     phone: '0900000004',
     advisorEmail: 'cvht.httt@ctuet.edu.vn',
   },
@@ -58,24 +83,16 @@ const SAMPLE_STUDENTS = [
     studentId: '110122004',
     fullName: 'Phạm Thị D',
     className: 'HTTT K23B',
+    faculty: '',
     phone: '0900000005',
     advisorEmail: 'cvht.httt@ctuet.edu.vn',
   },
 ];
 
-const parseArgs = (argv) =>
-  argv.reduce((accumulator, argument) => {
-    if (!argument.startsWith('--')) return accumulator;
-    const [key, value] = argument.slice(2).split('=');
-    accumulator[key] = value === undefined ? true : value;
-    return accumulator;
-  }, {});
-
 const seedWhitelist = async () => {
-  const args = parseArgs(process.argv.slice(2));
   const isImported = Boolean(args.imported);
 
-  await mongoose.connect(env.mongoUri);
+  await mongoose.connect(mongoUri);
 
   let created = 0;
   let updated = 0;
@@ -99,10 +116,11 @@ const seedWhitelist = async () => {
   console.log('[Whitelist] isImported =', isImported);
 
   for (const student of SAMPLE_STUDENTS) {
-    console.log(`  - ${student.email} | MSSV ${student.studentId} | ${student.className} | CVHT: ${student.advisorEmail}`);
+    console.log(
+      `  - ${student.email} | MSSV ${student.studentId} | ${student.className} ` +
+        `| CVHT: ${student.advisorEmail}`,
+    );
   }
-
-  if (env.isProduction) console.warn('[Whitelist] CẢNH BÁO: không nên chạy script seed này trên production!');
 
   await mongoose.disconnect();
 };

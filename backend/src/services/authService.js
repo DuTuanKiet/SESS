@@ -21,6 +21,22 @@ const {
 
 let googleClient;
 
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
+/** Chặn cấp phiên khi người dùng đăng nhập nhầm cổng. */
+const assertPortalAccess = ({ user, portalType } = {}) => {
+  if (!portalType) return;
+
+  const role = String(user?.role || user?.systemRole || '').toLowerCase();
+  const hasAccess = portalType === 'admin' ? role === USER_ROLES.ADMIN : role !== USER_ROLES.ADMIN;
+  if (hasAccess) return;
+
+  const message = portalType === 'admin'
+    ? 'Tài khoản này không có quyền truy cập cổng quản trị.'
+    : 'Tài khoản quản trị viên không thể đăng nhập qua cổng người dùng.';
+  throw ApiError.forbidden(message, 'PORTAL_ACCESS_DENIED');
+};
+
 /**
  * Kiểm tra nếu user có vai trò JUDGE thì email phải có trong JudgeWhitelist.
  * Nếu không có trong danh sách trắng BGK -> từ chối đăng nhập (403).
@@ -125,7 +141,7 @@ const sendLoginNotification = async (user) => {
 };
 
 /** Xác thực OTP -> kích hoạt tài khoản và trả luôn cặp token để đăng nhập */
-const verifyOtp = async ({ email, otp, sessionMeta } = {}) => {
+const verifyOtp = async ({ email, otp, portalType, sessionMeta } = {}) => {
   const normalizedEmail = assertEmail(email);
 
   // Sinh viên: BẮT BUỘC có trong danh sách sinh viên của trường
@@ -167,6 +183,13 @@ const verifyOtp = async ({ email, otp, sessionMeta } = {}) => {
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw ApiError.notFound('Không tìm thấy tài khoản với email này', 'USER_NOT_FOUND');
+  if (user.status === USER_STATUS.SUSPENDED) {
+    throw ApiError.forbidden(
+      'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên',
+      'ACCOUNT_SUSPENDED',
+    );
+  }
+  assertPortalAccess({ user, portalType });
 
   user.isEmailVerified = true;
   user.lastLoginAt = new Date();
@@ -179,12 +202,13 @@ const verifyOtp = async ({ email, otp, sessionMeta } = {}) => {
   // Email thông báo "xác thực & đăng nhập thành công" (kèm thông tin phiên đăng nhập)
   await sendLoginNotification(user);
 
+  assertPortalAccess({ user, portalType });
   const tokens = await tokenService.issueTokens(user, sessionMeta);
   return { user, tokens };
 };
 
 /** Đăng nhập bằng email/mật khẩu */
-const login = async ({ email, password, sessionMeta } = {}) => {
+const login = async ({ email, password, portalType, sessionMeta } = {}) => {
   const normalizedEmail = assertEmail(email);
   assertRequired(password, 'password');
 
@@ -208,6 +232,7 @@ const login = async ({ email, password, sessionMeta } = {}) => {
   if (user.status === USER_STATUS.SUSPENDED) {
     throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
   }
+  assertPortalAccess({ user, portalType });
   if (!user.isEmailVerified) {
     const { code } = await issueOtp(user.email);
     // devOtp chỉ xuất hiện khi EXPOSE_OTP_IN_DEV=true (môi trường dev) để test nhanh
@@ -229,6 +254,7 @@ const login = async ({ email, password, sessionMeta } = {}) => {
   user.lastLoginAt = new Date();
   await user.save();
 
+  assertPortalAccess({ user, portalType });
   const tokens = await tokenService.issueTokens(user, sessionMeta);
   return { user, tokens };
 };
@@ -241,7 +267,7 @@ const login = async ({ email, password, sessionMeta } = {}) => {
  *    (gán googleId, isEmailVerified = true), KHÔNG tạo tài khoản trùng lặp.
  * 3. Email ngoài tên miền sinh viên và chưa được cấp tài khoản -> 403 DOMAIN_NOT_ALLOWED.
  */
-const loginWithGoogle = async ({ idToken, sessionMeta } = {}) => {
+const loginWithGoogle = async ({ idToken, portalType, sessionMeta } = {}) => {
   if (!isNonEmptyString(idToken)) {
     throw ApiError.badRequest('Thiếu "idToken" của Google trong body', 'MISSING_GOOGLE_ID_TOKEN');
   }
@@ -282,6 +308,7 @@ const loginWithGoogle = async ({ idToken, sessionMeta } = {}) => {
       studentId: whitelistStudent?.studentId || extractStudentIdFromEmail(email),
       fullName: whitelistStudent?.fullName || profile.fullName,
       className: whitelistStudent?.className ?? '',
+      faculty: whitelistStudent?.faculty ?? '',
       advisorEmail: whitelistStudent?.advisorEmail ?? '',
       avatarUrl: profile.avatarUrl,
     });
@@ -296,10 +323,12 @@ const loginWithGoogle = async ({ idToken, sessionMeta } = {}) => {
     if (!user.avatarUrl && profile.avatarUrl) user.avatarUrl = profile.avatarUrl;
     if (!user.studentId) user.studentId = whitelistStudent?.studentId || extractStudentIdFromEmail(email);
     if (!user.className && whitelistStudent?.className) user.className = whitelistStudent.className;
+    if (!user.faculty && whitelistStudent?.faculty) user.faculty = whitelistStudent.faculty;
     if (!user.advisorEmail && whitelistStudent?.advisorEmail) user.advisorEmail = whitelistStudent.advisorEmail;
     user.isEmailVerified = true;
   }
 
+  assertPortalAccess({ user, portalType });
   user.lastLoginAt = new Date();
   await user.save();
 
@@ -311,6 +340,7 @@ const loginWithGoogle = async ({ idToken, sessionMeta } = {}) => {
     await mailerService.sendWelcomeEmail(user.email, { fullName: user.fullName, studentId: user.studentId });
   }
 
+  assertPortalAccess({ user, portalType });
   const tokens = await tokenService.issueTokens(user, sessionMeta);
   return { user, tokens, isNewUser, isLinked };
 };
@@ -328,4 +358,47 @@ const logout = async ({ refreshToken, allSessions = false } = {}) => {
   return { revokedAll: Boolean(allSessions) };
 };
 
-module.exports = { verifyOtp, login, loginWithGoogle, refreshSession, logout };
+/** Change the local password without revoking active sessions. */
+const changePassword = async (authenticatedUser, { currentPassword, newPassword } = {}) => {
+  assertRequired(currentPassword, 'currentPassword');
+  assertRequired(newPassword, 'newPassword');
+
+  if (newPassword.length < 8) {
+    throw ApiError.badRequest('Mật khẩu mới phải có tối thiểu 8 ký tự.', 'PASSWORD_TOO_SHORT');
+  }
+  if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+    throw ApiError.badRequest(
+      'Mật khẩu mới cần có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.',
+      'PASSWORD_COMPLEXITY',
+    );
+  }
+
+  const user = await User.findById(authenticatedUser?._id).select('+password');
+  if (!user) throw ApiError.notFound('Không tìm thấy tài khoản.', 'USER_NOT_FOUND');
+  if (!user.password) {
+    throw ApiError.badRequest(
+      'Tài khoản chưa có mật khẩu cục bộ. Vui lòng sử dụng phương thức đăng nhập đã liên kết.',
+      'LOCAL_PASSWORD_NOT_SET',
+    );
+  }
+  if (!(await user.comparePassword(currentPassword))) {
+    throw ApiError.unauthorized('Mật khẩu hiện tại không chính xác.', 'CURRENT_PASSWORD_INVALID');
+  }
+  if (currentPassword === newPassword) {
+    throw ApiError.badRequest('Mật khẩu mới không được trùng với mật khẩu hiện tại.', 'PASSWORD_SAME_AS_OLD');
+  }
+
+  user.password = newPassword;
+  await user.save();
+  return { changed: true };
+};
+
+module.exports = {
+  assertPortalAccess,
+  verifyOtp,
+  login,
+  loginWithGoogle,
+  refreshSession,
+  logout,
+  changePassword,
+};

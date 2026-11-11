@@ -17,6 +17,7 @@ const { assertObjectId, assertRequired, assertEnum } = require('../utils/validat
 const projectStateMachine = require('../utils/projectStateMachine');
 const projectService = require('./projectService');
 const projectMemberService = require('./projectMemberService');
+const notificationService = require('./notificationService');
 
 /**
  * ProjectCancellationService - Quy trình hủy dự án có bằng chứng (Enterprise Edition).
@@ -338,6 +339,10 @@ const reviewCancellationRequest = async ({
     },
     req,
   });
+
+  if (decision === PROJECT_CANCELLATION_STATUS.APPROVED) {
+    await notificationService.notifyProjectCancellationApproved({ project, request });
+  }
 
   return { request, project, projectStatusChange, deactivated };
 };

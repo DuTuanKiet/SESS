@@ -73,8 +73,8 @@ const enqueueProjectInvitationEmail = async ({ to, payload }) => {
 const enqueueConfirmUpload = async (data) => {
   const job = await pushJob(QUEUE_NAMES.CLOUD_UPLOAD, JOB_NAMES.CONFIRM_UPLOAD, data);
   if (job) return { queued: true, jobId: job.id };
-  await runInline(processUploadJob, JOB_NAMES.CONFIRM_UPLOAD, data);
-  return { queued: false, inline: true };
+  const result = await processUploadJob({ name: JOB_NAMES.CONFIRM_UPLOAD, data });
+  return { queued: false, inline: true, result };
 };
 
 /** Đẩy ghi audit log hàng loạt */

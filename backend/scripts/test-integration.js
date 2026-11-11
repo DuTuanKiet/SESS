@@ -11,17 +11,30 @@
  *             Score Override + Điều chuyển khẩn cấp BGK
  *   BƯỚC 5: Redis/BullMQ (fallback) + reCAPTCHA v3 + Rate Limiting + Public Voting
  *
- * Cách chạy:  npm run test:integration
- * Dùng DB riêng "sess_integration_test" và DROP sau khi chạy -> không ảnh hưởng DB dev.
+ * Cách chạy:  truyền SESS_INTEGRATION_MONGO_URI trỏ đúng sess_integration_test, rồi npm run test:integration.
+ * Chỉ database này được phép dọn trước/sau suite.
  */
 
-// --- Ghi đè ENV TRƯỚC KHI require config (dotenv KHÔNG ghi đè biến đã tồn tại) ---
+const {
+  assertTestDatabaseName,
+  blockDotenvConfig,
+  getTestMongoUri,
+} = require('./testDatabaseGuard');
+
+blockDotenvConfig();
+
+// Tất cả cấu hình được truyền rõ từ tiến trình; bootstrap vô hiệu hóa nạp dotenv.
 process.env.NODE_ENV = 'test';
-process.env.MONGO_URI = process.env.INTEGRATION_MONGO_URI || 'mongodb://127.0.0.1:27017/sess_integration_test';
+process.env.MONGO_URI = getTestMongoUri('integration');
 process.env.MONGODB_URI = '';
 process.env.RATE_LIMIT_API_MAX = '1000000';
 process.env.RATE_LIMIT_AUTH_MAX = '1000000';
 process.env.EXPOSE_OTP_IN_DEV = 'true';
+process.env.BCRYPT_SALT_ROUNDS ||= '4';
+process.env.JWT_ACCESS_SECRET ||= 'integration-test-access-secret-only';
+process.env.JWT_REFRESH_SECRET ||= 'integration-test-refresh-secret-only';
+process.env.JWT_SECRET ||= 'integration-test-legacy-secret-only';
+process.env.REDIS_QUEUE_ENABLED = 'false';
 // Tắt reCAPTCHA để test không phụ thuộc dịch vụ Google (kiểm tra hành vi khi chưa cấu hình)
 process.env.RECAPTCHA_ENABLED = 'false';
 
@@ -31,6 +44,7 @@ const { connectDatabase, disconnectDatabase } = require('../src/config/database'
 const {
   USER_ROLES,
   USER_STATUS,
+  AUTH_PROVIDERS,
   PROJECT_STATUS,
   PROJECT_MEMBER_ROLES,
   PROJECT_MEMBER_STATUS,
@@ -41,6 +55,10 @@ const {
 } = require('../src/utils/constants');
 
 const User = require('../src/models/User');
+const app = require('../src/app');
+const authService = require('../src/services/authService');
+const tokenService = require('../src/services/tokenService');
+const userService = require('../src/services/userService');
 const Project = require('../src/models/Project');
 const ProjectMember = require('../src/models/ProjectMember');
 const ProjectMemberChangeRequest = require('../src/models/ProjectMemberChangeRequest');
@@ -48,6 +66,7 @@ const ProjectVote = require('../src/models/ProjectVote');
 const EmergencyJudgeReassignment = require('../src/models/EmergencyJudgeReassignment');
 const StudentWhitelist = require('../src/models/StudentWhitelist');
 const AuditLog = require('../src/models/AuditLog');
+const Notification = require('../src/models/Notification');
 
 const projectService = require('../src/services/projectService');
 const projectMemberService = require('../src/services/projectMemberService');
@@ -60,6 +79,7 @@ const votingService = require('../src/services/votingService');
 const queueService = require('../src/services/queueService');
 const rubricService = require('../src/services/rubricService');
 const mentorService = require('../src/services/mentorService');
+const notificationService = require('../src/services/notificationService');
 
 // ---------------------------------------------------------------------------
 // Mini test harness
@@ -198,6 +218,7 @@ async function seed() {
     role: USER_ROLES.STUDENT,
     fullName: 'IT Student',
     studentId: 'IT0001',
+    extra: { faculty: 'Giá trị trên tài khoản không được ghi đè whitelist' },
   });
   const student2 = await mkUser({
     email: 'it.student2@ctuet.edu.vn',
@@ -219,16 +240,141 @@ async function seed() {
     role: USER_ROLES.MENTOR,
     fullName: 'IT Mentor',
   });
+  const passwordStudent = await mkUser({
+    email: 'it.password-student@ctuet.edu.vn',
+    password: 'Current@12345',
+    role: USER_ROLES.STUDENT,
+    fullName: 'IT Password Student',
+    studentId: 'IT0004',
+  });
+  const googleStudent = await mkUser({
+    email: 'it.google-student@ctuet.edu.vn',
+    role: USER_ROLES.STUDENT,
+    fullName: 'IT Google Student',
+    studentId: 'IT0005',
+    extra: { authProvider: AUTH_PROVIDERS.GOOGLE },
+  });
   await mentorService.ensureMentorProfile(mentor);
 
   await StudentWhitelist.insertMany([
-    { email: student.email, studentId: student.studentId, fullName: student.fullName, className: 'IT-CLASS' },
+    { email: student.email, studentId: student.studentId, fullName: student.fullName, className: 'IT-CLASS', faculty: 'Khoa Công nghệ Thông tin' },
     { email: student2.email, studentId: student2.studentId, fullName: student2.fullName, className: 'IT-CLASS' },
     { email: student3.email, studentId: student3.studentId, fullName: student3.fullName, className: 'IT-CLASS' },
   ]);
 
-  fixtures = { admin, judge, judge2, student, student2, student3, mentor };
+  fixtures = { admin, judge, judge2, student, student2, student3, mentor, passwordStudent, googleStudent };
   return fixtures;
+}
+
+async function testStudentProfileAndPassword() {
+  group('Phase 1 - Hồ sơ sinh viên và đổi mật khẩu');
+
+  await test('faculty được đồng bộ từ StudentWhitelist và không lấy từ User', async () => {
+    const { profile } = await userService.getMyProfileDetail(fixtures.student);
+    assertEqual(profile.faculty, 'Khoa Công nghệ Thông tin', 'Faculty lấy từ whitelist');
+  });
+
+  await test('faculty thiếu trong whitelist được trả về chuỗi trống', async () => {
+    const { profile } = await userService.getMyProfileDetail(fixtures.student2);
+    assertEqual(profile.faculty, '', 'Faculty thiếu phải rỗng');
+  });
+
+  await test('sinh viên không thể sửa faculty qua API cập nhật hồ sơ', async () => {
+    await assertThrows(
+      () => userService.updateMyProfileDetail(fixtures.student, { faculty: 'Khoa giả' }),
+      'SCHOOL_MANAGED_FIELD',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu hiện tại sai', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Wrong@12345',
+        newPassword: 'Changed@12345',
+      }),
+      'CURRENT_PASSWORD_INVALID',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu mới dưới 8 ký tự', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Short1!',
+      }),
+      'PASSWORD_TOO_SHORT',
+    );
+  });
+
+  await test('đổi mật khẩu từ chối mật khẩu mới trùng mật khẩu hiện tại', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.passwordStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Current@12345',
+      }),
+      'PASSWORD_SAME_AS_OLD',
+    );
+  });
+
+  await test('tài khoản Google chưa có mật khẩu cục bộ nhận lỗi rõ ràng', async () => {
+    await assertThrows(
+      () => authService.changePassword(fixtures.googleStudent, {
+        currentPassword: 'Current@12345',
+        newPassword: 'Changed@12345',
+      }),
+      'LOCAL_PASSWORD_NOT_SET',
+    );
+  });
+
+  await test('API đổi mật khẩu kiểm tra payload, xác thực và giữ phiên hiện tại', async () => {
+    const sessionTokens = await tokenService.issueTokens(fixtures.passwordStudent, {});
+    const server = app.listen(0, '127.0.0.1');
+
+    try {
+      await new Promise((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+      });
+
+      const endpoint = `http://127.0.0.1:${server.address().port}/api/v1/auth/change-password`;
+      const sendRequest = async (body) => {
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${sessionTokens.accessToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, body: await response.json() };
+      };
+
+      const invalidLength = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Short1!' });
+      assertEqual(invalidLength.status, 400, 'API phải từ chối mật khẩu dưới 8 ký tự');
+      assertEqual(invalidLength.body.code, 'VALIDATION_ERROR', 'Mã lỗi payload không hợp lệ');
+
+      const invalidCurrent = await sendRequest({ currentPassword: 'Wrong@12345', newPassword: 'Changed@12345' });
+      assertEqual(invalidCurrent.status, 401, 'API phải từ chối mật khẩu hiện tại sai');
+      assertEqual(invalidCurrent.body.code, 'CURRENT_PASSWORD_INVALID', 'Mã lỗi mật khẩu hiện tại');
+
+      const samePassword = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Current@12345' });
+      assertEqual(samePassword.status, 400, 'API phải từ chối mật khẩu mới trùng mật khẩu cũ');
+      assertEqual(samePassword.body.code, 'PASSWORD_SAME_AS_OLD', 'Mã lỗi mật khẩu trùng');
+
+      const changed = await sendRequest({ currentPassword: 'Current@12345', newPassword: 'Changed@12345' });
+      assertEqual(changed.status, 200, 'API đổi mật khẩu thành công');
+      assertEqual(changed.body.data.changed, true, 'Kết quả đổi mật khẩu');
+
+      const updatedUser = await User.findById(fixtures.passwordStudent._id).select('+password');
+      assert(await updatedUser.comparePassword('Changed@12345'), 'Mật khẩu mới phải được hash và lưu');
+      const accessClaims = tokenService.verifyAccessToken(sessionTokens.accessToken);
+      assertEqual(accessClaims.sub, String(fixtures.passwordStudent._id), 'Access token hiện tại còn hiệu lực');
+      const rotated = await tokenService.rotateTokens(sessionTokens.refreshToken, {});
+      assert(rotated.tokens.accessToken, 'Refresh token phiên cũ vẫn dùng được sau khi đổi mật khẩu');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -900,6 +1046,164 @@ async function testStep5() {
   });
 }
 
+async function testPhase5Notifications() {
+  group('Phase 5 - Thông báo trong ứng dụng');
+
+  const project = {
+    _id: new mongoose.Types.ObjectId(),
+    title: 'Đề tài kiểm tra thông báo',
+    code: 'SESS-IT-NOTIFICATION',
+  };
+  const revision = { _id: new mongoose.Types.ObjectId() };
+
+  await test('sự kiện nộp đề tài tạo thông báo Admin idempotent khi retry', async () => {
+    await notificationService.notifyProjectSubmitted({ project, revision });
+    await notificationService.notifyProjectSubmitted({ project, revision });
+
+    const eventKey = `project-submitted:${revision._id}:${fixtures.admin._id}`;
+    const count = await Notification.countDocuments({ eventKey, recipientId: fixtures.admin._id });
+    assertEqual(count, 1, 'Retry không tạo thông báo trùng');
+  });
+
+  await test('sự kiện lời mời gửi/phản hồi báo đúng người nhận', async () => {
+    const invitation = {
+      _id: new mongoose.Types.ObjectId(),
+      invitedBy: fixtures.student._id,
+      status: PROJECT_MEMBER_STATUS.ACCEPTED,
+    };
+    await notificationService.notifyInvitationCreated({
+      project,
+      invitation,
+      invitee: { _id: fixtures.student2._id },
+    });
+    await notificationService.notifyInvitationResponded({ project, invitation });
+
+    const created = await Notification.findOne({
+      eventKey: `invitation-created:${invitation._id}:${fixtures.student2._id}`,
+    }).lean();
+    const responded = await Notification.findOne({
+      eventKey: `invitation-responded:${invitation._id}:${fixtures.student._id}`,
+    }).lean();
+    assert(created, 'Sinh viên được mời phải nhận thông báo');
+    assert(responded, 'Người gửi lời mời phải nhận thông báo phản hồi');
+  });
+
+  await test('nhận xét milestone báo cho thành viên ACCEPTED và loại recipient trùng', async () => {
+    await Promise.all([
+      ProjectMember.updateOne(
+        { projectId: project._id, userId: fixtures.student._id },
+        { $set: { status: PROJECT_MEMBER_STATUS.ACCEPTED, role: PROJECT_MEMBER_ROLES.OWNER } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ),
+      ProjectMember.updateOne(
+        { projectId: project._id, userId: fixtures.student2._id },
+        { $set: { status: PROJECT_MEMBER_STATUS.ACCEPTED, role: PROJECT_MEMBER_ROLES.MEMBER } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ),
+    ]);
+
+    const comment = { _id: new mongoose.Types.ObjectId() };
+    const milestone = { _id: new mongoose.Types.ObjectId(), title: 'Milestone test' };
+    await notificationService.notifyMilestoneCommentAdded({ project, milestone, comment });
+    await notificationService.notifyMilestoneCommentAdded({ project, milestone, comment });
+
+    const eventKeyPrefix = `milestone-comment-added:${comment._id}:`;
+    const recipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^${eventKeyPrefix}`),
+    });
+    assertEqual(recipients.length, 2, 'Chỉ hai thành viên ACCEPTED nhận một thông báo mỗi người');
+  });
+
+  await test('duyệt thay đổi thành viên và hủy dự án tạo recipient duy nhất', async () => {
+    const changeRequest = {
+      _id: new mongoose.Types.ObjectId(),
+      requesterId: fixtures.student._id,
+      targetUserId: fixtures.student2._id,
+      type: MEMBER_CHANGE_REQUEST_TYPE.ADD,
+    };
+    await notificationService.notifyMemberChangeApproved({ project, changeRequest });
+    await notificationService.notifyMemberChangeApproved({ project, changeRequest });
+
+    const changeRecipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^member-change-approved:${changeRequest._id}:`),
+    });
+    assertEqual(changeRecipients.length, 2, 'Người gửi và người bị tác động nhận thông báo không trùng');
+
+    const cancellationRequest = {
+      _id: new mongoose.Types.ObjectId(),
+      requestedBy: fixtures.student._id,
+    };
+    await notificationService.notifyProjectCancellationApproved({ project, request: cancellationRequest });
+    await notificationService.notifyProjectCancellationApproved({ project, request: cancellationRequest });
+
+    const cancellationRecipients = await Notification.distinct('recipientId', {
+      eventKey: new RegExp(`^project-cancellation-approved:${cancellationRequest._id}:`),
+    });
+    assertEqual(cancellationRecipients.length, 2, 'Requester trùng thành viên chỉ nhận một thông báo');
+  });
+
+  await test('lọc unread và unreadCount tính trên toàn bộ thông báo của user', async () => {
+    const result = await notificationService.getNotifications({
+      userId: fixtures.admin._id,
+      status: 'unread',
+      page: 1,
+      limit: 1,
+    });
+    assert(result.notifications.length <= 1, 'API phải giới hạn theo trang');
+    assert(result.unreadCount >= 1, 'Unread count phải bao gồm toàn bộ trang');
+    assertEqual(result.pagination.limit, 1, 'Pagination trả đúng limit');
+  });
+
+  await test('tài khoản khác không thể đọc thông báo và gọi lại vẫn idempotent', async () => {
+    const eventKey = `project-submitted:${revision._id}:${fixtures.admin._id}`;
+    const notification = await Notification.findOne({ eventKey }).lean();
+    await assertThrows(
+      () => notificationService.markNotificationRead({
+        notificationId: notification._id,
+        userId: fixtures.student._id,
+      }),
+      'NOTIFICATION_NOT_FOUND',
+      'Không để lộ thông báo của tài khoản khác',
+    );
+
+    await notificationService.markNotificationRead({
+      notificationId: notification._id,
+      userId: fixtures.admin._id,
+    });
+    await notificationService.markNotificationRead({
+      notificationId: notification._id,
+      userId: fixtures.admin._id,
+    });
+    const saved = await Notification.findById(notification._id).lean();
+    assertEqual(saved.isRead, true, 'Gọi đánh dấu đọc lặp lại không lỗi');
+  });
+
+  await test('read-all chỉ cập nhật tài khoản hiện tại', async () => {
+    const invitationId = new mongoose.Types.ObjectId();
+    await notificationService.notifyInvitationCreated({
+      project,
+      invitation: { _id: invitationId },
+      invitee: { _id: fixtures.student2._id },
+    });
+    const studentUnreadBefore = await Notification.countDocuments({
+      recipientId: fixtures.student2._id,
+      isRead: false,
+    });
+
+    await notificationService.markAllNotificationsRead({ userId: fixtures.admin._id });
+    const adminUnreadAfter = await Notification.countDocuments({
+      recipientId: fixtures.admin._id,
+      isRead: false,
+    });
+    const studentUnreadAfter = await Notification.countDocuments({
+      recipientId: fixtures.student2._id,
+      isRead: false,
+    });
+    assertEqual(adminUnreadAfter, 0, 'Thông báo Admin đã đọc hết');
+    assertEqual(studentUnreadAfter, studentUnreadBefore, 'Không sửa thông báo của tài khoản khác');
+  });
+}
+
 const rubricIdPlaceholder = new mongoose.Types.ObjectId();
 
 // ---------------------------------------------------------------------------
@@ -911,6 +1215,7 @@ const main = async () => {
   console.log('=========================================================');
 
   await connectDatabase();
+  assertTestDatabaseName(mongoose.connection.name, 'integration');
   console.log(`MongoDB: ${mongoose.connection.name}`);
   await mongoose.connection.dropDatabase();
   console.log('Đã drop DB test cũ.\n');
@@ -920,11 +1225,13 @@ const main = async () => {
 
   await detectTransactionSupport();
 
+  await testStudentProfileAndPassword();
   await testStep1();
   await testStep2();
   await testStep3();
   await testStep4();
   await testStep5();
+  await testPhase5Notifications();
 
   // Kết quả
   const passed = results.filter((r) => r.status === 'PASS').length;
@@ -952,6 +1259,7 @@ const main = async () => {
   }
 
   // Dọn dẹp
+  assertTestDatabaseName(mongoose.connection.name, 'integration');
   await mongoose.connection.dropDatabase();
   await disconnectDatabase();
   await require('../src/config/redis').closeRedis();
@@ -962,7 +1270,10 @@ const main = async () => {
 main().catch(async (error) => {
   console.error('\n[LỖI] Integration test gặp sự cố không mong đợi:', error);
   try {
-    await mongoose.connection.dropDatabase();
+    if (mongoose.connection.readyState === 1) {
+      assertTestDatabaseName(mongoose.connection.name, 'integration');
+      await mongoose.connection.dropDatabase();
+    }
     await disconnectDatabase();
   } catch {
     // Bỏ qua lỗi dọn dẹp

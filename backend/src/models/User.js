@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: { type: String, default: null },
 
+    /** Version được tăng trong transaction để tuần tự hóa việc kiểm tra quota project. */
+    activeProjectQuotaVersion: { type: Number, default: 0, select: false },
+
     // --- Mật khẩu ---
     // `password` là trường chính của FR01-FR04 (hash bằng bcrypt ở pre('save'))
     password: {
@@ -56,6 +59,7 @@ const userSchema = new mongoose.Schema(
     studentId: { type: String, trim: true, unique: true, sparse: true },
     /** Lớp sinh hoạt - lấy từ danh sách sinh viên của trường (StudentWhitelist) */
     className: { type: String, trim: true, default: '' },
+    faculty: { type: String, trim: true, default: '' },
     /** Email Giảng viên cố vấn học tập (CVHT) của lớp */
     advisorEmail: { type: String, lowercase: true, trim: true, default: '' },
 

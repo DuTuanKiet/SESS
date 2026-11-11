@@ -81,6 +81,9 @@ const LOCKED_PROJECT_STATUSES = Object.freeze([
 /** Trạng thái dự án được coi là "đã kết thúc" (không tính là dự án đang hoạt động) */
 const FINISHED_PROJECT_STATUSES = Object.freeze([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED]);
 
+/** Mỗi sinh viên được tham gia tối đa hai dự án gốc chưa kết thúc. */
+const MAX_ACTIVE_PROJECTS = 2;
+
 /**
  * Cấp thi của dự án (thi đấu đa cấp - Master Blueprint Enterprise Edition).
  * Thứ tự là thứ tự quyền lực: cấp sau chỉ được xét khi dự án đã đạt cấp trước đó.
@@ -164,6 +167,7 @@ const AUDIT_ACTIONS = Object.freeze({
   CHANGE_USER_ROLE: 'CHANGE_USER_ROLE',
   CREATE_USER: 'CREATE_USER',
   INVITE_PROJECT_MEMBER: 'INVITE_PROJECT_MEMBER',
+  CANCEL_PROJECT_INVITATION: 'CANCEL_PROJECT_INVITATION',
   REMOVE_PROJECT_MEMBER: 'REMOVE_PROJECT_MEMBER',
   ACCEPT_NDA: 'ACCEPT_NDA',
   REQUEST_MEMBER_CHANGE: 'REQUEST_MEMBER_CHANGE',
@@ -250,9 +254,10 @@ const LATE_SUBMISSION_DAYS = 3;
 const COMMENT_DEADLINE_DAYS = 5;
 
 /** Cloud Upload - Enterprise Edition */
-const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.mp4', '.png', '.jpg', '.jpeg']);
+const ALLOWED_UPLOAD_EXTENSIONS = Object.freeze(['.pdf', '.docx', '.doc', '.mp4', '.png', '.jpg', '.jpeg']);
 const MAX_FILE_SIZE_VIDEO = 500 * 1024 * 1024; // 500MB
 const MAX_FILE_SIZE_POSTER = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_IMAGE = 10 * 1024 * 1024; // 10MB cho mỗi ảnh sản phẩm thực tế
 const MAX_FILE_SIZE_DOCUMENT = 50 * 1024 * 1024; // 50MB
 
 /** Map loại file -> giới hạn kích thước */
@@ -260,6 +265,7 @@ const UPLOAD_SIZE_LIMITS = Object.freeze({
   video: MAX_FILE_SIZE_VIDEO,
   poster: MAX_FILE_SIZE_POSTER,
   document: MAX_FILE_SIZE_DOCUMENT,
+  image: MAX_FILE_SIZE_IMAGE,
 });
 
 /** Cloud storage provider: 's3' | 'r2' | 'minio' | 'dev' */
@@ -275,9 +281,9 @@ const STORAGE_PUBLIC_DOMAIN = process.env.STORAGE_PUBLIC_DOMAIN || '';
 const OWNER_MUST_TRANSFER_MESSAGE =
   'Bạn là Trưởng nhóm. Vui lòng chuyển quyền Trưởng nhóm cho thành viên khác trước khi rời dự án.';
 
-/** Ràng buộc: mỗi sinh viên chỉ được tham gia 1 dự án đang hoạt động (FR04) */
+/** Ràng buộc: mỗi sinh viên chỉ được tham gia tối đa hai dự án đang hoạt động (FR04) */
 const USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE =
-  'Bạn đang tham gia một dự án khác đang hoạt động, không thể tạo hoặc tham gia dự án mới.';
+  `Bạn đã đạt giới hạn ${MAX_ACTIVE_PROJECTS} dự án đang hoạt động, không thể tạo hoặc tham gia dự án mới.`;
 
 /** Trạng thái yêu cầu thay đổi thành viên (PENDING -> APPROVED/REJECTED) */
 const MEMBER_CHANGE_REQUEST_STATUS = Object.freeze({
@@ -303,10 +309,10 @@ const PROJECT_LOCKED_MESSAGE =
  * - Bản ghi trong danh sách sinh viên của trường (scripts/seed-whitelist.js)
  * Production: đổi qua biến môi trường STUDENT_EMAIL.
  */
-const GLOBAL_TEST_EMAIL = 'dtkietktpm2311025@student.ctuet.edu.vn';
+const GLOBAL_TEST_EMAIL = 'hlmquynhktpm2311024@student.ctuet.edu.vn';
 
 /** MSSV tương ứng với GLOBAL_TEST_EMAIL */
-const GLOBAL_TEST_STUDENT_ID = 'KTPM2311025';
+const GLOBAL_TEST_STUDENT_ID = 'KTPM2311024';
 
 module.exports = {
   // Vai trò & trạng thái người dùng
@@ -322,6 +328,7 @@ module.exports = {
   EDITABLE_PROJECT_STATUSES,
   LOCKED_PROJECT_STATUSES,
   FINISHED_PROJECT_STATUSES,
+  MAX_ACTIVE_PROJECTS,
   MILESTONE_STATUS,
   MENTOR_STATUS,
   MENTOR_DEFAULT_MAX_PROJECTS,

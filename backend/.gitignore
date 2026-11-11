@@ -33,3 +33,4 @@ test/
 # test-integration) vẫn được commit bình thường.
 scripts/smoke-test.js
 src/scripts/
+uploads/

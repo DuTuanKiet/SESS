@@ -1,5 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/authStore';
 
 const props = defineProps({
   competition: {
@@ -9,6 +10,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const statusConfig = {
   ongoing: { label: 'Đang nhận hồ sơ', class: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
@@ -42,7 +44,17 @@ const handleViewDetail = () => {
 };
 
 const handleSubmit = () => {
-  router.push({ name: 'competition-submit', params: { id: props.competition.id } });
+  if (!authStore.isAuthenticated) {
+    router.push({
+      path: '/auth/login',
+      query: { redirect: `/student/projects?registerCompetitionId=${props.competition.id}` },
+    });
+    return;
+  }
+  router.push({
+    path: '/student/projects',
+    query: { registerCompetitionId: props.competition.id },
+  });
 };
 </script>
 

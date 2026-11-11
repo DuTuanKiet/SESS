@@ -1,9 +1,41 @@
 const express = require('express');
 const projectController = require('../controllers/projectController');
 const projectMemberController = require('../controllers/projectMemberController');
+const projectSubmissionController = require('../controllers/projectSubmissionController');
+const rewardClaimController = require('../controllers/rewardClaimController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
+const validate = require('../middlewares/validateMiddleware');
 const { USER_ROLES } = require('../utils/constants');
+const {
+  projectParamsSchema,
+  listProjectsQuerySchema,
+  createProjectBodySchema,
+  updateProjectBodySchema,
+} = require('../validations/projectValidation');
+const {
+  projectParamsSchema: projectMemberParamsSchema,
+  invitationParamsSchema,
+  changeRequestParamsSchema,
+  memberParamsSchema,
+  invitationIdentifierParamsSchema,
+  inviteMemberBodySchema,
+  respondInvitationBodySchema,
+  transferOwnershipBodySchema,
+  requestLeaveBodySchema,
+  memberChangeBodySchema,
+  respondMemberChangeBodySchema,
+  emergencyTransferBodySchema,
+  memberChangeQuerySchema,
+} = require('../validations/projectMemberValidation');
+const {
+  projectSubmissionParamsSchema,
+  updateProjectSubmissionsBodySchema,
+} = require('../validations/projectSubmissionValidation');
+const {
+  projectRewardClaimParamsSchema,
+  saveRewardClaimBodySchema,
+} = require('../validations/rewardClaimValidation');
 
 const router = express.Router();
 
@@ -11,33 +43,113 @@ const router = express.Router();
 router.use(authenticate);
 
 // FR03 - Quản lý dự án & lịch sử phiên bản
-router.get('/', projectController.getProjects);
-router.post('/', projectController.createProject);
-router.get('/:id', projectController.getProject);
-router.put('/:id', projectController.updateProject);
-router.post('/:id/submit', projectController.submitProject);
-router.get('/:id/revisions', projectController.getProjectRevisions);
+router.get('/', validate({ query: listProjectsQuerySchema }), projectController.getProjects);
+router.post('/', validate({ body: createProjectBodySchema }), projectController.createProject);
+router.get('/invitations/me', projectMemberController.getMyInvitations);
+// Giữ route cũ cho các client chưa chuyển sang /invitations/me.
+router.get('/invitations', projectMemberController.getMyInvitations);
+router.post(
+  '/invitations/:invitationId/respond',
+  validate({ params: invitationParamsSchema, body: respondInvitationBodySchema }),
+  projectMemberController.respondInvitation,
+);
+router.get('/:id', validate({ params: projectParamsSchema }), projectController.getProject);
+router.put(
+  '/:id',
+  validate({ params: projectParamsSchema, body: updateProjectBodySchema }),
+  projectController.updateProject,
+);
+router.post('/:id/submit', validate({ params: projectParamsSchema }), projectController.submitProject);
+router.get('/:id/revisions', validate({ params: projectParamsSchema }), projectController.getProjectRevisions);
+router.get(
+  '/:id/submissions',
+  validate({ params: projectSubmissionParamsSchema }),
+  projectSubmissionController.getProjectSubmissions,
+);
+router.put(
+  '/:id/submissions',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectSubmissionParamsSchema, body: updateProjectSubmissionsBodySchema }),
+  projectSubmissionController.updateProjectSubmissions,
+);
+router.get(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema }),
+  rewardClaimController.getRewardClaim,
+);
+router.post(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema, body: saveRewardClaimBodySchema }),
+  rewardClaimController.saveRewardClaim,
+);
 
-// FR04 - Quản lý thành viên dự án (khai báo route tĩnh trước route /:id để tránh xung đột)
-router.post('/invitations/:invitationId/respond', projectMemberController.respondInvitation);
-router.post('/:id/members/invite', projectMemberController.inviteMember);
-router.delete('/:id/members/:userId', projectMemberController.removeMember);
-router.post('/:id/members/transfer-ownership', projectMemberController.transferOwnership);
-router.post('/:id/members/leave', projectMemberController.leaveProject);
+// FR04 - Quản lý thành viên dự án
+router.get(
+  '/:id/members',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.getProjectMembers,
+);
+router.post(
+  '/:id/members/invite',
+  validate({ params: projectMemberParamsSchema, body: inviteMemberBodySchema }),
+  projectMemberController.inviteMember,
+);
+router.delete(
+  '/:id/members/invitations/:identifier',
+  validate({ params: invitationIdentifierParamsSchema }),
+  projectMemberController.cancelInvitation,
+);
+router.post(
+  '/:id/members/leave-request',
+  validate({ params: projectMemberParamsSchema, body: requestLeaveBodySchema }),
+  projectMemberController.requestLeaveProject,
+);
+router.delete(
+  '/:id/members/leave-request',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.cancelLeaveRequest,
+);
+router.delete(
+  '/:id/members/:userId',
+  validate({ params: memberParamsSchema }),
+  projectMemberController.removeMember,
+);
+router.post(
+  '/:id/members/transfer-ownership',
+  validate({ params: projectMemberParamsSchema, body: transferOwnershipBodySchema }),
+  projectMemberController.transferOwnership,
+);
+router.post(
+  '/:id/members/leave',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.leaveProject,
+);
 
 // FR05 - Member Change Request (yêu cầu thay đổi thành viên)
-router.post('/:id/members/change-request', projectMemberController.requestMemberChange);
+router.post(
+  '/:id/members/change-request',
+  validate({ params: projectMemberParamsSchema, body: memberChangeBodySchema }),
+  projectMemberController.requestMemberChange,
+);
 router.post(
   '/change-requests/:requestId/respond',
   authorizeRoles(USER_ROLES.ADMIN),
+  validate({ params: changeRequestParamsSchema, body: respondMemberChangeBodySchema }),
   projectMemberController.respondMemberChangeRequest,
 );
-router.get('/:id/members/change-requests', projectMemberController.getMemberChangeRequests);
+router.get(
+  '/:id/members/change-requests',
+  validate({ params: projectMemberParamsSchema, query: memberChangeQuerySchema }),
+  projectMemberController.getMemberChangeRequests,
+);
 
 // FR05 - Emergency transfer ownership (Admin ép chuyển quyền)
 router.post(
   '/:id/members/emergency-transfer-ownership',
   authorizeRoles(USER_ROLES.ADMIN),
+  validate({ params: projectMemberParamsSchema, body: emergencyTransferBodySchema }),
   projectMemberController.emergencyTransferOwnership,
 );
 
