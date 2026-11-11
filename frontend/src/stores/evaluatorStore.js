@@ -19,7 +19,7 @@ export const useEvaluatorStore = defineStore('evaluator', {
 
   actions: {
     setError(message) {
-      this.error = message || '�� x?y ra l?i.';
+      this.error = message || 'Đã xảy ra lỗi.';
     },
     clearError() {
       this.error = null;
@@ -33,7 +33,7 @@ export const useEvaluatorStore = defineStore('evaluator', {
         this.assignments = Array.isArray(res?.data) ? res.data : [];
         return this.assignments;
       } catch (e) {
-        this.setError(e?.response?.data?.message || e.message || 'Kh�ng t?i du?c danh s�ch ph�n c�ng.');
+        this.setError(e?.response?.data?.message || e.message || 'Không tải được danh sách phân công.');
         throw e;
       } finally {
         this.loading = false;
@@ -52,7 +52,7 @@ export const useEvaluatorStore = defineStore('evaluator', {
         this.currentMeta = data.meta || null;
         return data;
       } catch (e) {
-        this.setError(e?.response?.data?.message || e.message || 'Kh�ng t?i du?c kh�ng gian ch?m di?m.');
+        this.setError(e?.response?.data?.message || e.message || 'Không tải được không gian chấm điểm.');
         throw e;
       } finally {
         this.loading = false;
@@ -63,7 +63,7 @@ export const useEvaluatorStore = defineStore('evaluator', {
       this.loading = true;
       this.clearError();
       try {
-        // BR06: optimistic concurrency � send current evaluation version with save/submit
+        // BR06: optimistic concurrency – send current evaluation version with save/submit
         const versionPayload = { ...payload };
         if (this.currentEvaluation && (versionPayload.expectedVersion ?? versionPayload.__v ?? versionPayload.evaluationVersion) == null) {
           if (this.currentEvaluation.__v != null) versionPayload.__v = this.currentEvaluation.__v;
@@ -73,7 +73,7 @@ export const useEvaluatorStore = defineStore('evaluator', {
         this.currentEvaluation = res?.data || res;
         return res;
       } catch (e) {
-        this.setError(e?.response?.data?.message || e.message || 'Kh�ng luu du?c phi?u ch?m di?m.');
+        this.setError(e?.response?.data?.message || e.message || 'Không lưu được phiếu chấm điểm.');
         throw e;
       } finally {
         this.loading = false;

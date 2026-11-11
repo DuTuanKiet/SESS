@@ -114,25 +114,7 @@ const normalizeProjectResponse = (responseBody) => {
   };
 };
 
-// Helper: Trì hoãn mô phỏng mạng cho mock data (giữ lại nếu cần bật lại USE_MOCK_DATA sau này)
-const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Helper: Lấy thông tin user hiện tại từ sessionAuth (sessionStorage ưu tiên, localStorage fallback)
-const getCurrentUser = () => {
-  try {
-    return JSON.parse(readSessionValue('user') || 'null');
-  } catch {
-    return null;
-  }
-};
-
-// Helper: Lấy user ID hiệu quả từ session (không còn hardcode mock id)
-const getEffectiveUserId = (user) => {
-  if (!user) return null;
-  return user.id || user._id || user.userId || null;
-};
-
-// Mock data đã bị loại bỏ (USE_MOCK_DATA = false). Tất cả dữ liệu dự án đọc từ Backend thật.
+// Mock data đã bị loại bỏ hoàn toàn. Tất cả dữ liệu dự án đọc từ Backend thật.
 
 /**
  * 1. Lấy danh sách đề tài của sinh viên (phân quyền chính xác theo tài khoản đăng nhập)
