@@ -2,9 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 
 import PublicLayout from '@/layouts/PublicLayout.vue';
+import StudentLayout from '@/layouts/StudentLayout.vue';
 import AdvisorLayout from '@/layouts/AdvisorLayout.vue';
 import JudgeLayout from '@/layouts/JudgeLayout.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
+import AuthLayout from '@/layouts/AuthLayout.vue';
 
 import HomePage from '@/modules/public-site/pages/HomePage.vue';
 import AboutPage from '@/modules/public-site/pages/AboutPage.vue';
@@ -17,8 +19,8 @@ import NewsDetailPage from '@/modules/public-site/pages/NewsDetailPage.vue';
 import ContactPage from '@/modules/public-site/pages/ContactPage.vue';
 import NotFoundPage from '@/modules/public-site/pages/NotFoundPage.vue';
 
-import { authRoutes } from './auth';
-import { studentRoutes } from './student';
+import LoginView from '@/modules/auth/pages/LoginView.vue';
+import AdminLoginView from '@/modules/auth/pages/AdminLoginView.vue';
 
 import EvaluatorAssignmentsView from '@/views/EvaluatorAssignmentsView.vue';
 import EvaluatorWorkspaceView from '@/views/EvaluatorWorkspaceView.vue';
