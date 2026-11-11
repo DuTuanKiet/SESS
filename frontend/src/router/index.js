@@ -92,10 +92,16 @@ const routes = [
     component: StudentLayout,
     meta: { roles: ['student', 'STUDENT'], requiresAuth: true },
     children: [
-      { path: '', name: 'student-dashboard', component: () => import('@/modules/competitions/pages/StudentDashboardPage.vue') },
+      { path: '', name: 'student-dashboard', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
       { path: 'profile', name: 'student-profile', component: () => import('@/modules/student/pages/StudentProfilePage.vue') },
+      { path: 'account', name: 'student-account', component: () => import('@/modules/student/pages/StudentProfilePage.vue') },
       { path: 'projects', name: 'student-projects', component: () => import('@/modules/student/pages/StudentProjectsPage.vue') },
       { path: 'projects/:id', name: 'student-project-detail', component: () => import('@/modules/student/pages/StudentProjectDetailPage.vue') },
+      { path: 'competitions', name: 'student-competitions', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
+      { path: 'teams', name: 'student-teams', component: () => import('@/modules/student/pages/StudentProjectsPage.vue') },
+      { path: 'mentoring', name: 'student-mentoring', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
+      { path: 'progress', name: 'student-progress', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
+      { path: 'notifications', name: 'student-notifications', component: () => import('@/modules/student/pages/StudentDashboardPage.vue') },
     ],
   },
   {

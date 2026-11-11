@@ -5,8 +5,6 @@ const User = require('../models/User');
 const ApiError = require('../utils/apiError');
 const whitelistService = require('./whitelistService');
 const mailerService = require('./mailerService');
-const queueService = require('./queueService');
-const notificationService = require('./notificationService');
 const {
   USER_STATUS,
   PROJECT_MEMBER_ROLES,

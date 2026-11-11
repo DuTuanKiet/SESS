@@ -116,7 +116,6 @@ async function handleGetAuditHistory(req, res, next) {
   }
 }
 
-const MentorService = require('../services/mentorService');
 const { ASSIGNMENT_STATUS } = require('../utils/constants');
 const MentorAssignment = require('../models/MentorAssignment');
 const ProjectMember = require('../models/ProjectMember');
@@ -137,7 +136,12 @@ async function handleGetMyMentorProfile(req, res, next) {
       mentor = await Mentor.create({ userId: req.user._id, email: user.email, fullName: user.fullName });
       mentor = mentor.toObject();
     }
-    const { password, passwordHash, refreshToken, refreshTokens, __v, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete safeUser.password;
+    delete safeUser.passwordHash;
+    delete safeUser.refreshToken;
+    delete safeUser.refreshTokens;
+    delete safeUser.__v;
     const data = {
       ...safeUser,
       ...mentor,

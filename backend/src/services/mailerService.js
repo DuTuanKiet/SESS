@@ -70,7 +70,7 @@ const formatLoginTime = (date = new Date()) => {
       hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh',
     }).format(d);
     return `${datePart} lúc ${timePart}`;
-  } catch (e) {
+  } catch {
     return formatDateTime(d);
   }
 };
@@ -359,13 +359,6 @@ const renderOtpEmail = (to, otp, expiresInMinutes) => {
 
 /** Gửi email OTP: kèm cả bản text (client không hỗ trợ HTML) và bản HTML */
 const sendOtpEmail = (to, otp, expiresInMinutes) => sendMail(renderOtpEmail(to, otp, expiresInMinutes));
-
-/** Dòng chi tiết trong card phiên đăng nhập */
-const renderDetailRow = (label, value, highlight = false) => `
-            <tr>
-              <td style="padding:6px 0;font-size:14px;color:#5a6472;width:170px;vertical-align:top;">${label}</td>
-              <td style="padding:6px 0;font-size:14px;font-weight:600;color:${highlight ? '#15803d' : '#1f2430'};">${value}</td>
-            </tr>`;
 
 /** Dựng nội dung email thông báo đăng nhập thành công (bảo mật tài khoản) */
 const renderLoginNotificationEmail = (to, { fullName, studentId, className, loginAt = new Date(), ip, userAgent, device } = {}) => {

@@ -1,4 +1,5 @@
 import httpClient from './http/httpClient';
+import { readSessionValue } from '@/stores/sessionAuth';
 
 /**
  * Service Quản lý Đề tài Sinh viên & Vòng đời Dự án SESS
@@ -8,7 +9,7 @@ import httpClient from './http/httpClient';
  * Các luồng project cốt lõi (danh sách, chi tiết, tạo/sửa, nộp và revisions) luôn dùng Backend.
  * Cờ mock chỉ còn áp dụng cho những luồng phụ chưa được nối API.
  */
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;
 
 export function normalizeProjectFromBackend(project = {}) {
   const version = Number(project.version ?? project.currentVersion ?? 1);
@@ -113,246 +114,25 @@ const normalizeProjectResponse = (responseBody) => {
   };
 };
 
-// Helper: Trì hoãn mô phỏng mạng cho mock data
+// Helper: Trì hoãn mô phỏng mạng cho mock data (giữ lại nếu cần bật lại USE_MOCK_DATA sau này)
 const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Helper: Lấy thông tin user hiện tại từ localStorage
+// Helper: Lấy thông tin user hiện tại từ sessionAuth (sessionStorage ưu tiên, localStorage fallback)
 const getCurrentUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('sess_user') || 'null');
+    return JSON.parse(readSessionValue('user') || 'null');
   } catch {
     return null;
   }
 };
 
-// Helper: Chuẩn hóa User ID (Hỗ trợ tương thích ngược với session cũ 'mock_student_id_01' hoặc tài khoản test)
+// Helper: Lấy user ID hiệu quả từ session (không còn hardcode mock id)
 const getEffectiveUserId = (user) => {
-  if (!user) return '671f0000user0001'; // Mặc định sinh viên Đặng Tấn Kiệt khi chưa đăng nhập
-  const uid = user.id || '';
-  const email = (user.email || '').toLowerCase();
-  const name = user.fullName || '';
-
-  if (
-    uid === '671f0000user0001' ||
-    uid === 'mock_student_id_01' ||
-    email.includes('dtkiet') ||
-    email.includes('student@') ||
-    name.includes('Kiệt')
-  ) {
-    return '671f0000user0001'; // Đặng Tấn Kiệt
-  }
-  if (uid === '671f0000user0002' || uid === 'mock_student_id_02' || email.includes('tvnam') || name.includes('Nam')) {
-    return '671f0000user0002'; // Trần Văn Nam
-  }
-  if (uid === '671f0000user0004' || uid === 'mock_student_id_04' || email.includes('ntmai') || name.includes('Mai')) {
-    return '671f0000user0004'; // Nguyễn Tuyết Mai
-  }
-  if (uid === '671f0000user0005' || uid === 'mock_student_id_05' || email.includes('vthung') || name.includes('Hùng')) {
-    return '671f0000user0005'; // Vũ Tiến Hùng
-  }
-  if (uid === '671f0000user0006' || uid === 'mock_student_id_06' || email.includes('lhphuc') || name.includes('Phúc')) {
-    return '671f0000user0006'; // Lê Hoàng Phúc
-  }
-
-  return uid;
+  if (!user) return null;
+  return user.id || user._id || user.userId || null;
 };
 
-// Mock Data chuẩn mực phục vụ Live Switch khi Backend dev chưa có dữ liệu mẫu
-const MOCK_PROJECTS = [
-  {
-    _id: '671f0001a1b2c3d4e5f60001',
-    code: 'SESS-2026-004',
-    title: 'Hệ thống AI Cảnh báo Sâu bệnh Lúa vùng Đồng bằng Sông Cửu Long',
-    category: 'Nông nghiệp công nghệ cao',
-    field: 'Nông nghiệp công nghệ cao',
-    faculty: 'Khoa Công nghệ Thông tin',
-    advisorInfo: {
-      fullName: 'TS. Nguyễn Văn Hướng',
-      unit: 'Khoa Công nghệ Thông tin',
-      phone: '0912345678',
-      email: 'nvhuong@ctuet.edu.vn',
-    },
-    leaderInfo: {
-      fullName: 'Đặng Tấn Kiệt',
-      studentId: 'KTPM2311025',
-      className: 'KTPM0123',
-      courseYear: 'Khóa 11',
-      phone: '0901234567',
-      email: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    },
-    objectives: 'Xây dựng hệ thống tự động phát hiện sớm bệnh đạo ôn và rầy nâu trên lúa thông qua camera di động, giúp bà con giảm 30% chi phí phun thuốc trừ sâu.',
-    abstract: 'Ứng dụng công nghệ thị giác máy tính nhận diện sớm bệnh đạo ôn và rầy nâu trên lá lúa qua thiết bị di động.',
-    problemStatement: 'Bà con nông dân gặp khó khăn trong việc phát hiện sâu bệnh kịp thời dẫn đến thiệt hại mùa màng nghiêm trọng.',
-    solution: 'Mô hình Deep Learning YOLOv8 kết hợp ứng dụng di động cho kết quả chẩn đoán chính xác 96% trong 3 giây.',
-    businessModel: 'Cung cấp giải pháp phần mềm miễn phí cho nông dân, thu phí bản quyền từ các hợp tác xã nông nghiệp.',
-    attachmentUrl: 'https://docs.google.com/document/d/158-TB-DHKTCN-CTUTSTARTUP2025-Demo/edit',
-    status: 'UNDER_MENTORSHIP',
-    version: 1,
-    currentVersion: 1,
-    level: 'FACULTY',
-    ownerId: '671f0000user0001',
-    userRole: 'OWNER',
-    digitalReceiptHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    digitalReceiptTimestamp: '2026-03-15T08:30:00.000Z',
-    createdAt: '2026-03-10T02:00:00.000Z',
-    updatedAt: '2026-03-25T10:00:00.000Z',
-  },
-  {
-    _id: '671f0001a1b2c3d4e5f60009',
-    code: 'SESS-2026-009',
-    title: 'Ứng dụng AI Hỗ trợ Phân loại và Tái chế Rác thải Y tế',
-    category: 'Y tế & Đời sống',
-    field: 'Y tế & Đời sống',
-    faculty: 'Khoa Điện - Điện tử - Viễn thông',
-    advisorInfo: {
-      fullName: 'ThS. Trần Thị Mai',
-      unit: 'Khoa Điện - Điện tử',
-      phone: '0987654321',
-      email: 'ttmai@ctuet.edu.vn',
-    },
-    leaderInfo: {
-      fullName: 'Lê Hoàng Phúc',
-      studentId: 'KTPM2311030',
-      className: 'KTPM0223',
-      courseYear: 'Khóa 11',
-      phone: '0933445566',
-      email: 'lhphuc2311030@student.ctuet.edu.vn',
-    },
-    objectives: 'Tự động hóa hoàn toàn quy trình nhận diện và phân chia rác nguy hại y tế tại nguồn.',
-    abstract: 'Giải pháp tự động phân loại rác thải y tế nguy hại sử dụng camera thị giác máy tính và cánh tay robot.',
-    problemStatement: 'Nguy cơ lây nhiễm chéo cao khi nhân viên y tế phân loại rác thủ công.',
-    solution: 'Mô hình ResNet50 kết hợp cảm biến siêu âm phát hiện và gắp rác tự động vào thùng chuyên dụng.',
-    businessModel: 'Bán giải pháp cho các bệnh viện đa khoa và trung tâm y tế dự phòng.',
-    attachmentUrl: 'https://docs.google.com/document/d/sess-2026-009-thuyet-minh/edit',
-    status: 'UNDER_MENTORSHIP',
-    version: 1,
-    currentVersion: 1,
-    level: 'FACULTY',
-    ownerId: '671f0000user0006',
-    userRole: 'OWNER',
-    digitalReceiptHash: 'c7d2e14298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852c77d',
-    digitalReceiptTimestamp: '2026-03-18T08:30:00.000Z',
-    createdAt: '2026-03-15T02:00:00.000Z',
-    updatedAt: '2026-03-26T10:00:00.000Z',
-  },
-  {
-    _id: '671f0001a1b2c3d4e5f60002',
-    code: 'SESS-2025-012',
-    title: 'Nền tảng Số hóa và Truy xuất Nguồn gốc Nông sản Bằng Blockchain',
-    category: 'Công nghệ thông tin',
-    field: 'Công nghệ thông tin',
-    faculty: 'Khoa Công nghệ Thông tin',
-    advisorInfo: {
-      fullName: 'TS. Nguyễn Văn Hướng',
-      unit: 'Khoa Công nghệ Thông tin',
-      phone: '0912345678',
-      email: 'nvhuong@ctuet.edu.vn',
-    },
-    leaderInfo: {
-      fullName: 'Đặng Tấn Kiệt',
-      studentId: 'KTPM2311025',
-      className: 'KTPM0123',
-      courseYear: 'Khóa 11',
-      phone: '0901234567',
-      email: 'dtkietktpm2311025@student.ctuet.edu.vn',
-    },
-    objectives: 'Minh bạch nguồn gốc nông sản xuất khẩu qua công nghệ sổ cái phân tán.',
-    abstract: 'Giải pháp ứng dụng chuỗi khối phân tán bảo đảm tính minh bạch và chống giả mạo tem truy xuất nguồn gốc.',
-    problemStatement: 'Gian lận thương mại và giả mạo nguồn gốc nông sản hữu cơ gây mất niềm tin của người tiêu dùng.',
-    solution: 'Smart contract trên nền tảng Hyperledger Fabric kết hợp tem mã hóa QR động.',
-    businessModel: 'Phí dịch vụ tem số hóa trên mỗi lô hàng của doanh nghiệp xuất khẩu.',
-    attachmentUrl: 'https://docs.google.com/document/d/sess-2025-012-blockchain/edit',
-    status: 'COMPLETED',
-    award: {
-      prize: 'FIRST_PRIZE',
-      title: 'Giải Nhất',
-      competitionName: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2025',
-      round: 'Vòng Chung kết',
-      stage: 'FINAL',
-      prizeMoney: '15.000.000 VNĐ',
-      awardedAt: '2025-12-20',
-    },
-    version: 2,
-    currentVersion: 2,
-    level: 'UNIVERSITY',
-    ownerId: '671f0000user0001',
-    userRole: 'OWNER',
-    digitalReceiptHash: 'a4f89d9876fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b89c',
-    digitalReceiptTimestamp: '2025-11-20T09:15:00.000Z',
-    createdAt: '2025-03-10T02:00:00.000Z',
-    updatedAt: '2025-12-05T14:00:00.000Z',
-  },
-  {
-    _id: '671f0001a1b2c3d4e5f60003',
-    code: 'SESS-2024-008',
-    title: 'Hệ thống Giám sát Nuôi trồng Thủy sản Thông minh IoT',
-    category: 'Tự động hóa & IoT',
-    field: 'Tự động hóa & IoT',
-    faculty: 'Khoa Cơ khí',
-    advisorInfo: {
-      fullName: 'ThS. Lê Hoàng Vũ',
-      unit: 'Khoa Cơ khí',
-      phone: '0944556677',
-      email: 'lhvu@ctuet.edu.vn',
-    },
-    leaderInfo: {
-      fullName: 'Trần Văn Nam',
-      studentId: 'KTPM2311026',
-      className: 'KTPM0123',
-      courseYear: 'Khóa 11',
-      phone: '0911223344',
-      email: 'tvnamktpm2311026@student.ctuet.edu.vn',
-    },
-    objectives: 'Tự động đo đạc chỉ số môi trường nước và cảnh báo sớm sự cố ao nuôi tôm.',
-    abstract: 'Bộ cảm biến đo nồng độ pH, oxy hòa tan và độ mặn tự động kích hoạt máy sục khí trong ao nuôi tôm.',
-    problemStatement: 'Nuôi tôm truyền thống phụ thuộc vào kinh nghiệm thủ công, tỷ lệ rủi ro cao khi môi trường nước thay đổi đột ngột.',
-    solution: 'Mạng cảm biến không dây LoraWan truyền dữ liệu về gateway điều khiển máy sục khí tự động.',
-    businessModel: 'Bán thiết bị phần cứng và gói bảo trì phần mềm định kỳ.',
-    attachmentUrl: 'https://docs.google.com/document/d/sess-2024-008-iot/edit',
-    status: 'COMPLETED',
-    version: 1,
-    currentVersion: 1,
-    level: 'FACULTY',
-    ownerId: '671f0000user0002',
-    userRole: 'MEMBER',
-    digitalReceiptHash: '9f83726298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b11a',
-    digitalReceiptTimestamp: '2024-11-18T10:00:00.000Z',
-    createdAt: '2024-03-12T04:00:00.000Z',
-    updatedAt: '2024-12-01T16:30:00.000Z',
-  },
-];
-
-const MOCK_REVISIONS = {
-  '671f0001a1b2c3d4e5f60002': [
-    {
-      _id: 'rev002',
-      versionNumber: 2,
-      submittedAt: '2025-11-20T09:15:00.000Z',
-      snapshotData: {
-        title: 'Nền tảng Số hóa và Truy xuất Nguồn gốc Nông sản Bằng Blockchain (Bản hoàn thiện)',
-        category: 'Công nghệ thông tin',
-        abstract: 'Bổ sung kết nối API hải quan và mở rộng mạng lưới kiểm chứng với 3 hợp tác xã.',
-        solution: 'Smart Contract nâng cao và tích hợp tem QR chống giả mạo.',
-        businessModel: 'Phí dịch vụ tem số hóa trên mỗi lô hàng của doanh nghiệp xuất khẩu.',
-      },
-    },
-    {
-      _id: 'rev001',
-      versionNumber: 1,
-      submittedAt: '2025-04-10T14:00:00.000Z',
-      snapshotData: {
-        title: 'Nền tảng Số hóa và Truy xuất Nguồn gốc Nông sản Bằng Blockchain',
-        category: 'Công nghệ thông tin',
-        abstract: 'Giải pháp ứng dụng chuỗi khối phân tán bảo đảm tính minh bạch.',
-        solution: 'Mô hình cơ bản ứng dụng Hyperledger Fabric.',
-        businessModel: 'Phí bảo trì định kỳ.',
-      },
-    },
-  ],
-};
-
-// Danh sách yêu cầu xin hủy đề tài chờ Admin duyệt
-const MOCK_CANCELLATION_REQUESTS = [];
+// Mock data đã bị loại bỏ (USE_MOCK_DATA = false). Tất cả dữ liệu dự án đọc từ Backend thật.
 
 /**
  * 1. Lấy danh sách đề tài của sinh viên (phân quyền chính xác theo tài khoản đăng nhập)
@@ -595,52 +375,11 @@ export async function requestProjectCancellationApi(projectId, { reason, evidenc
     throw error;
   }
 
-  if (!USE_MOCK_DATA) {
-    const response = await httpClient.post(`/projects/${projectId}/cancellation-requests`, {
-      reason: trimmedReason,
-      evidenceFiles,
-    });
-    return response.data;
-  }
-
-  await delay(400);
-  const user = getCurrentUser();
-  const effectiveUserId = getEffectiveUserId(user);
-
-  // Kiểm tra xem đề tài đã có đơn xin hủy PENDING hay chưa
-  const existingPending = MOCK_CANCELLATION_REQUESTS.find(
-    (req) => req.projectId === projectId && req.status === 'PENDING'
-  );
-  if (existingPending) {
-    const error = new Error('Đề tài đã có một đơn xin hủy đang chờ Ban Quản trị xét duyệt.');
-    error.code = 'CANCELLATION_REQUEST_PENDING';
-    throw error;
-  }
-
-  const newRequest = {
-    _id: `mock_cancel_${Date.now()}`,
-    projectId,
-    requestedBy: effectiveUserId,
+  const response = await httpClient.post(`/projects/${projectId}/cancellation-requests`, {
     reason: trimmedReason,
-    evidenceFiles: (evidenceFiles || []).map((file) => ({
-      fileName: String(file.fileName || '').trim(),
-      fileUrl: String(file.fileUrl || '').trim(),
-      uploadedAt: new Date().toISOString(),
-    })),
-    status: 'PENDING',
-    createdAt: new Date().toISOString(),
-  };
-
-  MOCK_CANCELLATION_REQUESTS.push(newRequest);
-
-  return {
-    success: true,
-    code: 'CANCELLATION_REQUEST_CREATED',
-    message: 'Đã gửi yêu cầu hủy đề tài kèm bằng chứng. Đang chờ Ban Quản trị xét duyệt.',
-    data: {
-      request: newRequest,
-    },
-  };
+    evidenceFiles,
+  });
+  return response.data;
 }
 
 /**
