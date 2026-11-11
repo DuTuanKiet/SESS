@@ -133,7 +133,7 @@ function isConflictError(e) {
 }
 
 async function handleConflict(e, fallbackMessage) {
-  const msg = e?.response?.data?.message || fallbackMessage || 'Phi?u ch?m di?m d� b? thay d?i ? phi�n kh�c.';
+  const msg = e?.response?.data?.message || fallbackMessage || 'Phi?u ch?m di?m đ b? thay d?i ? phiđn khđc.';
   toastStore.add({ message: msg + ' H? th?ng s? t?i l?i d? li?u m?i nh?t.', type: 'warning', duration: 7000 });
   await loadWorkspace();
 }
@@ -147,11 +147,11 @@ async function handleSaveDraft() {
       generalFeedback: generalFeedback.value,
       actionType: 'DRAFT',
     });
-    toastStore.add({ message: '�� luu nh�p phi?u ch?m di?m.', type: 'success', duration: 4000 });
+    toastStore.add({ message: 'đđ luu nhđp phi?u ch?m di?m.', type: 'success', duration: 4000 });
     await loadSummary();
   } catch (e) {
-    if (isConflictError(e)) return await handleConflict(e, 'Luu nh�p th?t b?i do xung d?t phi�n (409).');
-    toastStore.add({ message: e?.response?.data?.message || e?.message || 'Luu nh�p th?t b?i.', type: 'error', duration: 5000 });
+    if (isConflictError(e)) return await handleConflict(e, 'Luu nhđp th?t b?i do xung d?t phiđn (409).');
+    toastStore.add({ message: e?.response?.data?.message || e?.message || 'Luu nhđp th?t b?i.', type: 'error', duration: 5000 });
   } finally { submitLoading.value = false; }
 }
 
@@ -161,10 +161,10 @@ async function handleConfirmSubmit() {
   try {
     validateForSubmit();
     await evaluatorStore.submitEvaluation(evaluationId.value, { scores: scores.value, generalFeedback: generalFeedback.value, actionType: 'SUBMIT' });
-    toastStore.add({ message: '�� n?p phi?u ch?m di?m ch�nh th?c. Phi?u ch?m d� du?c kh�a.', type: 'success', duration: 5000 });
+    toastStore.add({ message: 'đđ n?p phi?u ch?m di?m chđnh th?c. Phi?u ch?m đ du?c khđa.', type: 'success', duration: 5000 });
     await loadSummary();
   } catch (e) {
-    if (isConflictError(e)) return await handleConflict(e, 'N?p phi?u th?t b?i do xung d?t phi�n (409).');
+    if (isConflictError(e)) return await handleConflict(e, 'N?p phi?u th?t b?i do xung d?t phiđn (409).');
     toastStore.add({ message: e?.response?.data?.message || e?.message || 'N?p phi?u th?t b?i.', type: 'error', duration: 5000 });
   } finally { submitLoading.value = false; }
 }

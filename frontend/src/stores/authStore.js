@@ -137,7 +137,7 @@ export const useAuthStore = defineStore('auth', {
       const incomingId = normalizeUserId(userData);
       const existingTab = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('sess_tab_user_id') : null;
       if (existingTab && incomingId && existingTab !== incomingId) {
-        // BR02/BR03: cross-user login in same tab � reset all user-scoped state before switching.
+        // BR02/BR03: cross-user login in same tab đ reset all user-scoped state before switching.
         resetUserScopedStores();
         clearSessionAuth();
       }

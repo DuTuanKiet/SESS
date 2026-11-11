@@ -126,13 +126,13 @@ async function updateProjectStatus(
   } = {},
 ) {
   if (!Object.values(PROJECT_STATUS).includes(status)) {
-    throw createError('Tr?ng th�i d? �n kh�ng h?p l?.', 400, 'INVALID_PROJECT_STATUS');
+    throw createError('Tr?ng thđi d? đn khđng h?p l?.', 400, 'INVALID_PROJECT_STATUS');
   }
 
   const executeStatusUpdate = async (session) => {
     const project = await Project.findById(projectId).session(session || null);
     if (!project) {
-      throw createError('Kh�ng t�m th?y d? �n d? c?p nh?t tr?ng th�i.', 404, 'PROJECT_NOT_FOUND');
+      throw createError('Khđng tđm th?y d? đn d? c?p nh?t tr?ng thđi.', 404, 'PROJECT_NOT_FOUND');
     }
 
     const resolvedStatuses = new Set([PROJECT_STATUS.EVALUATED, PROJECT_STATUS.APPROVED, PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED]);
@@ -153,7 +153,7 @@ async function updateProjectStatus(
         }
         return { project: project.toObject(), completedAssignment: null, forced: false, allowedTransitions: projectStateMachine.getAllowedTransitions(project.status) };
       }
-      throw createError('D? �n d� ? tr?ng th�i n�y.', 400, 'PROJECT_STATUS_UNCHANGED');
+      throw createError('D? đn đ ? tr?ng thđi nđy.', 400, 'PROJECT_STATUS_UNCHANGED');
     }
 
     const transition = projectStateMachine.assertValidTransition({
@@ -209,7 +209,7 @@ async function updateProjectStatus(
       return result;
     } catch (error) {
       if (!isTransactionUnsupportedError(error)) throw error;
-      console.warn('[Project] MongoDB kh�ng h? tr? transaction (standalone) -> c?p nh?t tr?ng th�i kh�ng transaction.');
+      console.warn('[Project] MongoDB khđng h? tr? transaction (standalone) -> c?p nh?t tr?ng thđi khđng transaction.');
       return await executeStatusUpdate(null);
     }
   } finally {
@@ -492,7 +492,7 @@ const assertOptimisticVersion = (doc, payload = {}) => {
     const currentV = Number(doc?.__v);
     const givenV = Number(expectedV);
     if (Number.isFinite(currentV) && Number.isFinite(givenV) && currentV !== givenV) {
-      throw ApiError.conflict('D? li?u d? �n d� thay d?i ? phi�n kh�c. Vui l�ng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
+      throw ApiError.conflict('D? li?u d? đn đ thay d?i ? phiđn khđc. Vui lđng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
     }
   }
   const expectedAt = payload.lastKnownUpdatedAt ?? payload.expectedUpdatedAt;
@@ -500,7 +500,7 @@ const assertOptimisticVersion = (doc, payload = {}) => {
     const currentAt = doc?.updatedAt ? new Date(doc.updatedAt).getTime() : NaN;
     const givenAt = new Date(expectedAt).getTime();
     if (Number.isFinite(currentAt) && Number.isFinite(givenAt) && currentAt !== givenAt) {
-      throw ApiError.conflict('D? li?u d? �n d� thay d?i ? phi�n kh�c. Vui l�ng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentUpdatedAt: doc?.updatedAt, expectedUpdatedAt: expectedAt });
+      throw ApiError.conflict('D? li?u d? đn đ thay d?i ? phiđn khđc. Vui lđng t?i l?i tru?c khi c?p nh?t.', 'CONFLICT', { currentUpdatedAt: doc?.updatedAt, expectedUpdatedAt: expectedAt });
     }
   }
 };
@@ -508,13 +508,13 @@ const assertOptimisticVersion = (doc, payload = {}) => {
 const updateProject = async ({ projectId, userId, payload = {} }) => {
   const { project } = await projectMemberService.assertProjectMember(projectId, userId);
 
-  // ��ng bang d? �n: ch? s?a du?c khi DRAFT/NEED_REVISION
+  // đđng bang d? đn: ch? s?a du?c khi DRAFT/NEED_REVISION
   projectMemberService.assertProjectEditable(project);
   assertOptimisticVersion(project, payload);
 
   const data = buildProjectData(payload);
   if (!Object.keys(data).length) {
-    throw ApiError.badRequest('Kh�ng c� th�ng tin n�o d? c?p nh?t', 'NOTHING_TO_UPDATE');
+    throw ApiError.badRequest('Khđng cđ thđng tin nđo d? c?p nh?t', 'NOTHING_TO_UPDATE');
   }
 
   project.set(data);
@@ -530,7 +530,7 @@ const updateProject = async ({ projectId, userId, payload = {} }) => {
 const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnownUpdatedAt } = {}) => {
   const { project } = await projectMemberService.assertProjectMember(projectId, actor.id);
 
-  // ��ng bang d? �n: d� n?p/dang x�t duy?t th� kh�ng n?p l?i
+  // đđng bang d? đn: đ n?p/dang xđt duy?t thđ khđng n?p l?i
   projectMemberService.assertProjectEditable(project);
   assertOptimisticVersion(project, { expectedVersion, __v: expectedVersion, lastKnownUpdatedAt });
   // Deadline enforcement: if an active round defines submission window, enforce it
