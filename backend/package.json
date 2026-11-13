@@ -18,6 +18,8 @@
     "cleanup": "node scripts/cleanup.js",
     "test:integration": "node scripts/test-integration.js",
     "test:mail": "node scripts/test-mail.js",
+    "audit:deep": "node scripts/final_deep_audit.js",
+    "verify:handover": "node scripts/verify_handover.js",
     "worker": "node src/workers/standalone.js"
   },
   "keywords": [],

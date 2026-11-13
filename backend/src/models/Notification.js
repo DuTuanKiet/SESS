@@ -70,6 +70,12 @@ const notificationSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+
+    // Metadata động theo từng loại sự nghiệp (projectId, invitationId, ...) - không bắt buộc.
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,

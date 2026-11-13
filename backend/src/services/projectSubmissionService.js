@@ -1,7 +1,8 @@
 const crypto = require('node:crypto');
 const Project = require('../models/Project');
 const projectMemberService = require('./projectMemberService');
-const { PROJECT_MEMBER_ROLES } = require('../utils/constants');
+const projectService = require('./projectService');
+const { PROJECT_MEMBER_ROLES, SYSTEM_ROLES, EDITABLE_PROJECT_STATUSES, PROJECT_LOCKED_MESSAGE } = require('../utils/constants');
 const ApiError = require('../utils/apiError');
 
 const SUBMISSION_CATEGORIES = ['reportFile', 'pitchDeck', 'poster', 'demoVideo', 'sourceCode', 'businessModel'];
@@ -55,13 +56,22 @@ const toRoundResponse = (round, now = new Date()) => ({
   feedback: round.feedback || '',
 });
 
-async function loadProjectForMember(projectId, userId) {
-  const { membership } = await projectMemberService.assertProjectMember(projectId, userId);
+async function loadProjectForMember(projectId, user) {
   const project = await Project.findById(projectId);
   if (!project) throw ApiError.notFound('Không tìm thấy dự án.', 'PROJECT_NOT_FOUND');
 
-  // Khởi tạo vòng nộp mặc định nếu dự án chưa có vòng nào
-  if (!project.submissionRounds || project.submissionRounds.length === 0) {
+  // Quyền đọc bài nộp: Admin, Giám khảo được phân công, Mentor phụ trách, thành viên dự án
+  const userId = user.id || user._id;
+  const userRole = String(user.systemRole || user.role || '').toLowerCase();
+  await projectService.assertProjectReadAccess(project, user);
+
+  let membership = null;
+  if (userRole === SYSTEM_ROLES.STUDENT) {
+    membership = await projectMemberService.findMembership(projectId, userId);
+  }
+
+  // Khởi tạo vòng nộp mặc định nếu dự án chưa có vòng nào (chỉ khi thành viên thực thi, tránh biến đổi DB khi chỉ đọc)
+  if (membership && (!project.submissionRounds || project.submissionRounds.length === 0)) {
     const roundNumber = project.currentRound || 1;
     project.submissionRounds.push({
       roundId: `round-${roundNumber}`,
@@ -86,13 +96,13 @@ async function loadProjectForMember(projectId, userId) {
   return { project, membership };
 }
 
-async function getProjectSubmissions({ projectId, userId }) {
-  const { project, membership } = await loadProjectForMember(projectId, userId);
+async function getProjectSubmissions({ projectId, user }) {
+  const { project, membership } = await loadProjectForMember(projectId, user);
   const now = new Date();
   const rounds = project.submissionRounds.map((round) => toRoundResponse(round, now));
   const openRound = rounds.find((round) => round.isOpen) || null;
   const currentRoundView = openRound || rounds[rounds.length - 1] || null;
-  const canEdit = (membership.role === PROJECT_MEMBER_ROLES.OWNER || !membership.role) && Boolean(openRound);
+  const canEdit = Boolean(membership) && (membership.role === PROJECT_MEMBER_ROLES.OWNER || !membership.role) && Boolean(openRound);
 
   return {
     rounds,
@@ -106,10 +116,15 @@ async function getProjectSubmissions({ projectId, userId }) {
   };
 }
 
-async function updateProjectSubmissions({ projectId, userId, roundId, items }) {
-  const { project, membership } = await loadProjectForMember(projectId, userId);
-  if (membership.role && membership.role !== PROJECT_MEMBER_ROLES.OWNER) {
+async function updateProjectSubmissions({ projectId, user, roundId, items }) {
+  const { project, membership } = await loadProjectForMember(projectId, user);
+  const userId = user.id || user._id;
+  if (!membership || membership.role !== PROJECT_MEMBER_ROLES.OWNER) {
     throw ApiError.forbidden('Chỉ Owner của dự án mới được cập nhật hồ sơ dự thi.', 'NOT_PROJECT_OWNER');
+  }
+
+  if (!EDITABLE_PROJECT_STATUSES.includes(project.status)) {
+    throw ApiError.badRequest(PROJECT_LOCKED_MESSAGE, 'PROJECT_LOCKED', { status: project.status });
   }
 
   const now = new Date();

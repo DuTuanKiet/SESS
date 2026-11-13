@@ -275,7 +275,7 @@ async function submitEvaluation(evaluationId, body, userId, isAdmin, req) {
     const currentV = Number(evaluation.__v);
     const givenV = Number(expectedEvalV);
     if (Number.isFinite(currentV) && Number.isFinite(givenV) && currentV !== givenV) {
-      throw ApiError.conflict('Phi?u ch?m di?m đ du?c c?p nh?t ? phiđn khđc. Vui lđng t?i l?i tru?c khi luu.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
+      throw ApiError.conflict('Phiếu chấm điểm đã được cập nhật ở phiên bản khác. Vui lòng tải lại trước khi lưu.', 'CONFLICT', { currentVersion: currentV, expectedVersion: givenV });
     }
   }
   await evaluation.save();

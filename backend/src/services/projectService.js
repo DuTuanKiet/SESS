@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const ProjectRevision = require('../models/ProjectRevision');
 const EvaluationRound = require('../models/EvaluationRound');
 const ProjectMember = require('../models/ProjectMember');
+const HumanEvaluation = require('../models/HumanEvaluation');
 const User = require('../models/User');
 const StudentWhitelist = require('../models/StudentWhitelist');
 const MentorAssignment = require('../models/MentorAssignment');
@@ -10,6 +11,7 @@ const auditService = require('./auditService');
 const projectMemberService = require('./projectMemberService');
 const digitalReceiptService = require('./digitalReceiptService');
 const queueService = require('./queueService');
+const notificationService = require('./notificationService');
 const { createError } = require('../middlewares/errorHandler');
 const ApiError = require('../utils/apiError');
 const { logAuditAction } = require('../utils/audit');
@@ -21,6 +23,8 @@ const {
   PROJECT_CODE_PREFIX,
   PROJECT_MEMBER_ROLES,
   PROJECT_MEMBER_STATUS,
+  EDITABLE_PROJECT_STATUSES,
+  PROJECT_LOCKED_MESSAGE,
   MENTORSHIP_ELIGIBLE_STATUSES,
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
@@ -282,22 +286,37 @@ async function verifyMentorOfProject(mentorId, projectId) {
   return activeAssignment;
 }
 
-//Kiểm tra quyền truy cập dự án (Dùng cho Admin, Mentor phụ trách và Thành viên nhóm).
+//Kiểm tra quyền truy cập dự án (Admin, Mentor phụ trách, Giám khảo được phân công và Thành viên nhóm).
 //Ngăn chặn lỗ hổng IDOR khi đọc thông tin nhạy cảm của dự án (FR05/FR07).
 async function verifyProjectAccess(userId, projectId, userRole) {
-  // 1. Quản trị viên (Admin) luôn có quyền truy cập
-  if (userRole === SYSTEM_ROLES.ADMIN || userRole === 'admin') {
-    return { hasAccess: true, role: 'Admin' };
-  }
-
-  // 2. Kiểm tra sự tồn tại của dự án
+  // 1. Kiểm tra sự tồn tại của dự án (áp dụng mọi role)
   const project = await Project.findById(projectId).lean();
   if (!project) {
     throw createError('Không tìm thấy dự án.', 404, 'PROJECT_NOT_FOUND');
   }
 
-  // 3. Nếu là Mentor: Kiểm tra có được phân công phụ trách dự án đang hoạt động hay không
-  if (userRole === SYSTEM_ROLES.MENTOR || userRole === 'mentor' || userRole === 'teacher') {
+  const userRoleNorm = String(userRole || '').toLowerCase();
+  const userIdStr = String(userId);
+
+  // 2. Quản trị viên (Admin) luôn có quyền truy cập đầy đủ
+  if (userRoleNorm === SYSTEM_ROLES.ADMIN) {
+    return { hasAccess: true, role: 'Admin', project, scope: 'full' };
+  }
+
+  // 3. Giám khảo: chỉ xem dự án được phân công (tồn tại bản ghi HumanEvaluation)
+  if (userRoleNorm === SYSTEM_ROLES.JUDGE) {
+    const assigned = await HumanEvaluation.findOne({
+      projectId: project._id,
+      evaluatorId: userId,
+    }).lean();
+    if (assigned) {
+      return { hasAccess: true, role: 'Judge', project, scope: 'assigned' };
+    }
+    throw createError('Bạn không được phân công chấm điểm dự án này.', 403, 'JUDGE_NOT_ASSIGNED');
+  }
+
+  // 4. Mentor / Teacher: phải là mentor đang phụ trách (Assignment_status = Assigned)
+  if (userRoleNorm === SYSTEM_ROLES.MENTOR || userRoleNorm === SYSTEM_ROLES.TEACHER) {
     const activeAssignment = await MentorAssignment.findOne({
       projectId,
       mentorId: userId,
@@ -305,21 +324,17 @@ async function verifyProjectAccess(userId, projectId, userRole) {
     }).lean();
 
     if (activeAssignment) {
-      return { hasAccess: true, role: 'Mentor', project };
+      return { hasAccess: true, role: 'Mentor', project, scope: 'assigned' };
     }
+    throw createError('Bạn không phải là giảng viên hướng dẫn của dự án này.', 403, 'NOT_PROJECT_MENTOR');
   }
 
-  // 4. Nếu là Sinh viên / Thành viên: Kiểm tra cả 2 nhánh (ProjectMember độc lập và project.members / ownerId)
-  const isOwner = project.ownerId && project.ownerId.toString() === userId.toString();
-  const isEmbeddedMember = (project.members || []).some(
-    (m) => m.userId && m.userId.toString() === userId.toString()
-  );
-
-  if (isOwner || isEmbeddedMember) {
-    return { hasAccess: true, role: 'Member', project };
+  // 5. Sinh viên: owner / thành viên đã chấp nhận / lời mời đang chờ (xem cơ bản)
+  const isOwner = project.ownerId && String(project.ownerId) === userIdStr;
+  if (isOwner) {
+    return { hasAccess: true, role: PROJECT_MEMBER_ROLES.OWNER, project, scope: 'full' };
   }
 
-  // Kiểm tra trong bảng ProjectMember (nhánh FR04)
   const membership = await ProjectMember.findOne({
     projectId,
     userId,
@@ -327,11 +342,142 @@ async function verifyProjectAccess(userId, projectId, userRole) {
   }).lean();
 
   if (membership) {
-    return { hasAccess: true, role: 'Member', project };
+    return { hasAccess: true, role: membership.role, project, scope: 'full' };
+  }
+
+  const pending = await ProjectMember.findOne({
+    projectId,
+    userId,
+    status: PROJECT_MEMBER_STATUS.INVITED,
+  }).lean();
+
+  if (pending) {
+    return { hasAccess: true, role: 'INVITEE', project, scope: 'basic' };
   }
 
   // Không thuộc bất kỳ nhóm nào trên -> Từ chối truy cập
   throw createError('Bạn không có quyền truy cập thông tin của dự án này.', 403, 'FORBIDDEN');
+}
+
+/**
+ * Chuẩn hóa quyền ĐỌC dự án (dùng cho getProject / getProjectRevisions / getProjectSubmissions ...).
+ * project là document đã được tải trước; user là { id/_id, role, systemRole }.
+ * Trả về { hasAccess, role, scope }:
+ *   - 'full': xem toàn bộ chi tiết (owner, thành viên ACCEPTED, admin, mentor/judge được phân công)
+ *   - 'assigned': judge/mentor xem dự án được phân công
+ *   - 'basic': sinh viên được mời (INVITED) chỉ xem thông tin cơ bản để nhận lời mời
+ */
+async function assertProjectReadAccess(project, user) {
+  if (!project) throw createError('Không tìm thấy dự án.', 404, 'PROJECT_NOT_FOUND');
+  if (!user) throw createError('Yêu cầu xác thực.', 401, 'UNAUTHORIZED');
+
+  const userId = user.id || user._id;
+  const userRoleNorm = String(user.systemRole || user.role || '').toLowerCase();
+  const userIdStr = String(userId);
+
+  // 1. ADMIN: full
+  if (userRoleNorm === SYSTEM_ROLES.ADMIN) {
+    return { hasAccess: true, role: 'Admin', scope: 'full' };
+  }
+
+  // 2. JUDGE: chỉ nếu được phân công (tồn tại bản ghi HumanEvaluation)
+  if (userRoleNorm === SYSTEM_ROLES.JUDGE) {
+    const assigned = await HumanEvaluation.findOne({
+      projectId: project._id,
+      evaluatorId: userId,
+    }).lean();
+    if (assigned) {
+      return { hasAccess: true, role: 'Judge', scope: 'assigned' };
+    }
+    throw createError('Bạn không được phân công chấm điểm dự án này.', 403, 'JUDGE_NOT_ASSIGNED');
+  }
+
+  // 3. MENTOR / TEACHER: active assignment
+  if (userRoleNorm === SYSTEM_ROLES.MENTOR || userRoleNorm === SYSTEM_ROLES.TEACHER) {
+    const activeAssignment = await MentorAssignment.findOne({
+      projectId: project._id,
+      mentorId: userId,
+      status: ASSIGNMENT_STATUS.ASSIGNED,
+    }).lean();
+    if (activeAssignment) {
+      return { hasAccess: true, role: 'Mentor', scope: 'assigned' };
+    }
+    throw createError('Bạn không phải là giảng viên hướng dẫn của dự án này.', 403, 'NOT_PROJECT_MENTOR');
+  }
+
+  // 4. STUDENT
+  if (userRoleNorm === SYSTEM_ROLES.STUDENT) {
+    const isOwner = project.ownerId && String(project.ownerId) === userIdStr;
+    if (isOwner) {
+      return { hasAccess: true, role: PROJECT_MEMBER_ROLES.OWNER, scope: 'full' };
+    }
+    const membership = await ProjectMember.findOne({
+      projectId: project._id,
+      userId,
+      status: PROJECT_MEMBER_STATUS.ACCEPTED,
+    }).lean();
+    if (membership) {
+      return { hasAccess: true, role: membership.role, scope: 'full' };
+    }
+    const pending = await ProjectMember.findOne({
+      projectId: project._id,
+      userId,
+      status: PROJECT_MEMBER_STATUS.INVITED,
+    }).lean();
+    if (pending) {
+      return { hasAccess: true, role: 'INVITEE', scope: 'basic' };
+    }
+    throw createError('Bạn không có quyền truy cập thông tin của dự án này.', 403, 'FORBIDDEN');
+  }
+
+  throw createError('Vai trò không được hỗ trợ.', 403, 'INSUFFICIENT_ROLE');
+}
+
+/**
+ * Chuẩn hóa quyền GHI / CHỈNH SỬA dự án.
+ * Chỉ SINH VIÊN là owner hoặc thành viên đã chấp nhận được sửa;
+ * dự án phải ở trạng thái cho phép chỉnh sửa (DRAFT / NEED_REVISION).
+ * ADMIN / JUDGE / MENTOR chỉ ĐỌC, KHÔNG được sửa thông tin gốc dự án sinh viên.
+ */
+async function assertProjectWriteAccess(project, user) {
+  if (!project) throw createError('Không tìm thấy dự án.', 404, 'PROJECT_NOT_FOUND');
+  if (!user) throw createError('Yêu cầu xác thực.', 401, 'UNAUTHORIZED');
+
+  const userRoleNorm = String(user.systemRole || user.role || '').toLowerCase();
+  const userId = user.id || user._id;
+  const userIdStr = String(userId);
+
+  if (userRoleNorm !== SYSTEM_ROLES.STUDENT) {
+    throw createError(
+      'Chỉ thành viên dự án (Sinh viên) được phép chỉnh sửa thông tin dự án.',
+      403,
+      'WRITE_FORBIDDEN_FOR_ROLE'
+    );
+  }
+
+  const isOwner = project.ownerId && String(project.ownerId) === userIdStr;
+  let membershipRole = PROJECT_MEMBER_ROLES.OWNER;
+  if (!isOwner) {
+    const membership = await ProjectMember.findOne({
+      projectId: project._id,
+      userId,
+      status: PROJECT_MEMBER_STATUS.ACCEPTED,
+    }).lean();
+    if (!membership) {
+      throw createError(
+        'Chỉ Trưởng nhóm hoặc thành viên đã chấp nhận được chỉnh sửa dự án.',
+        403,
+        'NOT_PROJECT_MEMBER'
+      );
+    }
+    membershipRole = membership.role;
+  }
+
+  if (!EDITABLE_PROJECT_STATUSES.includes(project.status)) {
+    throw createError(PROJECT_LOCKED_MESSAGE, 'PROJECT_LOCKED', { status: project.status });
+  }
+
+  return { hasAccess: true, role: membershipRole, isOwner, scope: 'full' };
 }
 
 
@@ -505,16 +651,15 @@ const assertOptimisticVersion = (doc, payload = {}) => {
   }
 };
 
-const updateProject = async ({ projectId, userId, payload = {} }) => {
-  const { project } = await projectMemberService.assertProjectMember(projectId, userId);
+const updateProject = async ({ projectId, user, payload = {} }) => {
+  const project = await getProjectById(projectId);
+  await assertProjectWriteAccess(project, user);
 
-  // đđng bang d? đn: ch? s?a du?c khi DRAFT/NEED_REVISION
-  projectMemberService.assertProjectEditable(project);
   assertOptimisticVersion(project, payload);
 
   const data = buildProjectData(payload);
   if (!Object.keys(data).length) {
-    throw ApiError.badRequest('Khđng cđ thđng tin nđo d? c?p nh?t', 'NOTHING_TO_UPDATE');
+    throw ApiError.badRequest('Không có thông tin cần cập nhật', 'NOTHING_TO_UPDATE');
   }
 
   project.set(data);
@@ -528,9 +673,10 @@ const updateProject = async ({ projectId, userId, payload = {} }) => {
  * cho phiên bản hiện tại, chuyển trạng thái SUBMITTED và tăng version lên 1.
  */
 const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnownUpdatedAt } = {}) => {
-  const { project } = await projectMemberService.assertProjectMember(projectId, actor.id);
+  const project = await getProjectById(projectId);
+  await assertProjectWriteAccess(project, actor);
 
-  // đđng bang d? đn: đ n?p/dang xđt duy?t thđ khđng n?p l?i
+  // Đóng băng dự án: không nộp/dang xét duyệt thì không nộp lại
   projectMemberService.assertProjectEditable(project);
   assertOptimisticVersion(project, { expectedVersion, __v: expectedVersion, lastKnownUpdatedAt });
   // Deadline enforcement: if an active round defines submission window, enforce it
@@ -631,6 +777,9 @@ const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnown
     console.error('[DigitalReceipt] Gửi email biên nhận thất bại:', emailError.message);
   }
 
+  // Thông báo in-app cho toàn bộ Admin: có đề tài mới được nộp.
+  await notificationService.notifyProjectSubmitted({ project, revision });
+
   await logAuditAction({
     actor,
     action: AUDIT_ACTIONS.CHANGE_PROJECT_STATUS,
@@ -651,8 +800,9 @@ const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnown
 };
 
 /** Lịch sử các phiên bản đã nộp của dự án (mới nhất trước) */
-const getProjectRevisions = async ({ projectId, userId }) => {
-  const { project } = await projectMemberService.assertProjectMember(projectId, userId);
+const getProjectRevisions = async ({ projectId, user }) => {
+  const project = await getProjectById(projectId);
+  await assertProjectReadAccess(project, user);
   const revisions = await ProjectRevision.find({ projectId: project._id }).sort({ versionNumber: -1 });
   return { project, revisions };
 };
@@ -686,12 +836,32 @@ const getProjects = async ({ userId, page = 1, limit = 10, status }) => {
   };
 };
 
-/** Lấy chi tiết dự án (chỉ thành viên đã chấp nhận) */
-const getProject = async ({ projectId, userId }) => {
-  const { project, membership } = await projectMemberService.assertProjectMember(projectId, userId);
+/** Lấy chi tiết dự án. Quyền đọc chuẩn: Admin, Giám khảo được phân công, Mentor phụ trách,
+ *  Chủ đề tài / thành viên đã chấp nhận (full); sinh viên được mời đang chờ (basic - chỉ thông tin cơ bản). */
+const getProject = async ({ projectId, user }) => {
+  const project = await getProjectById(projectId);
+  const access = await assertProjectReadAccess(project, user);
+
+  // Sinh viên được mời (pending): chỉ trả thông tin cơ bản để nhận lời mời, không lộ dữ liệu nhạy cảm.
+  if (access.scope === 'basic') {
+    return {
+      project: {
+        _id: project._id,
+        id: project._id,
+        code: project.code,
+        title: project.title ?? project.name ?? '',
+        name: project.name ?? project.title ?? '',
+        status: project.status,
+        field: project.field ?? project.category ?? '',
+        description: project.description ?? project.abstract ?? '',
+      },
+      membership: { role: access.role, scope: access.scope },
+    };
+  }
+
   // Đồng bộ danh sách thành viên từ bảng ProjectMember (nguồn dữ liệu chính thức FR04)
   // vào trường members của object project trả về, đảm bảo API không bao giờ trả mảng rỗng khi DB có dữ liệu.
-  const projectMembers = await ProjectMember.find({ projectId: project._id, status: 'ACCEPTED' })
+  const projectMembers = await ProjectMember.find({ projectId: project._id, status: PROJECT_MEMBER_STATUS.ACCEPTED })
     .populate('userId', 'fullName email studentId')
     .lean();
   if (projectMembers.length) {
@@ -738,7 +908,7 @@ const getProject = async ({ projectId, userId }) => {
     }
   }
 
-  return { project, membership };
+  return { project, membership: { role: access.role, scope: access.scope, isOwner: access.isOwner } };
 };
 
 module.exports = {
@@ -760,6 +930,8 @@ module.exports = {
   verifyProjectOwner,
   verifyMentorOfProject,
   verifyProjectAccess,
+  assertProjectReadAccess,
+  assertProjectWriteAccess,
   // Dùng lại cho luồng thi vượt cấp (tạo dự án con có mã tự sinh)
   createProjectWithGeneratedCode: createWithGeneratedCode,
 };

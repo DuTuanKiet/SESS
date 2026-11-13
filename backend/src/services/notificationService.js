@@ -38,6 +38,43 @@ const describeProject = (project) => {
   return code ? `“${title}” (${code})` : `“${title}”`;
 };
 
+/**
+ * Chuẩn hóa `type` nghiệp vụ về enum cho phép của model Notification.
+ * Model chỉ chấp nhận ['info','warning','success','error'].
+ */
+const normalizeNotificationType = (type) => {
+  switch (type) {
+    case 'warning':
+    case 'cancellation':
+      return 'warning';
+    case 'success':
+      return 'success';
+    case 'error':
+      return 'error';
+    case 'invitation':
+    case 'project':
+    case 'feedback':
+    case 'review':
+    case 'info':
+    default:
+      return 'info';
+  }
+};
+
+/**
+ * Phân giải `recipientRole` cho danh sách recipient để bộ lọc đọc
+ * (notificationController) theo { recipientId, recipientRole } hoạt động đúng.
+ */
+const resolveRecipientRoles = async (recipientIds) => {
+  const users = await User.find({ _id: { $in: recipientIds } })
+    .select('_id role systemRole')
+    .lean();
+  const roleById = new Map(
+    users.map((u) => [String(u._id), u.systemRole || u.role || 'student']),
+  );
+  return roleById;
+};
+
 /** Lưu thông báo theo khóa sự kiện để retry không tạo bản ghi trùng. */
 const createForRecipients = async ({
   eventName,
@@ -52,6 +89,9 @@ const createForRecipients = async ({
   const uniqueRecipients = [...new Set((recipients || []).map(getId).filter(Boolean))];
   if (!eventId || !uniqueRecipients.length) return;
 
+  const roleById = await resolveRecipientRoles(uniqueRecipients);
+  const normalizedType = normalizeNotificationType(type);
+
   await Promise.all(
     uniqueRecipients.map(async (recipientId) => {
       const eventKey = `${eventName}:${getId(eventId)}:${recipientId}`;
@@ -61,10 +101,11 @@ const createForRecipients = async ({
           {
             $setOnInsert: {
               recipientId,
+              recipientRole: roleById.get(recipientId) || null,
               title,
-              message,
-              type,
-              actionUrl,
+              content: message,
+              type: normalizedType,
+              link: actionUrl,
               metadata: metadata || {},
               eventKey,
             },

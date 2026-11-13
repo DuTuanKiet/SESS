@@ -71,12 +71,12 @@ router.post(
 
 /**
  * POST /api/v1/projects/:projectId/milestones/:milestoneId/comments
- * Mentor góp ý milestone (Completed/Overdue, trong 5 ngày từ khi nộp minh chứng). Chỉ Mentor.
+ * Mentor & Admin góp ý milestone (Completed/Overdue, trong 5 ngày từ khi nộp minh chứng).
  */
 router.post(
   '/:milestoneId/comments',
   authMiddleware,
-  authorizeRoles(SYSTEM_ROLES.MENTOR),
+  authorizeRoles(SYSTEM_ROLES.MENTOR, SYSTEM_ROLES.ADMIN),
   validate({ params: milestoneIdParamsSchema, body: addCommentBodySchema }),
   handleAddComment
 );

@@ -3,7 +3,7 @@ const projectSubmissionService = require('../services/projectSubmissionService')
 async function getProjectSubmissions(req, res) {
   const data = await projectSubmissionService.getProjectSubmissions({
     projectId: req.params.id,
-    userId: req.user.id,
+    user: req.user,
   });
 
   res.status(200).json({
@@ -16,7 +16,7 @@ async function getProjectSubmissions(req, res) {
 async function updateProjectSubmissions(req, res) {
   const data = await projectSubmissionService.updateProjectSubmissions({
     projectId: req.params.id,
-    userId: req.user.id,
+    user: req.user,
     roundId: req.body.roundId,
     items: req.body.items,
   });

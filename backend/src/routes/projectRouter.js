@@ -135,7 +135,7 @@ router.post(
 );
 router.post(
   '/change-requests/:requestId/respond',
-  authorizeRoles(USER_ROLES.ADMIN),
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.STUDENT),
   validate({ params: changeRequestParamsSchema, body: respondMemberChangeBodySchema }),
   projectMemberController.respondMemberChangeRequest,
 );

@@ -122,6 +122,7 @@ async function handleAddComment(req, res, next) {
       projectId,
       mentorId,
       content,
+      user: req.user,
     });
 
     return res.status(201).json({

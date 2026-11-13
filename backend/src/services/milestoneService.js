@@ -7,6 +7,7 @@ const { createError } = require('../middlewares/errorHandler');
 const {
   MILESTONE_STATUS,
   PROJECT_STATUS,
+  SYSTEM_ROLES,
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
   LATE_SUBMISSION_DAYS,
@@ -354,7 +355,7 @@ async function submitEvidence({ milestoneId, projectId, studentId, url, fileName
   return milestone.toObject();
 }
 //Mentor góp ý cho milestone
-async function addMilestoneComment({ milestoneId, projectId, mentorId, content }) {
+async function addMilestoneComment({ milestoneId, projectId, mentorId, content, user = null }) {
   const milestone = await findMilestoneOrFail(milestoneId, projectId);
 
   const currentStatus = resolveMilestoneStatus(milestone);
@@ -390,7 +391,11 @@ async function addMilestoneComment({ milestoneId, projectId, mentorId, content }
     );
   }
 
-  await projectService.verifyMentorOfProject(mentorId, projectId);
+  const userRole = String((user && (user.systemRole || user.role)) || '').toLowerCase();
+  // Admin được can thiệp mọi dự án; Mentor phải là người phụ trách dự án đó.
+  if (userRole !== SYSTEM_ROLES.ADMIN) {
+    await projectService.verifyMentorOfProject(mentorId, projectId);
+  }
 
   const comment = await MilestoneComment.create({
     milestoneId,

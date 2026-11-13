@@ -59,7 +59,7 @@ const getProjects = async (req, res) => {
 const getProject = async (req, res) => {
   const { project, membership, cancellationRequest } = await projectService.getProject({
     projectId: req.params.id,
-    userId: req.user.id,
+    user: req.user,
   });
 
   res.status(200).json({
@@ -143,7 +143,7 @@ const createProject = async (req, res) => {
 const updateProject = async (req, res) => {
   const { project } = await projectService.updateProject({
     projectId: req.params.id,
-    userId: req.user.id,
+    user: req.user,
     payload: req.body,
   });
 
@@ -169,7 +169,7 @@ const submitProject = async (req, res) => {
 const getProjectRevisions = async (req, res) => {
   const { project, revisions } = await projectService.getProjectRevisions({
     projectId: req.params.id,
-    userId: req.user.id,
+    user: req.user,
   });
 
   res.status(200).json({

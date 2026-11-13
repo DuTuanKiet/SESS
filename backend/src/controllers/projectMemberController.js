@@ -27,6 +27,7 @@ const getProjectMembers = async (req, res) => {
   const data = await projectMemberService.getProjectMembers({
     projectId: req.params.id,
     userId: req.user.id,
+    userRole: req.user.role,
   });
   res.status(200).json({
     success: true,
@@ -177,6 +178,7 @@ const respondMemberChangeRequest = async (req, res) => {
   const { project, changeRequest, executed } = await projectMemberService.respondMemberChangeRequest({
     requestId: req.params.requestId,
     responder: req.user,
+    userRole: req.user.role,
     response: assertEnum(req.body?.response, ['APPROVED', 'REJECTED'], 'response', 'INVALID_RESPONSE'),
     responseReason: req.body?.responseReason || '',
     req,
