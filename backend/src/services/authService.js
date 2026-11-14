@@ -262,10 +262,10 @@ const login = async ({ email, password, portalType, sessionMeta } = {}) => {
 
   // Cho phép đăng nhập thủ công bằng mật khẩu kể cả khi tài khoản đã liên kết Google,
   // miễn là có passwordHash hợp lệ. Chỉ chặn khi là tài khoản Google thuần chưa đặt mật khẩu.
-  if (user.authProvider === AUTH_PROVIDERS.GOOGLE && !user.password) {
+  if (user.authProvider === AUTH_PROVIDERS.GOOGLE && !user.passwordHash) {
     throw ApiError.badRequest(
-      'Tài khoản này được tạo bằng Google, vui lòng đăng nhập bằng Google',
-      'USE_GOOGLE_LOGIN',
+      'Tài khoản này kích hoạt qua Google nên chưa có mật khẩu riêng trên SESS. Vui lòng đăng nhập bằng Google hoặc bấm \'Quên mật khẩu\' để tạo mật khẩu mới.',
+      'GOOGLE_ACCOUNT_NO_PASSWORD',
     );
   }
   if (!(await user.comparePassword(password))) {
@@ -422,7 +422,6 @@ const logout = async ({ refreshToken, allSessions = false } = {}) => {
 
 /** Change the local password without revoking active sessions. */
 const changePassword = async (authenticatedUser, { currentPassword, newPassword } = {}) => {
-  assertRequired(currentPassword, 'currentPassword');
   assertRequired(newPassword, 'newPassword');
 
   if (newPassword.length < 8) {
@@ -437,21 +436,86 @@ const changePassword = async (authenticatedUser, { currentPassword, newPassword 
 
   const user = await User.findById(authenticatedUser?._id).select('+password');
   if (!user) throw ApiError.notFound('Không tìm thấy tài khoản.', 'USER_NOT_FOUND');
-  if (!user.password) {
-    throw ApiError.badRequest(
-      'Tài khoản chưa có mật khẩu cục bộ. Vui lòng sử dụng phương thức đăng nhập đã liên kết.',
-      'LOCAL_PASSWORD_NOT_SET',
-    );
-  }
-  if (!(await user.comparePassword(currentPassword))) {
-    throw ApiError.unauthorized('Mật khẩu hiện tại không chính xác.', 'CURRENT_PASSWORD_INVALID');
-  }
-  if (currentPassword === newPassword) {
-    throw ApiError.badRequest('Mật khẩu mới không được trùng với mật khẩu hiện tại.', 'PASSWORD_SAME_AS_OLD');
+
+  // Nếu user đã có passwordHash, bắt buộc kiểm tra mật khẩu hiện tại
+  if (user.passwordHash) {
+    assertRequired(currentPassword, 'currentPassword');
+    if (!(await user.comparePassword(currentPassword))) {
+      throw ApiError.unauthorized('Mật khẩu hiện tại không chính xác.', 'CURRENT_PASSWORD_INVALID');
+    }
+    if (currentPassword === newPassword) {
+      throw ApiError.badRequest('Mật khẩu mới không được trùng với mật khẩu hiện tại.', 'PASSWORD_SAME_AS_OLD');
+    }
+  } else {
+    // User chưa có mật khẩu (ví dụ tài khoản Google) - cho phép đặt mật khẩu mới mà không cần mật khẩu cũ
+    if (currentPassword) {
+      // Nếu client vẫn gửi currentPassword thì bỏ qua (hoặc có thể log warning)
+      console.warn(`[changePassword] User ${user.email} has no password but currentPassword was provided, ignoring.`);
+    }
   }
 
   user.password = newPassword;
   await user.save();
+  return { changed: true };
+};
+
+/** Yêu cầu đặt lại mật khẩu: gửi email chứa token đặt lại mật khẩu */
+const requestPasswordReset = async ({ email } = {}) => {
+  const normalizedEmail = assertEmail(email);
+
+  const user = await User.findOne({ email: normalizedEmail });
+  // Luôn trả về thành công để không lộ thông tin email có tồn tại hay không (security by obscurity)
+  if (!user) {
+    return { sent: true };
+  }
+
+  // Tạo token đặt lại mật khẩu
+  const resetToken = tokenService.signPasswordResetToken(user._id);
+  const resetLink = `${env.corsOrigin}/reset-password?token=${resetToken}`;
+
+  // Gửi email đặt lại mật khẩu
+  await mailerService.sendResetPasswordEmail(user.email, { fullName: user.fullName }, resetLink, tokenService.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES);
+
+  return { sent: true };
+};
+
+/** Đặt lại mật khẩu bằng token từ email */
+const resetPassword = async ({ token, newPassword } = {}) => {
+  assertRequired(token, 'token');
+  assertRequired(newPassword, 'newPassword');
+
+  if (newPassword.length < 8) {
+    throw ApiError.badRequest('Mật khẩu mới phải có tối thiểu 8 ký tự.', 'PASSWORD_TOO_SHORT');
+  }
+  if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+    throw ApiError.badRequest(
+      'Mật khẩu mới cần có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.',
+      'PASSWORD_COMPLEXITY',
+    );
+  }
+
+  // Xác thực token
+  let userId;
+  try {
+    userId = tokenService.verifyPasswordResetToken(token);
+  } catch {
+    throw ApiError.badRequest('Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn', 'INVALID_RESET_TOKEN');
+  }
+
+  const user = await User.findById(userId).select('+password');
+  if (!user) throw ApiError.notFound('Không tìm thấy tài khoản.', 'USER_NOT_FOUND');
+  if (user.status !== USER_STATUS.ACTIVE) {
+    throw ApiError.forbidden('Tài khoản của bạn đã bị khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+  }
+
+  // Cho phép tài khoản Google (có googleId) đặt mật khẩu mới
+  // Không cần kiểm tra mật khẩu cũ vì đây là luồng "quên mật khẩu"
+  user.password = newPassword;
+  await user.save();
+
+  // Thu hồi tất cả refresh token để buộc đăng nhập lại (bảo mật)
+  await tokenService.revokeAllSessions(user._id);
+
   return { changed: true };
 };
 
@@ -463,4 +527,6 @@ module.exports = {
   refreshSession,
   logout,
   changePassword,
+  requestPasswordReset,
+  resetPassword,
 };

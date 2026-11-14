@@ -6,6 +6,8 @@ const ApiError = require('../utils/apiError');
 const { sha256 } = require('../utils/security');
 const { TOKEN_TYPES, USER_STATUS } = require('../utils/constants');
 
+const PASSWORD_RESET_TOKEN_EXPIRES_MINUTES = 15;
+
 const signAccessToken = (user) =>
   jwt.sign({ sub: user.id, role: user.role, type: TOKEN_TYPES.ACCESS }, env.jwt.accessSecret, {
     expiresIn: env.jwt.accessExpiresIn,
@@ -112,6 +114,29 @@ const revokeSession = async (refreshToken, { allSessions = false } = {}) => {
 /** Dùng khi tài khoản bị SUSPENDED - cắt toàn bộ phiên đăng nhập */
 const revokeAllSessions = (userId) => User.updateOne({ _id: userId }, { $set: { refreshTokens: [] } });
 
+/**
+ * Tạo JWT token đặt lại mật khẩu (chứa userId và loại token).
+ * Token ký bằng JWT_ACCESS_SECRET, hạn dùng ngắn (15 phút).
+ */
+const signPasswordResetToken = (userId) =>
+  jwt.sign(
+    { sub: userId, type: 'PASSWORD_RESET' },
+    env.jwt.accessSecret,
+    { expiresIn: `${PASSWORD_RESET_TOKEN_EXPIRES_MINUTES}m` },
+  );
+
+/**
+ * Xác thực JWT token đặt lại mật khẩu.
+ * Trả về userId nếu hợp lệ, ném lỗi nếu sai/hết hạn.
+ */
+const verifyPasswordResetToken = (token) => {
+  const payload = jwt.verify(token, env.jwt.accessSecret);
+  if (payload.type !== 'PASSWORD_RESET') {
+    throw ApiError.unauthorized('Token đặt lại mật khẩu không hợp lệ', 'INVALID_RESET_TOKEN');
+  }
+  return payload.sub;
+};
+
 module.exports = {
   signAccessToken,
   verifyAccessToken,
@@ -120,4 +145,7 @@ module.exports = {
   rotateTokens,
   revokeSession,
   revokeAllSessions,
+  signPasswordResetToken,
+  verifyPasswordResetToken,
+  PASSWORD_RESET_TOKEN_EXPIRES_MINUTES,
 };

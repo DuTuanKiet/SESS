@@ -643,6 +643,72 @@ const sendDigitalReceiptEmail = async (to, {
   );
 };
 
+/** Gửi email đặt lại mật khẩu */
+const renderResetPasswordEmail = (to, { fullName, resetLink, expiresInMinutes } = {}) => {
+  const greetingName = fullName || 'bạn';
+  const contentHtml = `
+    <p style="margin:0 0 16px;font-size:16px;font-weight:600;color:#1f2430;">Kính gửi ${greetingName},</p>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3d4657;">
+      Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản <strong>${BRAND.systemName}</strong> với email
+      <strong style="color:${BRAND.primary};">${to}</strong>.
+    </p>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3d4657;">
+      Vui lòng bấm vào nút bên dưới để đặt lại mật khẩu mới (liên kết hết hạn sau ${expiresInMinutes} phút):
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td align="center" style="padding:0 0 22px;">
+          <a href="${resetLink}" style="display:inline-block;padding:14px 28px;background-color:${BRAND.primary};color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;border-radius:8px;box-shadow:0 2px 6px rgba(30,58,138,0.3);">
+            Đặt lại mật khẩu
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:20px 0 0;font-size:13px;line-height:1.7;color:#64748b;">
+      Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn sẽ không bị thay đổi.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;background-color:#fff8e6;border-left:4px solid #f0a500;border-radius:6px;">
+      <tr>
+        <td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#6b5200;">
+          <strong>Lưu ý bảo mật:</strong> Liên kết này chỉ sử dụng được 1 lần và hết hạn sau ${expiresInMinutes} phút.
+          Vui lòng không chia sẻ liên kết này cho bất kỳ ai.
+        </td>
+      </tr>
+    </table>`;
+
+  const text = [
+    `Kính gửi ${greetingName},`,
+    '',
+    `Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản ${BRAND.systemName} với email ${to}.`,
+    '',
+    `Vui lòng truy cập liên kết bên dưới để đặt lại mật khẩu mới (liên kết hết hạn sau ${expiresInMinutes} phút):`,
+    '',
+    resetLink,
+    '',
+    'Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.',
+    '',
+    'Lưu ý bảo mật: Liên kết này chỉ sử dụng được 1 lần và hết hạn sau ${expiresInMinutes} phút. Không chia sẻ liên kết này.',
+    '',
+    'Trân trọng,',
+    `Nhóm phát triển ${BRAND.name} - ${BRAND.university}`,
+  ].join('\n');
+
+  return {
+    to,
+    subject: 'SESS - Yêu cầu đặt lại mật khẩu',
+    text,
+    html: renderEmailLayout({
+      heading: 'Đặt lại mật khẩu SESS',
+      preheader: `Yêu cầu đặt lại mật khẩu cho tài khoản ${to} - hết hạn sau ${expiresInMinutes} phút`,
+      contentHtml,
+    }),
+  };
+};
+
+/** Gửi email đặt lại mật khẩu */
+const sendResetPasswordEmail = (to, userInfo, resetLink, expiresInMinutes) =>
+  sendMail(renderResetPasswordEmail(to, { ...userInfo, resetLink, expiresInMinutes }));
+
 module.exports = {
   sendMail,
   sendOtpEmail,
@@ -650,9 +716,11 @@ module.exports = {
   sendLoginNotificationEmail,
   sendProjectInvitationEmail,
   sendDigitalReceiptEmail,
+  sendResetPasswordEmail,
   renderOtpEmail,
   renderWelcomeEmail,
   renderLoginNotificationEmail,
+  renderResetPasswordEmail,
   formatClientIp,
   parseUserAgent,
   formatLoginTime,
