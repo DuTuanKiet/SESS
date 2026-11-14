@@ -20,6 +20,7 @@ const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
 const votingRouter = require('./votingRouter');
 const newsRouter = require('./newsRouter');
+const competitionRoutes = require('./competitionRoutes');
 const notificationRouter = require('./notificationRoutes');
 const appealRouter = require('./appealRouter');
 
@@ -92,7 +93,8 @@ router.use('/cloud-upload', cloudUploadRouter);
 router.use('/score-overrides', scoreOverrideRoutes);
 router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
 router.use('/public/votes', votingRouter);
-router.use('/news', newsRouter);
+ router.use('/news', newsRouter);
+ router.use('/competitions', competitionRoutes);
 router.use('/notifications', notificationRouter);
 router.use('/', appealRouter);
 

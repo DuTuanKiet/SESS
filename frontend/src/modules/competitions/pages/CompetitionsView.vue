@@ -9,62 +9,30 @@ import CompetitionCard from '@/modules/competitions/components/CompetitionCard.v
 
 const router = useRouter();
 
+import { competitionsService } from '@/modules/competitions/services/competitionsService';
+
 const activeStatus = ref('');
 const activeLevel = ref('all');
 const searchQuery = ref('');
 
-const defaultCompetitions = [
-  {
-    id: 1,
-    title: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-    description: 'Cuộc thi khởi nghiệp lớn nhất của trường dành cho sinh viên toàn trường, khuyến khích ý tưởng đổi mới sáng tạo và mô hình kinh doanh bền vững.',
-    status: 'ongoing',
-    level: 'university',
-    prizePool: 150,
-    teamCount: 128,
-    milestones: { proposal: '15/10/2026', semifinal: '20/11/2026', final: '15/12/2026' },
-  },
-  {
-    id: 2,
-    title: 'Thử thách đổi mới sáng tạo Khoa CNTT',
-    description: 'Cuộc thi cấp khoa tập trung vào các dự án công nghệ thông tin, phần mềm và trí tuệ nhân tạo do sinh viên Khoa CNTT tự phát triển.',
-    status: 'upcoming',
-    level: 'faculty',
-    prizePool: 50,
-    teamCount: 0,
-    milestones: { proposal: '01/11/2026', semifinal: '15/11/2026', final: '30/11/2026' },
-  },
-  {
-    id: 3,
-    title: 'Giải thưởng ý tưởng khởi nghiệp Cấp Trường',
-    description: 'Tinh chọn các dự án khởi nghiệp xuất sắc từ các cuộc thi cấp khoa để đại diện trường tham gia các cuộc thi cấp cao hơn.',
-    status: 'ended',
-    level: 'university',
-    prizePool: 100,
-    teamCount: 94,
-    milestones: { proposal: '01/08/2026', semifinal: '15/09/2026', final: '30/09/2026' },
-  },
-  {
-    id: 4,
-    title: 'Cuộc thi Sáng kiến KHOA HỌC CỨNG KỸ THUẬT',
-    description: 'Cuộc thi cấp bộ khuyến khích các nghiên cứu khoa học ứng dụng, kỹ thuật và công nghệ cao từ sinh viên trên toàn quốc.',
-    status: 'ongoing',
-    level: 'ministry',
-    prizePool: 300,
-    teamCount: 67,
-    milestones: { proposal: '10/10/2026', semifinal: '05/12/2026', final: '20/01/2027' },
-  },
-];
+const competitions = ref([]);
+const loading = ref(true);
+const loadError = ref(false);
+const apiStats = ref({ total: 0, ongoing: 0, upcoming: 0, ended: 0 });
 
-const competitions = ref([...defaultCompetitions]);
-const loading = ref(false);
-
-const stats = computed(() => [
-  { label: 'Cuộc thi đang diễn ra', value: competitions.value.filter(c => c.status === 'ongoing').length, sub: 'Đang nhận hồ sơ', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  { label: 'Tổng quỹ giải thưởng', value: '500+', sub: 'Triệu VNĐ', color: 'text-blue-600', bg: 'bg-blue-50' },
-  { label: 'Dự án đã đăng ký', value: competitions.value.reduce((sum, c) => sum + (c.teamCount || 0), 0), sub: 'Từ khắp toàn trường', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { label: 'Khoa tham gia', value: '14', sub: 'Hưởng ứng toàn diện', color: 'text-amber-600', bg: 'bg-amber-50' },
-]);
+const stats = computed(() => {
+  const list = competitions.value;
+  const ongoing = apiStats.value.ongoing || list.filter((c) => c.status === 'ongoing').length;
+  const total = apiStats.value.total || list.length;
+  const registered = list.reduce((sum, c) => sum + (c.teamCount || 0), 0);
+  const levels = new Set(list.map((c) => c.level).filter(Boolean)).size;
+  return [
+    { label: 'Cuộc thi đang diễn ra', value: ongoing, sub: 'Đang nhận hồ sơ', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Tổng số cuộc thi', value: total, sub: 'Đợt đánh giá đã công bố', color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Dự án đã đăng ký', value: registered, sub: 'Từ khắp toàn trường', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Cấp độ tham gia', value: levels, sub: 'Trường / Bộ / Khoa', color: 'text-amber-600', bg: 'bg-amber-50' },
+  ];
+});
 
 const filteredCompetitions = computed(() => {
   return competitions.value.filter((c) => {
@@ -76,6 +44,39 @@ const filteredCompetitions = computed(() => {
     }
     return true;
   });
+});
+
+onMounted(async () => {
+  loading.value = true;
+  loadError.value = false;
+  try {
+    const [listRes, statsRes] = await Promise.all([
+      competitionsService.list({}),
+      competitionsService.getStats().catch(() => null),
+    ]);
+    let list = [];
+    if (Array.isArray(listRes)) list = listRes;
+    else if (Array.isArray(listRes?.data)) list = listRes.data;
+    competitions.value = list;
+
+    if (statsRes) {
+      const s = Array.isArray(statsRes) ? statsRes[0] : statsRes;
+      const d = s?.data || s;
+      if (d && typeof d === 'object') {
+        apiStats.value = {
+          total: Number(d.total) || list.length,
+          ongoing: Number(d.ongoing) || 0,
+          upcoming: Number(d.upcoming) || 0,
+          ended: Number(d.ended) || 0,
+        };
+      }
+    }
+  } catch (err) {
+    competitions.value = [];
+    loadError.value = true;
+  } finally {
+    loading.value = false;
+  }
 });
 
 const timeline = [
@@ -105,7 +106,10 @@ const timeline = [
 
       <!-- Competition Grid -->
       <div class="mt-12 lg:mt-16">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-if="loading" class="flex flex-col items-center justify-center py-20 rounded-3xl border-2 border-dashed border-slate-200 bg-white text-center">
+          <p class="text-sm text-slate-500">Đang tải danh sách cuộc thi...</p>
+        </div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <CompetitionCard
             v-for="comp in filteredCompetitions"
             :key="comp.id"
@@ -123,9 +127,9 @@ const timeline = [
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 class="text-lg font-semibold text-[#0B1F4B] mb-2">Không tìm thấy cuộc thi nào</h3>
+          <h3 class="text-lg font-semibold text-[#0B1F4B] mb-2">Chưa có cuộc thi nào</h3>
           <p class="text-sm text-slate-500 max-w-sm mx-auto mb-6">
-            Vui lòng điều chỉnh bộ lọc trạng thái, cấp thi đua hoặc từ khóa tìm kiếm.
+            Hiện chưa có cuộc thi/đợt đánh giá nào được công bố. Vui lòng quay lại sau.
           </p>
           <button
             @click="activeStatus = ''; activeLevel = 'all'; searchQuery = ''"

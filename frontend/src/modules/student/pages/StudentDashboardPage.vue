@@ -367,7 +367,11 @@
           <div class="mt-2.5 w-14 h-[3px] bg-[#1E56D9]"></div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-if="!isLoadingCompetitions && activeCompetitions.length === 0" class="col-span-full flex flex-col items-center justify-center py-12 rounded-2xl border-2 border-dashed border-[#E4ECF7] bg-white text-center">
+          <p class="text-sm font-semibold text-[#0B1F4B] mb-1">Hiện chưa có cuộc thi nào đang mở nhận hồ sơ</p>
+          <p class="text-xs text-[#4B5B7A]">Vui lòng quay lại sau để xem các đợt đánh giá mới được công bố.</p>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <article
             v-for="comp in activeCompetitions"
             :key="comp.id"
@@ -468,37 +472,8 @@ const currentStageStep = computed(() => {
 });
 
 // Dữ liệu cuộc thi mở nhận hồ sơ
-const defaultActiveCompetitions = [
-  {
-    id: 1,
-    title: 'Cuộc thi Khởi nghiệp Sinh viên CTUT 2026',
-    description: 'Cuộc thi khởi nghiệp lớn nhất của trường dành cho sinh viên toàn trường, khuyến khích ý tưởng đổi mới sáng tạo.',
-    level: 'university',
-    prizePool: 150,
-    status: 'ongoing',
-    milestones: { proposal: '30/10/2026', semifinal: '20/11/2026', final: '15/12/2026' },
-  },
-  {
-    id: 2,
-    title: 'Thử thách Đổi mới Sáng tạo Khoa CNTT',
-    description: 'Cuộc thi tập trung vào các dự án phần mềm, giải pháp trí tuệ nhân tạo và chuyển đổi số.',
-    level: 'faculty',
-    prizePool: 50,
-    status: 'ongoing',
-    milestones: { proposal: '05/11/2026', semifinal: '18/11/2026', final: '30/11/2026' },
-  },
-  {
-    id: 4,
-    title: 'Cuộc thi Sáng kiến Kỹ thuật & Công nghệ Cần Thơ',
-    description: 'Khuyến khích các sáng chế kỹ thuật cơ điện tử, tự động hóa và công nghệ xanh ứng dụng thực tiễn.',
-    level: 'ministry',
-    prizePool: 300,
-    status: 'ongoing',
-    milestones: { proposal: '15/11/2026', semifinal: '05/12/2026', final: '20/01/2027' },
-  },
-];
+const activeCompetitions = ref([]);
 
-const activeCompetitions = ref([...defaultActiveCompetitions]);
 const isLoadingCompetitions = ref(false);
 
 onMounted(async () => {
@@ -540,7 +515,7 @@ onMounted(async () => {
     }
   } catch {
     // Fail-safe: Sử dụng danh sách mặc định nếu service chưa có Backend thực
-    activeCompetitions.value = [...defaultActiveCompetitions];
+    activeCompetitions.value = [];
   } finally {
     isLoadingCompetitions.value = false;
   }

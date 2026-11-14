@@ -40,6 +40,7 @@ const modelFiles = [
   'RewardClaim',
   'ScoreOverride',
   'Appeal',
+  'News',
 ];
 
 for (const modelName of modelFiles) {
@@ -185,6 +186,23 @@ async function main() {
     if (!validRoles.includes(pm.role)) { pmBad++; bad(`ProjectMember ${pm._id}: role khong hop le ${pm.role}`); }
   }
   if (pmBad === 0) ok(`Tat ca ${pms.length} ProjectMember hop le, khong co project mo`);
+
+  // ---- Mentors (integrity vs users) ----
+  console.log('== Mentors ==');
+  const Mentor = mongoose.model('Mentor');
+  const mentors = await Mentor.find({}).lean();
+  console.log(`  Tong so mentors: ${mentors.length}`);
+  const mentorUserIds = new Set(
+    users.filter((u) => String(u.role || u.systemRole || '').toUpperCase() === 'MENTOR').map((u) => String(u._id))
+  );
+  let mentorBad = 0;
+  for (const mt of mentors) {
+    if (!mt.userId || !mentorUserIds.has(String(mt.userId))) {
+      mentorBad++;
+      bad(`Mentor ${mt._id}: userId ${mt.userId} khong ton tai hoac khong phai MENTOR (orphan)`);
+    }
+  }
+  if (mentorBad === 0) ok(`Tat ca ${mentors.length} mentor hop le, khong co ban ghi mo`);
 
   await mongoose.disconnect();
   console.log(`\n================ TONG KET ================`);

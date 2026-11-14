@@ -2,12 +2,7 @@
 const props = defineProps({
   stats: {
     type: Array,
-    default: () => [
-      { label: 'Cuộc thi đang diễn ra', value: '12', sub: 'Đang nhận hồ sơ', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-      { label: 'Tổng quỹ giải thưởng', value: '500+', sub: 'Triệu VNĐ', color: 'text-blue-600', bg: 'bg-blue-50' },
-      { label: 'Dự án đã đăng ký', value: '1,248', sub: 'Từ khắp toàn trường', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-      { label: 'Khoa tham gia', value: '14', sub: 'Hưởng ứng toàn diện', color: 'text-amber-600', bg: 'bg-amber-50' },
-    ],
+    default: () => [],
   },
 });
 

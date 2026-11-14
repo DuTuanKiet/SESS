@@ -144,10 +144,10 @@
           </div>
           <div class="w-14 h-[3px] bg-[#1E56D9] mb-4"></div>
           <div class="space-y-3">
-            <article v-for="(item, idx) in newsList" :key="item.id || item._id || idx" class="flex items-start gap-3 p-2 bg-white border border-[#E4ECF7] rounded-xl hover:shadow-sm transition-all">
+            <article v-for="(item, idx) in newsList" :key="item._id || item.id || idx" class="flex items-start gap-3 p-2 bg-white border border-[#E4ECF7] rounded-xl hover:shadow-sm transition-all">
               <!-- Thumbnail ảnh bài viết bên trái -->
               <div class="w-20 h-14 rounded-lg bg-[#F1F7FF] overflow-hidden flex-shrink-0">
-                <img v-if="item.thumbnail || item.image" :src="item.thumbnail || item.image" :alt="item.title" class="w-full h-full object-cover" />
+                <img v-if="item.thumbnailUrl || item.thumbnail || item.image" :src="item.thumbnailUrl || item.thumbnail || item.image" :alt="item.title" class="w-full h-full object-cover" />
                 <div v-else class="w-full h-full flex items-center justify-center">
                   <Newspaper class="w-6 h-6 text-[#9BB4E8]" />
                 </div>
@@ -156,7 +156,7 @@
               <div class="flex-1 flex flex-col justify-center">
                 <div class="flex items-center gap-1.5 mb-1">
                   <span class="inline-flex px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E56D9] text-[10px] font-medium">
-                    {{ item.category || (idx === 0 ? 'Thông báo' : idx === 1 ? 'Tin tức' : 'Sự kiện') }}
+                    {{ item.category || 'Thông báo' }}
                   </span>
                   <span class="text-[10px] text-[#6B7280] flex items-center gap-1">
                     <Calendar class="w-3 h-3" />
@@ -166,6 +166,17 @@
                 <h3 class="text-xs sm:text-sm font-semibold text-[#0B1F4B] leading-tight line-clamp-1 hover:text-[#1E56D9] transition-colors">{{ item.title }}</h3>
               </div>
             </article>
+
+            <!-- Empty / loading state -->
+            <div v-if="!newsLoading && newsList.length === 0" class="flex flex-col items-center justify-center py-8 rounded-xl border border-dashed border-[#E4ECF7] bg-white text-center">
+              <Newspaper class="w-8 h-8 text-[#9BB4E8] mb-2" />
+              <p class="text-xs text-[#6B7280]">
+                {{ newsLoadError ? 'Hiện chưa thể tải tin tức.' : 'Chưa có tin tức nào được đăng.' }}
+              </p>
+            </div>
+            <div v-else-if="newsLoading" class="flex flex-col items-center justify-center py-8 text-center">
+              <p class="text-xs text-[#6B7280]">Đang tải tin tức...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -178,35 +189,9 @@ import { ref, onMounted } from 'vue';
 import { Lightbulb, Users, ListChecks, ShieldCheck, Rocket, ArrowRight, PlayCircle, Newspaper, Calendar } from 'lucide-vue-next';
 import { newsService } from '@/services/newsService';
 
-const defaultNews = [
-  {
-    id: 1,
-    title: 'Khai mạc Cuộc thi Khởi nghiệp sinh viên CTUT năm 2026',
-    summary: 'Trường Đại học Kỹ thuật - Công nghệ Cần Thơ chính thức khai mạc cuộc thi Khởi nghiệp sinh viên với nhiều hạng mục hấp dẫn.',
-    publishedAt: '2026-10-15',
-    category: 'Thông báo',
-    thumbnail: null
-  },
-  {
-    id: 2,
-    title: 'Hội thảo "Từ ý tưởng đến khởi nghiệp" dành cho sinh viên',
-    summary: 'Chương trình hướng dẫn quy trình viết hồ sơ dự án, phương pháp đánh giá và kinh nghiệm từ chuyên gia.',
-    publishedAt: '2026-10-12',
-    category: 'Tin tức',
-    thumbnail: null
-  },
-  {
-    id: 3,
-    title: 'Danh sách dự án được chọn vòng sơ khảo Cuộc thi SESS 2026',
-    summary: 'Công bố danh sách các đội dự án đủ điều kiện tham gia vòng phỏng vấn đánh giá của Hội đồng Giám khảo.',
-    publishedAt: '2026-10-10',
-    category: 'Sự kiện',
-    thumbnail: null
-  }
-];
-
-const newsList = ref([...defaultNews]);
+const newsList = ref([]);
 const newsLoading = ref(true);
+const newsLoadError = ref(false);
 
 const formatDate = (date) => {
   if (!date) return '';
@@ -220,7 +205,7 @@ const formatDate = (date) => {
 
 onMounted(async () => {
   try {
-    const data = await newsService.getNews({ limit: 3 });
+    const data = await newsService.getNews({ limit: 3, page: 1 });
     let fetched = [];
     if (Array.isArray(data)) {
       fetched = data;
@@ -231,13 +216,11 @@ onMounted(async () => {
     } else if (Array.isArray(data?.news)) {
       fetched = data.news;
     }
-    if (fetched && fetched.length > 0) {
-      newsList.value = fetched.slice(0, 3);
-    } else {
-      newsList.value = [...defaultNews];
-    }
+    newsList.value = fetched.slice(0, 3);
+    newsLoadError.value = false;
   } catch (error) {
-    newsList.value = [...defaultNews];
+    newsList.value = [];
+    newsLoadError.value = true;
   } finally {
     newsLoading.value = false;
   }
