@@ -23,7 +23,7 @@ let unregisterCredentialHandler;
 onBeforeUnmount(() => unregisterCredentialHandler?.());
 
 function handleUnconfiguredClick() {
-  emit('error', new Error('Server chưa hoạt động.'));
+  emit('error', new Error('Đăng nhập Google chưa được cấu hình. Vui lòng đặt VITE_GOOGLE_CLIENT_ID trong frontend/.env.'));
 }
 
 onMounted(async () => {

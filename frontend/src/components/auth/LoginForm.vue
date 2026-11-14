@@ -265,16 +265,25 @@ async function handleResendOtp() {
   }
 }
 
-async function handleGoogleLoginClick() {
+async function handleGoogleLogin(credential) {
   errorMessage.value = "";
+
+  // Chống double-submit: nếu đang xử lý thì bỏ qua.
+  if (isLoading.value) return;
+  if (!credential) {
+    errorMessage.value = "Không nhận được thông tin đăng nhập từ Google. Vui lòng thử lại.";
+    return;
+  }
+
   isLoading.value = true;
 
   try {
-    const res = await googleLoginApi({ idToken: "mock_google_id_token" });
+    const res = await googleLoginApi({ idToken: credential, portalType: props.portalType });
+
     authStore.setSession({
       user: res.data.user,
       tokens: res.data.tokens,
-      portal: "user",
+      portal: props.portalType,
     });
 
     toastStore.add({
@@ -282,17 +291,57 @@ async function handleGoogleLoginClick() {
       type: "success",
       duration: 4000,
     });
-    router.push("/");
+
+    // Ưu tiên redirectPath từ API (backend đã tính theo vai trò).
+    const redirectPath = res.data.redirectPath;
+    if (redirectPath) {
+      router.push(redirectPath);
+      return;
+    }
+
+    const user = res.data.user || {};
+    const roleRaw = user.systemRole || user.role || user.userRole;
+    const roleKey = typeof roleRaw === "string" ? roleRaw.toUpperCase() : "";
+
+    if (props.portalType === "admin") {
+      router.push("/admin");
+      return;
+    }
+    if (roleKey === "MENTOR" || roleKey === "TEACHER") {
+      router.push("/advisor");
+      return;
+    }
+    if (roleKey === "STUDENT") {
+      router.push("/student");
+      return;
+    }
+    if (roleKey === "JUDGE") {
+      router.push("/judge/assignments");
+      return;
+    }
+    if (roleKey === "ADMIN") {
+      router.push("/admin");
+      return;
+    }
+    router.push("/student");
   } catch (error) {
-    errorMessage.value = "Đăng nhập Google không thành công. Vui lòng thử lại sau.";
-    toastStore.add({
-      message: errorMessage.value,
-      type: "error",
-      duration: 6000,
-    });
+    const message = error.message || "Đăng nhập Google không thành công. Vui lòng thử lại sau.";
+    errorMessage.value = message;
+    toastStore.add({ message, type: "error", duration: 6000 });
   } finally {
     isLoading.value = false;
   }
+}
+
+function handleGoogleError(error) {
+  const raw = error?.message || "";
+  // Lỗi do người dùng đóng cửa sổ Google / huỷ chọn tài khoản: không phải lỗi hệ thống.
+  if (/popup|closed|cancel|abort/i.test(raw)) {
+    errorMessage.value = "Bạn đã đóng cửa sổ đăng nhập Google. Vui lòng thử lại.";
+  } else {
+    errorMessage.value = raw || "Không thể khởi tạo đăng nhập Google. Vui lòng thử lại sau.";
+  }
+  toastStore.add({ message: errorMessage.value, type: "error", duration: 6000 });
 }
 
 function handleForgotPasswordClick() {
@@ -364,7 +413,12 @@ function handleForgotPasswordClick() {
         <div class="relative flex justify-center text-xs"><span class="px-2 bg-white text-slate-500">hoặc</span></div>
       </div>
       <div class="mt-3">
-        <GoogleAuthButton @click="handleGoogleLoginClick" :disabled="isLoading" />
+        <GoogleAuthButton
+          :is-disabled="isLoading"
+          :is-loading="isLoading"
+          @credential="handleGoogleLogin"
+          @error="handleGoogleError"
+        />
       </div>
     </div>
 

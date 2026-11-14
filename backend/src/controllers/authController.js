@@ -60,6 +60,10 @@ const loginWithGoogle = async (req, res) => {
   if (data.isNewUser) message = 'Đã tạo tài khoản mới và đăng nhập bằng Google thành công.';
   else if (data.isLinked) message = 'Đã tự động liên kết Google vào tài khoản hiện có và đăng nhập thành công.';
 
+  // Thêm redirectPath để frontend điều hướng tự động theo vai trò (đồng bộ với login thường)
+  const userRole = data.user?.role || data.user?.systemRole || '';
+  data.redirectPath = redirectPathByRole(userRole);
+
   (async () => {
     try {
       await mailerService.sendLoginNotificationEmail(data.user.email, {
