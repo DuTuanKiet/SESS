@@ -335,12 +335,12 @@ async function handleGoogleLogin(credential) {
 
 function handleGoogleError(error) {
   const raw = error?.message || "";
-  // Lỗi do người dùng đóng cửa sổ Google / huỷ chọn tài khoản: không phải lỗi hệ thống.
-  if (/popup|closed|cancel|abort/i.test(raw)) {
-    errorMessage.value = "Bạn đã đóng cửa sổ đăng nhập Google. Vui lòng thử lại.";
-  } else {
-    errorMessage.value = raw || "Không thể khởi tạo đăng nhập Google. Vui lòng thử lại sau.";
+  // Người dùng chủ động đóng popup / huỷ chọn tài khoản: KHÔNG báo lỗi đỏ gây khó chịu.
+  if (/đóng cửa sổ|huỷ chọn|popup_closed|cancel|abort/i.test(raw)) {
+    errorMessage.value = "";
+    return;
   }
+  errorMessage.value = raw || "Không thể khởi tạo đăng nhập Google. Vui lòng thử lại sau.";
   toastStore.add({ message: errorMessage.value, type: "error", duration: 6000 });
 }
 
@@ -353,10 +353,13 @@ function handleForgotPasswordClick() {
 <template>
   <div class="mt-4">
     <div v-if="errorMessage" role="alert" class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in">
-      <svg class="w-4 h-4 shrink-0 mt-0.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="h-4 w-4 shrink-0 mt-0.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
-      <span class="font-medium">{{ errorMessage }}</span>
+      <span class="font-medium flex-1">{{ errorMessage }}</span>
+      <button type="button" class="shrink-0 text-red-400 hover:text-red-600 transition-colors" aria-label="Đóng thông báo" @click="errorMessage = ''">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
     </div>
 
     <form @submit.prevent="handleSubmitLogin" class="space-y-3" novalidate>

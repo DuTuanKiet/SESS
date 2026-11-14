@@ -13,6 +13,16 @@ import {
   hasSessionConflict,
 } from '@/stores/sessionAuth';
 import { useEvaluatorStore } from '@/stores/evaluatorStore';
+import { useGoogleIdentity } from '@/composables/useGoogleIdentity';
+
+/** Ngăn Google tự động chọn lại tài khoản cũ (One Tap auto-select) khi đăng xuất. */
+function disableGoogleAutoSelect() {
+  try {
+    useGoogleIdentity().disableAutoSelect();
+  } catch {
+    /* SDK chưa nạp - bỏ qua an toàn */
+  }
+}
 
 function safeParseUser(raw) {
   if (!raw) return null;
@@ -161,6 +171,8 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = null;
       this.refreshToken = null;
       this.portalType = 'user';
+      // Ngăn Google tự động ghim lại tài khoản cũ sau khi đăng xuất.
+      try { disableGoogleAutoSelect(); } catch {}
       try { clearSessionAuth(); sessionStorage?.clear?.(); } catch {}
     },
 
