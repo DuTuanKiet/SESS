@@ -56,8 +56,8 @@
             <span>{{ errorMessage }}</span>
           </div>
 
-          <!-- Mật khẩu hiện tại -->
-          <div>
+          <!-- Mật khẩu hiện tại (ẩn nếu tài khoản Google chưa đặt mật khẩu) -->
+          <div v-if="requiresCurrentPassword">
             <label class="block text-xs font-semibold text-slate-700 mb-1.5">
               Mật khẩu hiện tại <span class="text-red-500">*</span>
             </label>
@@ -79,6 +79,12 @@
                 <component :is="showCurrentPassword ? EyeOff : Eye" class="w-4 h-4" />
               </button>
             </div>
+          </div>
+
+          <!-- Thông báo cho tài khoản Google chưa có mật khẩu -->
+          <div v-else class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5 leading-relaxed">
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0"></div>
+            <span>Tài khoản này đăng nhập bằng Google. Bạn có thể đặt mật khẩu mới trực tiếp bên dưới mà không cần nhập mật khẩu hiện tại.</span>
           </div>
 
           <!-- Mật khẩu mới -->
@@ -154,7 +160,7 @@
                 class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"
               ></span>
               <Lock v-else class="w-3.5 h-3.5" />
-              <span>{{ isLoading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu' }}</span>
+              <span>{{ isLoading ? 'Đang cập nhật...' : (requiresCurrentPassword ? 'Cập nhật mật khẩu' : 'Đặt mật khẩu mới') }}</span>
             </button>
           </div>
         </form>
@@ -164,21 +170,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { X, KeyRound, Eye, EyeOff, Lock } from 'lucide-vue-next';
 import { changePasswordApi } from '@/services/userService';
 import { useToastStore } from '@/stores/toast';
+import { useAuthStore } from '@/stores/authStore';
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     default: false,
   },
+  // hasLocalPassword: true nếu user đã có mật khẩu cục bộ (cần nhập mật khẩu hiện tại)
+  hasLocalPassword: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits(['update:isOpen', 'success']);
 
 const toastStore = useToastStore();
+const authStore = useAuthStore();
 
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -190,6 +203,17 @@ const form = reactive({
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
+});
+
+// Xác định có cần nhập mật khẩu hiện tại không
+const requiresCurrentPassword = computed(() => {
+  // Nếu prop hasLocalPassword được truyền thì dùng prop, ngược lại kiểm tra từ authStore
+  if (props.hasLocalPassword !== undefined) {
+    return props.hasLocalPassword;
+  }
+  // Fallback: kiểm tra authProvider từ user trong authStore
+  const user = authStore.user;
+  return user?.authProvider !== 'GOOGLE' || user?.hasLocalPassword === true;
 });
 
 function resetForm() {
@@ -221,7 +245,7 @@ async function handleSubmit() {
   errorMessage.value = '';
 
   // 1. Kiểm tra trường trống
-  if (!form.currentPassword.trim()) {
+  if (requiresCurrentPassword.value && !form.currentPassword.trim()) {
     errorMessage.value = 'Vui lòng nhập mật khẩu hiện tại.';
     return;
   }
@@ -237,7 +261,7 @@ async function handleSubmit() {
     errorMessage.value = 'Mật khẩu cần có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.';
     return;
   }
-  if (form.currentPassword === form.newPassword) {
+  if (form.currentPassword && form.currentPassword === form.newPassword) {
     errorMessage.value = 'Mật khẩu mới không được trùng với mật khẩu hiện tại.';
     return;
   }
@@ -249,10 +273,15 @@ async function handleSubmit() {
   // 2. Gửi request đổi mật khẩu
   isLoading.value = true;
   try {
-    const res = await changePasswordApi({
-      currentPassword: form.currentPassword,
+    const payload = {
       newPassword: form.newPassword,
-    });
+    };
+    // Chỉ gửi currentPassword nếu cần
+    if (requiresCurrentPassword.value) {
+      payload.currentPassword = form.currentPassword;
+    }
+
+    const res = await changePasswordApi(payload);
 
     toastStore.add({
       message: res?.message || 'Đổi mật khẩu thành công!',

@@ -13,8 +13,8 @@ function toUserServiceError(httpError, fallbackMessage, fallbackCode) {
 
 /** Gửi yêu cầu đổi mật khẩu tài khoản hiện tại. */
 export async function changePasswordApi({ currentPassword, newPassword }) {
-  if (!currentPassword || !newPassword) {
-    const error = new Error('Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới.');
+  if (!newPassword) {
+    const error = new Error('Vui lòng điền mật khẩu mới.');
     error.code = 'VALIDATION_ERROR';
     throw error;
   }
@@ -25,7 +25,7 @@ export async function changePasswordApi({ currentPassword, newPassword }) {
     throw error;
   }
 
-  if (currentPassword === newPassword) {
+  if (currentPassword && currentPassword === newPassword) {
     const error = new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại.');
     error.code = 'PASSWORD_SAME_AS_OLD';
     throw error;
@@ -39,6 +39,44 @@ export async function changePasswordApi({ currentPassword, newPassword }) {
     return response.data;
   } catch (httpError) {
     throw toUserServiceError(httpError, 'Không thể đổi mật khẩu, vui lòng thử lại sau.', 'CHANGE_PASSWORD_FAILED');
+  }
+}
+
+/** Gửi yêu cầu đặt lại mật khẩu (Quên mật khẩu). */
+export async function requestPasswordResetApi({ email }) {
+  if (!email) {
+    const error = new Error('Vui lòng nhập email.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  try {
+    const response = await httpClient.post('/auth/request-password-reset', { email });
+    return response.data;
+  } catch (httpError) {
+    throw toUserServiceError(httpError, 'Không thể gửi yêu cầu đặt lại mật khẩu.', 'REQUEST_PASSWORD_RESET_FAILED');
+  }
+}
+
+/** Đặt lại mật khẩu bằng token từ email. */
+export async function resetPasswordApi({ token, newPassword }) {
+  if (!token || !newPassword) {
+    const error = new Error('Thiếu token hoặc mật khẩu mới.');
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+
+  if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+    const error = new Error('Mật khẩu mới cần có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.');
+    error.code = 'PASSWORD_COMPLEXITY';
+    throw error;
+  }
+
+  try {
+    const response = await httpClient.post('/auth/reset-password', { token, newPassword });
+    return response.data;
+  } catch (httpError) {
+    throw toUserServiceError(httpError, 'Không thể đặt lại mật khẩu, token có thể đã hết hạn.', 'RESET_PASSWORD_FAILED');
   }
 }
 
@@ -76,6 +114,8 @@ export async function updateMyProfileDetailApi(payload = {}) {
 
 export const userService = {
   changePassword: changePasswordApi,
+  requestPasswordReset: requestPasswordResetApi,
+  resetPassword: resetPasswordApi,
   getMyProfileDetail: getMyProfileDetailApi,
   updateMyProfileDetail: updateMyProfileDetailApi,
 };

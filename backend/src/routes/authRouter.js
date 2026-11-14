@@ -10,6 +10,8 @@ const {
   verifyOtpBodySchema,
   googleLoginBodySchema,
   changePasswordBodySchema,
+  requestPasswordResetBodySchema,
+  resetPasswordBodySchema,
 } = require('../validations/authValidation');
 
 const router = express.Router();
@@ -38,6 +40,17 @@ router.put(
   authenticate,
   validate({ body: changePasswordBodySchema }),
   authController.handleChangePassword,
+);
+// Quên mật khẩu / Đặt lại mật khẩu (không cần đăng nhập)
+router.post(
+  '/request-password-reset',
+  validate({ body: requestPasswordResetBodySchema }),
+  authController.requestPasswordReset,
+);
+router.post(
+  '/reset-password',
+  validate({ body: resetPasswordBodySchema }),
+  authController.resetPassword,
 );
 // Logout xác thực bằng refresh token nên không cần access token còn hiệu lực
 

@@ -427,6 +427,10 @@ function handleForgotPasswordClick() {
     </div>
 
     <OtpModal :is-open="isOtpModalOpen" :email="otpEmail" :is-loading="isOtpLoading" :error-message="otpErrorMessage" @close="isOtpModalOpen = false" @verify="handleVerifyOtp" @resend="handleResendOtp" />
-    <ForgotPasswordModal :is-open="isForgotPasswordOpen" @close="isForgotPasswordOpen = false" />
+    <ForgotPasswordModal
+      :is-open="isForgotPasswordOpen"
+      @close="isForgotPasswordOpen = false"
+      @switch-to-login="isForgotPasswordOpen = false"
+    />
   </div>
 </template>

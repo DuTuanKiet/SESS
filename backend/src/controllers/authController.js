@@ -107,4 +107,23 @@ const handleChangePassword = async (req, res) => {
   });
 };
 
-module.exports = { verifyOtp, login, loginWithGoogle, refreshToken, logout, getMe, handleChangePassword };
+const requestPasswordReset = async (req, res) => {
+  const data = await authService.requestPasswordReset(req.body);
+  // Luôn trả về thành công để không lộ thông tin email có tồn tại hay không
+  res.status(200).json({
+    success: true,
+    message: 'Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi.',
+    data,
+  });
+};
+
+const resetPassword = async (req, res) => {
+  const data = await authService.resetPassword(req.body);
+  res.status(200).json({
+    success: true,
+    message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
+    data,
+  });
+};
+
+module.exports = { verifyOtp, login, loginWithGoogle, refreshToken, logout, getMe, handleChangePassword, requestPasswordReset, resetPassword };

@@ -32,7 +32,10 @@
     </div>
 
     <!-- Modal Đổi Mật Khẩu dùng chung -->
-    <ChangePasswordModal v-model:isOpen="isChangePasswordOpen" />
+    <ChangePasswordModal
+      v-model:isOpen="isChangePasswordOpen"
+      :hasLocalPassword="hasLocalPassword"
+    />
 
     <!-- Modal Kê khai Thông tin Nhận Thưởng Đề tài Đạt giải -->
     <RewardClaimModal
@@ -49,13 +52,16 @@
  * Trang Hồ sơ Sinh viên (Student Profile)
  * Đóng vai trò coordinator kết nối Thẻ hồ sơ sinh viên, Lịch sử đề tài và các modal thao tác.
  */
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import userService from '@/services/userService';
 import projectService from '@/services/projectService';
+import { useAuthStore } from '@/stores/authStore';
 import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 import RewardClaimModal from '@/modules/student/components/RewardClaimModal.vue';
 import StudentProfileInfoCard from '@/modules/student/components/StudentProfileInfoCard.vue';
 import StudentProjectHistoryList from '@/modules/student/components/StudentProjectHistoryList.vue';
+
+const authStore = useAuthStore();
 
 // --- Trạng thái Modal ---
 const isChangePasswordOpen = ref(false);
@@ -81,6 +87,9 @@ const rewardClaims = ref({});
 const isLoadingProjects = ref(false);
 const isLoadingProfile = ref(true);
 const profileError = ref('');
+
+// hasLocalPassword từ authStore.user (được populate từ /auth/me)
+const hasLocalPassword = computed(() => authStore.user?.hasLocalPassword ?? true);
 
 function handleProfileUpdated(updatedData) {
   profileData.value = {

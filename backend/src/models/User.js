@@ -152,6 +152,11 @@ userSchema.methods.comparePassword = function comparePassword(plainPassword) {
   return bcrypt.compare(plainPassword, this.password);
 };
 
+/** Kiểm tra xem user có mật khẩu cục bộ (để frontend quyết định hiển thị ô mật khẩu hiện tại) */
+userSchema.virtual('hasLocalPassword').get(function () {
+  return !!this.passwordHash;
+});
+
 userSchema.pre('save', async function hashPasswordOnSave() {
   if (!this.isModified('password') || !this.password) return;
   this.password = await bcrypt.hash(this.password, env.bcryptSaltRounds);
