@@ -52,7 +52,7 @@ function handleTogglePasswordVisibility() {
 function validateEmail(value) {
   const trimmed = (value || "").trim();
   if (!trimmed) {
-    return "Vui lòng nhập email.";
+    return "Vui lòng nhập email hoặc mã số sinh viên.";
   }
   return "";
 }
@@ -161,7 +161,8 @@ async function handleSubmitLogin() {
     router.push(roleToPath[roleRaw] || "/student");
   } catch (error) {
     if (error.code === "EMAIL_NOT_VERIFIED") {
-      otpEmail.value = email.value.trim();
+      // Dùng email THẬT từ backend (khi người dùng nhập MSSV, email thật khác MSSV).
+      otpEmail.value = error.details?.email || email.value.trim();
       otpErrorMessage.value = "";
       isOtpModalOpen.value = true;
       toastStore.add({
@@ -365,7 +366,7 @@ function handleForgotPasswordClick() {
     <form @submit.prevent="handleSubmitLogin" class="space-y-3" novalidate>
       <div class="space-y-1">
         <label for="email" class="block text-xs font-semibold text-slate-700">
-          {{ portalType === "admin" ? "Tài khoản Quản trị viên" : "Email" }}
+          {{ portalType === "admin" ? "Tài khoản Quản trị viên" : "Email hoặc Mã số sinh viên (MSSV)" }}
           <span class="text-red-500">*</span>
         </label>
         <div class="relative rounded-lg shadow-xs">
@@ -374,7 +375,7 @@ function handleForgotPasswordClick() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
           </div>
-          <input id="email" v-model="email" type="email" autocomplete="username" placeholder="Nhập email của bạn" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.email ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputEmail" @blur="handleBlurEmail" />
+          <input id="email" v-model="email" type="text" inputmode="email" autocomplete="username" placeholder="Email hoặc MSSV (VD: 2311025)" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.email ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputEmail" @blur="handleBlurEmail" />
         </div>
         <p v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">{{ fieldErrors.email }}</p>
       </div>

@@ -144,6 +144,27 @@ const assertObjectId = (value, fieldName) => {
   return value;
 };
 
+/**
+ * Thoát ký tự đặc biệt regex để dùng an toàn trong RegExp người dùng nhập.
+ */
+const escapeRegex = (value) => String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Chuẩn hoá định danh đăng nhập thủ công: có thể là Email đầy đủ HOẶC MSSV.
+ * Trả về { type: 'email'|'studentCode', value } để service tra cứu User.
+ */
+const parseLoginIdentifier = (identifier) => {
+  const raw = String(identifier ?? '').trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  // Chứa '@' -> coi là email (chuẩn hoá thường)
+  if (lower.includes('@')) {
+    return { type: 'email', value: lower };
+  }
+  // Không có '@' -> MSSV (giữ nguyên, so khớp không phân biệt hoa/thường)
+  return { type: 'studentCode', value: raw };
+};
+
 module.exports = {
   EMAIL_REGEX,
   STUDENT_EMAIL_REGEX,
@@ -151,6 +172,8 @@ module.exports = {
   normalizeEmail,
   isStudentEmail,
   extractStudentIdFromEmail,
+  escapeRegex,
+  parseLoginIdentifier,
   isValidObjectIdLike,
   assertObjectId,
   assertRequired,

@@ -3,7 +3,7 @@ const { z } = require('zod');
 const portalTypeSchema = z.enum(['user', 'admin']).optional();
 
 const loginBodySchema = z.object({
-  email: z.string().trim().email('Email không hợp lệ.'),
+  email: z.string().trim().min(1, 'Vui lòng nhập email hoặc mã số sinh viên.'),
   password: z.string().min(1, 'Vui lòng nhập mật khẩu.'),
   portalType: portalTypeSchema,
   recaptchaToken: z.string().optional(),

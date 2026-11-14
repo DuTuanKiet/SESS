@@ -124,7 +124,12 @@ function requestGoogleIdToken() {
 
   const state = randomHex(16);
   const nonce = randomHex(16);
+  // redirect_uri CỐ ĐỊNH, sạch (không query/hash) để khớp tuyệt đối với Google Cloud Console.
+  // Phải khai báo đúng chuỗi này trong "Authorized redirect URIs".
   const redirectUri = `${window.location.origin}/auth/login`;
+  if (import.meta.env.DEV) {
+    console.info(`[Google OAuth] redirect_uri đang dùng: ${redirectUri}`);
+  }
 
   const url = new URL(GOOGLE_AUTH_ENDPOINT);
   url.searchParams.set('client_id', clientId);

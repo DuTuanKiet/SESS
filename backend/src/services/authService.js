@@ -16,6 +16,8 @@ const {
   isStudentEmail,
   assertStudentEmail,
   extractStudentIdFromEmail,
+  escapeRegex,
+  parseLoginIdentifier,
   assertNumericCode,
 } = require('../utils/validation');
 
@@ -209,17 +211,40 @@ const verifyOtp = async ({ email, otp, portalType, sessionMeta } = {}) => {
 
 /** Đăng nhập bằng email/mật khẩu */
 const login = async ({ email, password, portalType, sessionMeta } = {}) => {
-  const normalizedEmail = assertEmail(email);
+  const identifier = String(email ?? '').trim();
+  assertRequired(identifier, 'email');
   assertRequired(password, 'password');
 
+  // Định danh có thể là Email đầy đủ hoặc Mã số sinh viên (MSSV).
+  const parsed = parseLoginIdentifier(identifier);
+
   // Sinh viên: BẮT BUỘC có trong danh sách sinh viên của trường mới được đăng nhập/kích hoạt
-  if (isStudentEmail(normalizedEmail)) {
-    await whitelistService.assertStudentInWhitelist(normalizedEmail);
+  let normalizedStudentEmail = null;
+  if (parsed?.type === 'email' && isStudentEmail(parsed.value)) {
+    normalizedStudentEmail = parsed.value;
+    await whitelistService.assertStudentInWhitelist(normalizedStudentEmail);
   }
 
-  const user = await User.findOne({ email: normalizedEmail }).select('+password');
+  // Tra cứu User khớp theo: email, studentId (MSSV), hoặc suy ra email từ MSSV.
+  const orConditions = [];
+  if (parsed?.type === 'email') {
+    orConditions.push({ email: parsed.value });
+    // Nếu nhập email không phải domain sinh viên, vẫn thử khớp studentId phần local-part
+    const localStudentId = extractStudentIdFromEmail(parsed.value);
+    if (localStudentId) orConditions.push({ studentId: new RegExp(`^${escapeRegex(localStudentId)}$`, 'i') });
+  } else if (parsed?.type === 'studentCode') {
+    // MSSV thuần: khớp studentId HOẶC email dạng <mssv>@student.ctuet.edu.vn
+    orConditions.push({ studentId: new RegExp(`^${escapeRegex(parsed.value)}$`, 'i') });
+    orConditions.push({ email: `${parsed.value.toLowerCase()}@student.ctuet.edu.vn` });
+  }
+
+  const user = orConditions.length
+    ? await User.findOne({ $or: orConditions }).select('+password')
+    : null;
   if (!user) throw ApiError.unauthorized('Email hoặc mật khẩu không chính xác', 'INVALID_CREDENTIALS');
 
+  // Cho phép đăng nhập thủ công bằng mật khẩu kể cả khi tài khoản đã liên kết Google,
+  // miễn là có passwordHash hợp lệ. Chỉ chặn khi là tài khoản Google thuần chưa đặt mật khẩu.
   if (user.authProvider === AUTH_PROVIDERS.GOOGLE && !user.password) {
     throw ApiError.badRequest(
       'Tài khoản này được tạo bằng Google, vui lòng đăng nhập bằng Google',
@@ -236,9 +261,10 @@ const login = async ({ email, password, portalType, sessionMeta } = {}) => {
   if (!user.isEmailVerified) {
     const { code } = await issueOtp(user.email);
     // devOtp chỉ xuất hiện khi EXPOSE_OTP_IN_DEV=true (môi trường dev) để test nhanh
-    const details = env.otp.exposeInResponse
-      ? { devOtp: code, expiresInMinutes: env.otp.expiresInMinutes }
-      : undefined;
+    const details = {
+      email: user.email,
+      ...(env.otp.exposeInResponse ? { devOtp: code, expiresInMinutes: env.otp.expiresInMinutes } : {}),
+    };
 
     throw new ApiError(
       403,
