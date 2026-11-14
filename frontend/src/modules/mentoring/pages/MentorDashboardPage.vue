@@ -2,8 +2,8 @@
   <div class="space-y-6">
     <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] sm:p-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div v-if="avatarUrl" class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-[0_8px_18px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200/70">
-          <img :src="avatarUrl" alt="Avatar" class="h-full w-full object-cover" />
+        <div v-if="avatarUrl && !avatarFailed" class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-[0_8px_18px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200/70">
+          <img :src="avatarUrl" alt="Avatar" referrerpolicy="no-referrer" class="h-full w-full object-cover" @error="avatarFailed = true" />
         </div>
         <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white shadow-[0_10px_22px_-14px_rgba(79,70,229,0.75)]">{{ initials }}</div>
         <div class="min-w-0 flex-1">
@@ -110,6 +110,7 @@ const displayName = computed(() => {
   return name.startsWith("Thầy/Cô") ? name : `Thầy/Cô ${name}`
 })
 const avatarUrl = computed(() => user.value?.avatar || user.value?.photoURL || "")
+const avatarFailed = ref(false)
 const initials = computed(() => {
   const name = user.value?.fullName || user.value?.name || "GV"
   return name.charAt(0).toUpperCase()

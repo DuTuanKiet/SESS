@@ -25,7 +25,7 @@ async function jwtAuthMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, env.jwt.accessSecret);
 
-    // Kiểm tra user tồn tại và không bị SUSPENDED
+    // Kiểm tra user tồn tại và còn hiệu lực (chỉ ACTIVE)
     const user = await User.findById(decoded.sub).select('status').lean();
     if (!user) {
       return res.status(401).json({
@@ -34,11 +34,14 @@ async function jwtAuthMiddleware(req, res, next) {
         message: 'Tài khoản không tồn tại',
       });
     }
-    if (user.status === USER_STATUS.SUSPENDED) {
+    if (user.status !== USER_STATUS.ACTIVE) {
       return res.status(403).json({
         success: false,
-        code: 'ACCOUNT_SUSPENDED',
-        message: 'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên',
+        code: 'ACCOUNT_INACTIVE',
+        message:
+          user.status === USER_STATUS.SUSPENDED
+            ? 'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên'
+            : 'Tài khoản của bạn đã bị vô hiệu hoá, vui lòng liên hệ quản trị viên',
       });
     }
 
@@ -91,8 +94,13 @@ const authenticate = async (req, _res, next) => {
   const user = await User.findById(payload.sub);
   if (!user) throw ApiError.unauthorized('Tài khoản không tồn tại', 'USER_NOT_FOUND');
 
-  if (user.status === USER_STATUS.SUSPENDED) {
-    throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+  // Zero-trust: chỉ cho phép tài khoản ACTIVE. Chặn mọi trạng thái khác
+  // (SUSPENDED/LOCKED/INACTIVE...) kể cả khi JWT còn hạn.
+  if (user.status !== USER_STATUS.ACTIVE) {
+    if (user.status === USER_STATUS.SUSPENDED) {
+      throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+    }
+    throw ApiError.forbidden('Tài khoản của bạn đã bị vô hiệu hoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_INACTIVE');
   }
 
   req.user = user;

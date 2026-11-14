@@ -14,7 +14,6 @@ const {
   assertRequired,
   assertEmail,
   isStudentEmail,
-  assertStudentEmail,
   extractStudentIdFromEmail,
   escapeRegex,
   parseLoginIdentifier,
@@ -73,10 +72,22 @@ const verifyGoogleIdToken = async (idToken) => {
     throw ApiError.unauthorized('Không đọc được thông tin tài khoản từ Google', 'INVALID_GOOGLE_PROFILE');
   }
 
+  // Kiểm tra nghiêm ngặt: email đã xác thực, đúng audience (client_id), đúng issuer Google.
+  const GOOGLE_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
+  if (payload.email_verified !== true) {
+    throw ApiError.unauthorized('Email Google chưa được xác thực', 'GOOGLE_EMAIL_NOT_VERIFIED');
+  }
+  if (payload.aud !== env.google.clientId) {
+    throw ApiError.unauthorized('Google ID token không thuộc ứng dụng này', 'INVALID_GOOGLE_AUDIENCE');
+  }
+  if (!GOOGLE_ISSUERS.includes(payload.iss)) {
+    throw ApiError.unauthorized('Google ID token có issuer không hợp lệ', 'INVALID_GOOGLE_ISSUER');
+  }
+
   return {
     googleId: payload.sub,
     email: payload.email,
-    emailVerified: Boolean(payload.email_verified),
+    emailVerified: true,
     fullName: payload.name ?? '',
     avatarUrl: payload.picture ?? '',
   };
@@ -185,10 +196,16 @@ const verifyOtp = async ({ email, otp, portalType, sessionMeta } = {}) => {
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw ApiError.notFound('Không tìm thấy tài khoản với email này', 'USER_NOT_FOUND');
-  if (user.status === USER_STATUS.SUSPENDED) {
+  if (user.status !== USER_STATUS.ACTIVE) {
+    if (user.status === USER_STATUS.SUSPENDED) {
+      throw ApiError.forbidden(
+        'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên',
+        'ACCOUNT_SUSPENDED',
+      );
+    }
     throw ApiError.forbidden(
-      'Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên',
-      'ACCOUNT_SUSPENDED',
+      'Tài khoản của bạn đã bị vô hiệu hoá, vui lòng liên hệ quản trị viên',
+      'ACCOUNT_INACTIVE',
     );
   }
   assertPortalAccess({ user, portalType });
@@ -254,8 +271,12 @@ const login = async ({ email, password, portalType, sessionMeta } = {}) => {
   if (!(await user.comparePassword(password))) {
     throw ApiError.unauthorized('Email hoặc mật khẩu không chính xác', 'INVALID_CREDENTIALS');
   }
-  if (user.status === USER_STATUS.SUSPENDED) {
-    throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+  // Zero-trust: chỉ tài khoản ACTIVE mới được đăng nhập.
+  if (user.status !== USER_STATUS.ACTIVE) {
+    if (user.status === USER_STATUS.SUSPENDED) {
+      throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+    }
+    throw ApiError.forbidden('Tài khoản của bạn đã bị vô hiệu hoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_INACTIVE');
   }
   assertPortalAccess({ user, portalType });
   if (!user.isEmailVerified) {
@@ -304,16 +325,11 @@ const loginWithGoogle = async ({ idToken, portalType, sessionMeta } = {}) => {
   }
   const email = assertEmail(profile.email);
 
-  // Sinh viên: BẮT BUỘC có trong danh sách sinh viên của trường mới được kích hoạt tài khoản
-  const whitelistStudent = isStudentEmail(email)
-    ? await whitelistService.assertStudentInWhitelist(email)
-    : null;
-
-  // Ưu tiên tìm theo googleId, sau đó theo email để phục vụ account linking
+  // Tìm tài khoản đã được Admin cấp (theo googleId hoặc email).
   const existingUser = await User.findOne({ $or: [{ googleId: profile.googleId }, { email }] });
 
-  if (existingUser?.status === USER_STATUS.SUSPENDED) {
-    throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
+  if (existingUser && existingUser.status !== USER_STATUS.ACTIVE) {
+    throw ApiError.forbidden('Tài khoản của bạn đã bị khoá, vui lòng liên hệ quản trị viên', 'ACCOUNT_SUSPENDED');
   }
 
   let user = existingUser;
@@ -321,42 +337,62 @@ const loginWithGoogle = async ({ idToken, portalType, sessionMeta } = {}) => {
   let isLinked = false;
 
   if (!user) {
-    // Chỉ email sinh viên của trường mới được tự khởi tạo tài khoản
-    assertStudentEmail(email);
+    // STRICT ALLOWLIST: CHỈ sinh viên có trong StudentWhitelist (do Admin import) mới được
+    // tự khởi tạo tài khoản. Mọi email khác (kể cả @student.ctuet.edu.vn ngoài danh sách,
+    // hay JUDGE/MENTOR/ADMIN) đều bị chặn — KHÔNG ghi bản ghi rác vào User.
+    const whitelistStudent = await whitelistService.findStudentByEmail(email);
 
+    if (!whitelistStudent) {
+      // Phân biệt thông điệp theo loại email để thân thiện nhưng vẫn từ chối tuyệt đối.
+      if (isStudentEmail(email)) {
+        throw ApiError.forbidden(
+          'Tài khoản của bạn chưa có trong danh sách sinh viên được cấp quyền tham gia hệ thống. Vui lòng liên hệ Quản trị viên.',
+          'ACCOUNT_NOT_AUTHORIZED',
+        );
+      }
+      throw ApiError.forbidden(
+        'Tài khoản chưa được Quản trị viên cấp quyền truy cập hệ thống.',
+        'ACCOUNT_NOT_AUTHORIZED',
+      );
+    }
+
+    // Chỉ tạo khi khớp CHÍNH XÁC email trong StudentWhitelist (đã lowercase).
     user = new User({
-      email,
+      email: whitelistStudent.email,
       authProvider: AUTH_PROVIDERS.GOOGLE,
       role: USER_ROLES.STUDENT,
+      systemRole: USER_ROLES.STUDENT,
       status: USER_STATUS.ACTIVE,
       isEmailVerified: true,
-      // Ưu tiên dữ liệu chính thức từ danh sách sinh viên của trường
-      studentId: whitelistStudent?.studentId || extractStudentIdFromEmail(email),
-      fullName: whitelistStudent?.fullName || profile.fullName,
-      className: whitelistStudent?.className ?? '',
-      faculty: whitelistStudent?.faculty ?? '',
-      advisorEmail: whitelistStudent?.advisorEmail ?? '',
+      // Lấy đúng thông tin từ danh sách Admin import
+      studentId: whitelistStudent.studentId,
+      fullName: whitelistStudent.fullName,
+      className: whitelistStudent.className ?? '',
+      faculty: whitelistStudent.faculty ?? '',
+      advisorEmail: whitelistStudent.advisorEmail ?? '',
       avatarUrl: profile.avatarUrl,
     });
     isNewUser = true;
   } else {
-    // ACCOUNT LINKING: liên kết Google vào tài khoản đã được cấp sẵn
+    // ACCOUNT LINKING: liên kết Google vào tài khoản đã được Admin cấp sẵn.
+    // TUYỆT ĐỐI không đụng password/passwordHash/authProvider.
     if (!user.googleId) {
       user.googleId = profile.googleId;
       isLinked = true;
     }
     if (!user.fullName && profile.fullName) user.fullName = profile.fullName;
     if (!user.avatarUrl && profile.avatarUrl) user.avatarUrl = profile.avatarUrl;
-    if (!user.studentId) user.studentId = whitelistStudent?.studentId || extractStudentIdFromEmail(email);
-    if (!user.className && whitelistStudent?.className) user.className = whitelistStudent.className;
-    if (!user.faculty && whitelistStudent?.faculty) user.faculty = whitelistStudent.faculty;
-    if (!user.advisorEmail && whitelistStudent?.advisorEmail) user.advisorEmail = whitelistStudent.advisorEmail;
     user.isEmailVerified = true;
   }
 
   assertPortalAccess({ user, portalType });
   user.lastLoginAt = new Date();
   await user.save();
+
+  // Đánh dấu sinh viên đã kích hoạt trong StudentWhitelist (lần đầu khớp danh sách).
+  if (isNewUser && user.studentId) {
+    await whitelistService.markActivated(user.email);
+  }
 
   // Nếu tài khoản có vai trò JUDGE, bắt buộc phải có trong danh sách trắng BGK
   await assertJudgeEligible(user);

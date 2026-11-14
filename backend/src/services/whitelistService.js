@@ -30,4 +30,19 @@ const assertStudentInWhitelist = async (email) => {
   return student;
 };
 
-module.exports = { findStudentByEmail, assertStudentInWhitelist };
+/**
+ * Đánh dấu sinh viên đã kích hoạt tài khoản (lần đầu đăng nhập/kích hoạt thành công).
+ * Không ném lỗi nếu bản ghi không tồn tại để không làm hỏng luồng đăng nhập.
+ */
+const markActivated = async (email) => {
+  try {
+    await StudentWhitelist.updateOne(
+      { email: normalizeEmail(email) },
+      { $set: { activatedAt: new Date() } },
+    );
+  } catch {
+    /* best-effort: không chặn đăng nhập vì lỗi đánh dấu */
+  }
+};
+
+module.exports = { findStudentByEmail, assertStudentInWhitelist, markActivated };

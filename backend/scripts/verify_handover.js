@@ -4,7 +4,7 @@
  */
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
-const { USER_ROLES, PROJECT_STATUS, EDITABLE_PROJECT_STATUSES } = require('../src/utils/constants');
+const { USER_ROLES, USER_STATUS, PROJECT_STATUS, EDITABLE_PROJECT_STATUSES } = require('../src/utils/constants');
 
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sess_db';
 
@@ -73,22 +73,30 @@ async function main() {
 
   // ---- Users ----
   console.log('== Users ==');
+  // Load whitelist sớm để đối chiếu tài khoản rác (STUDENT phải có trong danh sách Admin cấp).
+  const sw0 = await StudentWhitelist.find({}).lean();
   const users = await User.find({}).lean();
   console.log(`  Tong so users: ${users.length}`);
   let userOrphan = 0;
+  const whitelistEmails = new Set(sw0.map((w) => String(w.email || '').toLowerCase()));
   for (const u of users) {
     const issues = [];
     if (!u.email) issues.push('thieu email');
     if (u.role && !Object.values(USER_ROLES).includes(u.role)) issues.push(`role khong hop le: ${u.role}`);
     if (u.systemRole && u.systemRole !== u.role) issues.push(`systemRole(${u.systemRole}) != role(${u.role})`);
     if (!u.isEmailVerified && u.role === USER_ROLES.ADMIN) issues.push('admin chua xac thuc email');
+    // STRICT ALLOWLIST: mọi STUDENT phải có trong StudentWhitelist (nguồn Admin cấp quyền).
+    if (u.role === USER_ROLES.STUDENT && u.email && !whitelistEmails.has(String(u.email).toLowerCase())) {
+      issues.push('STUDENT khong co trong StudentWhitelist (nghi ngo tai khoan rac)');
+    }
+    if (u.status && !Object.values(USER_STATUS).includes(u.status)) issues.push(`status khong hop le: ${u.status}`);
     if (issues.length) { userOrphan++; bad(`User ${u._id}: ${issues.join('; ')}`); }
   }
-  if (userOrphan === 0) ok(`Tat ca ${users.length} user hop le, role/systemRole dong bo, khong co ban record loi`);
+  if (userOrphan === 0) ok(`Tat ca ${users.length} user hop le, role/systemRole dong bo, khong co ban record loi/tai khoan rac`);
 
   // ---- Whitelists ----
   console.log('== Whitelists ==');
-  const sw = await StudentWhitelist.find({}).lean();
+  const sw = sw0;
   const jw = await JudgeWhitelist.find({}).lean();
   let wlBad = 0;
   for (const w of [...sw, ...jw]) {

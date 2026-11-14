@@ -28,6 +28,8 @@ const studentWhitelistSchema = new mongoose.Schema(
     advisorEmail: { type: String, lowercase: true, trim: true, default: '' },
     /** true nếu bản ghi được import từ file Excel của nhà trường */
     isImported: { type: Boolean, default: false },
+    /** Thời điểm sinh viên lần đầu đăng nhập/kích hoạt tài khoản (do hệ thống đánh dấu). */
+    activatedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

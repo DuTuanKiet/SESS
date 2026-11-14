@@ -30,7 +30,7 @@
           <div class="relative">
             <button type="button" class="group inline-flex min-w-0 max-w-[320px] items-center gap-3 rounded-xl border border-slate-200/70 bg-white px-2.5 py-1.5 text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20" :aria-expanded="profileOpen ? 'true' : 'false'" aria-haspopup="menu" @click.stop="profileOpen = !profileOpen">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200/70">
-                <img v-if="judgeAvatar" :src="judgeAvatar" alt="Avatar" class="h-full w-full object-cover" />
+                <img v-if="judgeAvatar && !judgeAvatarFailed" :src="judgeAvatar" alt="Avatar" referrerpolicy="no-referrer" class="h-full w-full object-cover" @error="judgeAvatarFailed = true" />
                 <User class="h-4 w-4 text-[#1e3a8a]" v-else />
               </div>
               <div class="hidden min-w-0 md:block">
@@ -116,6 +116,7 @@ const judgeRoleLabel = computed(() => {
 });
 
 const judgeAvatar = computed(() => judgeUser.value?.avatarUrl || null);
+const judgeAvatarFailed = ref(false);
 
 const tabs = [
   { path: '/judge/dashboard', label: 'Tổng quan', icon: LayoutDashboard },

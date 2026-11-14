@@ -82,8 +82,15 @@ const rotateTokens = async (refreshToken, sessionMeta = {}) => {
   if (!user) {
     throw ApiError.unauthorized('Phiên đăng nhập không tồn tại hoặc đã bị thu hồi', 'SESSION_REVOKED');
   }
-  if (user.status === USER_STATUS.SUSPENDED) {
-    throw ApiError.forbidden('Tài khoản của bạn đã bị tạm khoá', 'ACCOUNT_SUSPENDED');
+  if (user.status !== USER_STATUS.ACTIVE) {
+    // Thu hồi toàn bộ phiên khi tài khoản không còn hiệu lực (kể cả JWT/refresh còn hạn).
+    await User.updateOne({ _id: user._id }, { $set: { refreshTokens: [] } });
+    throw ApiError.forbidden(
+      user.status === USER_STATUS.SUSPENDED
+        ? 'Tài khoản của bạn đã bị tạm khoá'
+        : 'Tài khoản của bạn đã bị vô hiệu hoá',
+      user.status === USER_STATUS.SUSPENDED ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_INACTIVE',
+    );
   }
 
   await User.updateOne({ _id: user._id }, { $pull: { refreshTokens: { tokenHash } } });

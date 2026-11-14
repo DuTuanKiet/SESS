@@ -8,6 +8,7 @@ const authStore = useAuthStore();
 const toastStore = useToastStore();
 
 const user = computed(() => authStore.user);
+const avatarFailed = ref(false);
 
 const showPassword = ref(false);
 const newPassword = ref('');
@@ -68,7 +69,7 @@ const roleLabel = computed(() => {
             <div class="h-1.5 bg-[#1e3a8a]"></div>
             <div class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
               <div class="flex h-[76px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 ring-4 ring-slate-100">
-                <img v-if="user?.avatarUrl" :src="user.avatarUrl" alt="Avatar" class="h-full w-full object-cover" />
+                <img v-if="user?.avatarUrl && !avatarFailed" :src="user.avatarUrl" alt="Avatar" referrerpolicy="no-referrer" class="h-full w-full object-cover" @error="avatarFailed = true" />
                 <User class="h-8 w-8 text-slate-500" v-else />
               </div>
               <div class="min-w-0 flex-1">
