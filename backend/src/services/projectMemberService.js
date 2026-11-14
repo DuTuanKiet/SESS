@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const ProjectMember = require('../models/ProjectMember');
 const ProjectMemberChangeRequest = require('../models/ProjectMemberChangeRequest');
@@ -6,7 +7,7 @@ const HumanEvaluation = require('../models/HumanEvaluation');
 const User = require('../models/User');
 const ApiError = require('../utils/apiError');
 const whitelistService = require('./whitelistService');
-const mailerService = require('./mailerService');
+const queueService = require('./queueService');
 const notificationService = require('./notificationService');
 const {
   USER_STATUS,
@@ -16,25 +17,22 @@ const {
   MEMBER_CHANGE_REQUEST_TYPE,
   EDITABLE_PROJECT_STATUSES,
   FINISHED_PROJECT_STATUSES,
+  MAX_ACTIVE_PROJECTS,
   OWNER_MUST_TRANSFER_MESSAGE,
   PROJECT_LOCKED_MESSAGE,
   USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE,
   AUDIT_ACTIONS,
   AUDIT_TARGETS,
   USER_ROLES,
-  PROJECT_STATUS,
   ASSIGNMENT_STATUS,
 } = require('../utils/constants');
-const { assertEnum, assertEmail, isValidObjectIdLike } = require('../utils/validation');
+const { assertEnum, assertEmail, assertRequired, isValidObjectIdLike } = require('../utils/validation');
 const { logAuditAction } = require('../utils/audit');
 
 const { OWNER, MEMBER } = PROJECT_MEMBER_ROLES;
 const { INVITED, ACCEPTED, REJECTED: MEMBER_REJECTED } = PROJECT_MEMBER_STATUS;
 const { PENDING, APPROVED, REJECTED: CHANGE_REQUEST_REJECTED } = MEMBER_CHANGE_REQUEST_STATUS;
 const { ADD: CHANGE_REQUEST_ADD, REMOVE: CHANGE_REQUEST_REMOVE } = MEMBER_CHANGE_REQUEST_TYPE;
-
-/** Helper: kiểm tra chuỗi không rỗng */
-const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
 /**
  * Guard dùng chung cho FR03/FR04: dự án chỉ được chỉnh sửa (kể cả quản lý thành viên)
@@ -46,39 +44,121 @@ const assertProjectEditable = (project) => {
   }
 };
 
-/**
- * Guard dùng chung: mỗi sinh viên chỉ được tham gia DUY NHẤT 1 dự án đang hoạt động
- * (dự án đang hoạt động = mọi trạng thái KHÁC COMPLETED và REJECTED).
- */
-const assertNoActiveProject = async (userId) => {
-  const memberships = await ProjectMember.find({ userId, status: ACCEPTED }).select('projectId').lean();
-  if (!memberships.length) return;
-
-  // Dự án con do thi vượt cấp (có parentId) là BẢN SAO của dự án gốc ở cấp cao hơn
-  // -> không tính là "dự án active" để không chặn nhóm đang có dự án riêng.
-  const activeProject = await Project.findOne({
-    _id: { $in: memberships.map((m) => m.projectId) },
-    status: { $nin: FINISHED_PROJECT_STATUSES },
-    parentId: null,
-  })
-    .select('code title status')
-    .lean();
-
-  if (!activeProject) return;
-
-  throw ApiError.badRequest(USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE, 'USER_ALREADY_IN_ACTIVE_PROJECT', {
-    projectId: activeProject._id,
-    projectCode: activeProject.code,
-    projectStatus: activeProject.status,
-  });
+const isTransactionUnsupportedError = (error) => {
+  const message = String(error?.message ?? '');
+  return (
+    error?.code === 20 ||
+    /does not support retryable writes/i.test(message) ||
+    /transaction numbers are only allowed/i.test(message) ||
+    /transactions? (are|is) not supported/i.test(message)
+  );
 };
 
+const runTransaction = async (callback) => {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      result = await callback(session);
+    });
+    return result;
+  } catch (error) {
+    if (!isTransactionUnsupportedError(error)) throw error;
+    console.warn('[ProjectMember] MongoDB không hỗ trợ transaction (standalone) -> chạy fallback không transaction.');
+    return callback(null);
+  } finally {
+    await session.endSession();
+  }
+};
+
+/**
+ * Đồng bộ bảng membership chuẩn sang mảng nhúng Project.members.
+ * Chỉ thành viên đã chấp nhận lời mời mới xuất hiện trong mảng nhúng.
+ */
+const syncProjectEmbeddedMembers = async ({ projectId, session } = {}) => {
+  const projectQuery = Project.findById(projectId);
+  const membershipQuery = ProjectMember.find({ projectId, status: ACCEPTED }).sort({ joinedAt: 1 });
+  let project;
+  let memberships;
+  if (session) {
+    projectQuery.session(session);
+    membershipQuery.session(session);
+    project = await projectQuery;
+    memberships = await membershipQuery;
+  } else {
+    [project, memberships] = await Promise.all([projectQuery, membershipQuery]);
+  }
+  if (!project) throw ApiError.notFound('Không tìm thấy dự án', 'PROJECT_NOT_FOUND');
+
+  const ownerMembership = memberships.find((membership) => membership.role === OWNER);
+  project.ownerId = ownerMembership?.userId ?? null;
+  project.members = memberships.map((membership) => ({
+    userId: membership.userId,
+    projectRole: membership.role === OWNER ? 'Owner' : 'Member',
+    joinedAt: membership.joinedAt ?? membership.createdAt ?? new Date(),
+  }));
+  await project.save({ session: session || undefined });
+  return project;
+};
+
+/**
+ * Tuần tự hóa theo tài khoản rồi đếm membership ACCEPTED trên các project gốc chưa kết thúc.
+ * Tất cả luồng thêm thành viên phải gọi hàm này trong transaction để không vượt quota đồng thời.
+ */
+const assertCanJoinActiveProject = async ({ userId, session } = {}) => {
+  const userQuery = User.findByIdAndUpdate(
+    userId,
+    { $inc: { activeProjectQuotaVersion: 1 } },
+    { new: true },
+  );
+  if (session) userQuery.session(session);
+  const lockedUser = await userQuery.select('_id').lean();
+  if (!lockedUser) throw ApiError.notFound('Không tìm thấy người dùng', 'USER_NOT_FOUND');
+
+  const membershipQuery = ProjectMember.find({ userId, status: ACCEPTED }).select('projectId');
+  if (session) membershipQuery.session(session);
+  const memberships = await membershipQuery.lean();
+  if (!memberships.length) return { count: 0, max: MAX_ACTIVE_PROJECTS, remaining: MAX_ACTIVE_PROJECTS };
+
+  const activeQuery = Project.find({
+    _id: { $in: memberships.map((membership) => membership.projectId) },
+    status: { $nin: FINISHED_PROJECT_STATUSES },
+    parentId: null,
+  }).select('code title status');
+  if (session) activeQuery.session(session);
+  const activeProjects = await activeQuery.lean();
+
+  if (activeProjects.length >= MAX_ACTIVE_PROJECTS) {
+    throw ApiError.badRequest(USER_ALREADY_IN_ACTIVE_PROJECT_MESSAGE, 'USER_ALREADY_IN_ACTIVE_PROJECT', {
+      maxActiveProjects: MAX_ACTIVE_PROJECTS,
+      activeProjectCount: activeProjects.length,
+      projects: activeProjects.map(({ _id, code, title, status }) => ({ projectId: _id, code, title, status })),
+    });
+  }
+
+  return {
+    count: activeProjects.length,
+    max: MAX_ACTIVE_PROJECTS,
+    remaining: MAX_ACTIVE_PROJECTS - activeProjects.length,
+  };
+};
+
+/** Giữ tên cũ cho callers hiện hữu, với quota mới tối đa hai project gốc đang hoạt động. */
+const assertNoActiveProject = async (userId) =>
+  runTransaction((session) => assertCanJoinActiveProject({ userId, session }));
+
 /** Tìm bản ghi thành viên của 1 user trong dự án (null nếu chưa tham gia) */
-const findMembership = (projectId, userId) => ProjectMember.findOne({ projectId, userId });
+const findMembership = (projectId, userId, { session } = {}) => {
+  const query = ProjectMember.findOne({ projectId, userId });
+  if (session) query.session(session);
+  return query;
+};
 
 /** Lấy dự án, fail fast nếu không tồn tại */
-const getProjectOrFail = async (projectId) => {
-  const project = await Project.findById(projectId);
+const getProjectOrFail = async (projectId, { session } = {}) => {
+  const query = Project.findById(projectId);
+  if (session) query.session(session);
+  const project = await query;
   if (!project) throw ApiError.notFound('Không tìm thấy dự án', 'PROJECT_NOT_FOUND');
   return project;
 };
@@ -87,9 +167,9 @@ const getProjectOrFail = async (projectId) => {
  * Đảm bảo user là thành viên đã CHẤP NHẬN lời mời của dự án.
  * Dùng chung cho FR03/FR04 (trả về project + membership để xử lý tiếp).
  */
-const assertProjectMember = async (projectId, userId, { allowStatuses = [ACCEPTED] } = {}) => {
-  const project = await getProjectOrFail(projectId);
-  const membership = await findMembership(project._id, userId);
+const assertProjectMember = async (projectId, userId, { allowStatuses = [ACCEPTED], session } = {}) => {
+  const project = await getProjectOrFail(projectId, { session });
+  const membership = await findMembership(project._id, userId, { session });
 
   if (!membership) {
     throw ApiError.forbidden('Bạn không phải thành viên của dự án này', 'NOT_PROJECT_MEMBER');
@@ -105,8 +185,8 @@ const assertProjectMember = async (projectId, userId, { allowStatuses = [ACCEPTE
 };
 
 /** Đảm bảo user là Trưởng nhóm (OWNER) của dự án */
-const assertProjectOwner = async (projectId, userId) => {
-  const { project, membership } = await assertProjectMember(projectId, userId);
+const assertProjectOwner = async (projectId, userId, { session } = {}) => {
+  const { project, membership } = await assertProjectMember(projectId, userId, { session });
 
   if (membership.role !== OWNER) {
     throw ApiError.forbidden('Chỉ Trưởng nhóm (OWNER) của dự án mới thực hiện được thao tác này', 'NOT_PROJECT_OWNER');
@@ -117,18 +197,19 @@ const assertProjectOwner = async (projectId, userId) => {
 
 /**
  * Kiểm tra "Fail Fast" trước khi gửi lời mời:
- * 1) Email phải có trong danh sách sinh viên của trường (StudentWhitelist) -> nếu không: 404.
- * 2) Sinh viên phải đã kích hoạt tài khoản (đã xác thực OTP) -> nếu không: 400.
- * Chỉ khi cả 2 điều kiện đạt thì luồng mời mới được phép gửi email.
+ * Email phải thuộc whitelist và tài khoản phải là sinh viên đã xác thực, đang hoạt động.
+ * Dùng session khi kiểm tra trong luồng ghi nhiều document.
  */
-const assertActivatedStudent = async (email) => {
-  const whitelistStudent = await whitelistService.findStudentByEmail(email);
+const assertActivatedStudent = async (email, { session } = {}) => {
+  const whitelistStudent = await whitelistService.findStudentByEmail(email, { session });
 
   if (!whitelistStudent) {
     throw ApiError.notFound('Sinh viên chưa có trong danh sách trường.', 'STUDENT_NOT_IN_WHITELIST');
   }
 
-  const invitee = await User.findOne({ email });
+  const inviteeQuery = User.findOne({ email });
+  if (session) inviteeQuery.session(session);
+  const invitee = await inviteeQuery;
   if (!invitee || !invitee.isEmailVerified) {
     throw ApiError.badRequest('Sinh viên chưa kích hoạt tài khoản trên hệ thống SESS.', 'INVITEE_NOT_ACTIVATED');
   }
@@ -145,11 +226,14 @@ const assertActivatedStudent = async (email) => {
 /** Gửi email mời tham gia dự án qua BullMQ (lỗi gửi mail không làm hỏng lời mời đã tạo) */
 const notifyInvitation = async ({ project, inviter, invitee }) => {
   try {
-    await mailerService.sendMail({
+    await queueService.enqueueProjectInvitationEmail({
       to: invitee.email,
-      subject: `[SESS] Lời mời tham gia dự án ${project.title || project.name || ''}`,
-      text: `Bạn được mời tham gia dự án ${project.title || project.name || ''} bởi ${inviter.fullName || inviter.email}.`,
-      html: `<p>Bạn được mời tham gia dự án <strong>${project.title || project.name || ''}</strong> bởi ${inviter.fullName || inviter.email}.</p>`,
+      payload: {
+        projectTitle: project.title,
+        projectCode: project.code,
+        inviterName: inviter.fullName || inviter.email,
+        inviteeName: invitee.fullName,
+      },
     });
   } catch (error) {
     console.error(`[Project] Không gửi được email mời dự án tới ${invitee.email}: ${error.message}`);
@@ -158,11 +242,7 @@ const notifyInvitation = async ({ project, inviter, invitee }) => {
 
 /** OWNER mời sinh viên khác (thuộc danh sách nhà trường và đã kích hoạt) vào dự án */
 const inviteMember = async ({ projectId, inviter, email, req }) => {
-  const { project } = await assertProjectOwner(projectId, inviter.id);
-  assertProjectEditable(project);
-  if (project.status !== PROJECT_STATUS.DRAFT) {
-    throw ApiError.badRequest('Du an da SUBMITTED hoac vao giai doan sau: khong duoc moi/xoa thanh vien truc tiep. Vui long tao ProjectMemberChangeRequest cho Admin phe duyet.', 'MEMBER_CHANGE_REQUIRES_APPROVAL', { status: project.status });
-  }
+  await assertProjectOwner(projectId, inviter.id);
 
   const inviteeEmail = assertEmail(email);
 
@@ -170,30 +250,68 @@ const inviteMember = async ({ projectId, inviter, email, req }) => {
     throw ApiError.badRequest('Bạn đã là Trưởng nhóm của dự án, không cần mời chính mình', 'CANNOT_INVITE_SELF');
   }
 
-  const { invitee } = await assertActivatedStudent(inviteeEmail);
+  let project;
+  let invitation;
+  let invitee;
+  try {
+    ({ project, invitation, invitee } = await runTransaction(async (session) => {
+      const projectContext = await assertProjectOwner(projectId, inviter.id, { session });
+      assertProjectEditable(projectContext.project);
+      const activatedStudent = await assertActivatedStudent(inviteeEmail, { session });
 
-  const existingMembership = await findMembership(project._id, invitee._id);
-  if (existingMembership?.status === ACCEPTED) {
-    throw ApiError.conflict('Sinh viên này đã là thành viên của dự án', 'MEMBER_ALREADY_JOINED');
-  }
-  if (existingMembership?.status === INVITED) {
-    throw ApiError.conflict('Đã có lời mời đang chờ sinh viên này phản hồi', 'INVITATION_ALREADY_SENT');
-  }
+      const existingMembership = await findMembership(
+        projectContext.project._id,
+        activatedStudent.invitee._id,
+        { session },
+      );
+      if (existingMembership?.status === ACCEPTED) {
+        throw ApiError.conflict('Sinh viên này đã là thành viên của dự án', 'MEMBER_ALREADY_JOINED');
+      }
+      if (existingMembership?.status === INVITED) {
+        throw ApiError.conflict(
+          'Đã có lời mời đang chờ sinh viên này phản hồi',
+          'INVITATION_ALREADY_SENT',
+        );
+      }
 
-  let invitation = existingMembership;
-  if (invitation) {
-    // Lời mời cũ đã bị từ chối -> cho phép mời lại
-    invitation.set({ role: MEMBER, status: INVITED, invitedBy: inviter.id, email: inviteeEmail, joinedAt: null });
-    await invitation.save();
-  } else {
-    invitation = await ProjectMember.create({
-      projectId: project._id,
-      userId: invitee._id,
-      email: inviteeEmail,
-      role: MEMBER,
-      status: INVITED,
-      invitedBy: inviter.id,
-    });
+      let nextInvitation = existingMembership;
+      if (nextInvitation) {
+        nextInvitation.set({
+          role: MEMBER,
+          status: INVITED,
+          invitedBy: inviter.id,
+          email: inviteeEmail,
+          joinedAt: null,
+        });
+        await nextInvitation.save({ session });
+      } else {
+        [nextInvitation] = await ProjectMember.create(
+          [{
+            projectId: projectContext.project._id,
+            userId: activatedStudent.invitee._id,
+            email: inviteeEmail,
+            role: MEMBER,
+            status: INVITED,
+            invitedBy: inviter.id,
+          }],
+          { session },
+        );
+      }
+
+      return {
+        project: projectContext.project,
+        invitation: nextInvitation,
+        invitee: activatedStudent.invitee,
+      };
+    }));
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw ApiError.conflict(
+        'Đã có lời mời đang chờ sinh viên này phản hồi',
+        'INVITATION_ALREADY_SENT',
+      );
+    }
+    throw error;
   }
 
   await notifyInvitation({ project, inviter, invitee });
@@ -207,134 +325,394 @@ const inviteMember = async ({ projectId, inviter, email, req }) => {
     req,
   });
 
+  await notificationService.notifyInvitationCreated({ project, invitation, invitee });
+
   return { project, invitation, invitee };
+};
+
+/** Thu hồi lời mời đang chờ; lời mời không tạo membership ACCEPTED và không chiếm quota. */
+const cancelInvitation = async ({ projectId, requester, identifier, req }) => {
+  const { project } = await assertProjectOwner(projectId, requester.id);
+  assertProjectEditable(project);
+
+  const normalizedIdentifier = assertRequired(identifier, 'identifier');
+  const invitationFilter = { projectId: project._id, status: INVITED };
+  if (isValidObjectIdLike(normalizedIdentifier)) {
+    invitationFilter.$or = [{ _id: normalizedIdentifier }, { userId: normalizedIdentifier }];
+  } else invitationFilter.email = assertEmail(normalizedIdentifier);
+
+  const invitation = await ProjectMember.findOneAndDelete(invitationFilter);
+  if (!invitation) throw ApiError.notFound('Không tìm thấy lời mời đang chờ', 'INVITATION_NOT_FOUND');
+  await logAuditAction({
+    actor: requester,
+    action: AUDIT_ACTIONS.CANCEL_PROJECT_INVITATION,
+    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+    targetId: invitation._id,
+    oldValues: {
+      projectId: project.id,
+      projectCode: project.code,
+      inviteeEmail: invitation.email,
+      status: INVITED,
+    },
+    newValues: null,
+    req,
+  });
+
+  return { project, invitation };
 };
 
 /** Sinh viên được mời phản hồi lời mời: ACCEPTED hoặc REJECTED */
 const respondInvitation = async ({ invitationId, userId, response }) => {
   assertEnum(response, [ACCEPTED, MEMBER_REJECTED], 'response', 'INVALID_INVITATION_RESPONSE');
 
-  const invitation = await ProjectMember.findById(invitationId);
-  if (!invitation) throw ApiError.notFound('Không tìm thấy lời mời tham gia dự án', 'INVITATION_NOT_FOUND');
+  const result = await runTransaction(async (session) => {
+    const invitation = await ProjectMember.findById(invitationId).session(session);
+    if (!invitation) throw ApiError.notFound('Không tìm thấy lời mời tham gia dự án', 'INVITATION_NOT_FOUND');
 
-  if (String(invitation.userId) !== String(userId)) {
-    throw ApiError.forbidden('Lời mời này không dành cho bạn', 'NOT_INVITATION_RECEIVER');
+    if (String(invitation.userId) !== String(userId)) {
+      throw ApiError.forbidden('Lời mời này không dành cho bạn', 'NOT_INVITATION_RECEIVER');
+    }
+    if (invitation.status !== INVITED) {
+      throw ApiError.badRequest(
+        `Lời mời đã được phản hồi trước đó (${invitation.status})`,
+        'INVITATION_ALREADY_RESPONDED',
+      );
+    }
+
+    if (response === ACCEPTED) await assertCanJoinActiveProject({ userId, session });
+
+    invitation.status = response;
+    invitation.joinedAt = response === ACCEPTED ? new Date() : null;
+    await invitation.save({ session });
+
+    let project = await Project.findById(invitation.projectId).session(session);
+    if (!project) throw ApiError.notFound('Không tìm thấy dự án', 'PROJECT_NOT_FOUND');
+    if (response === ACCEPTED) {
+      project = await syncProjectEmbeddedMembers({ projectId: project._id, session });
+    }
+    return { project, invitation };
+  });
+
+  await notificationService.notifyInvitationResponded(result);
+  return result;
+};
+
+/** Danh sách lời mời đang chờ sinh viên phản hồi; lời mời chưa ACCEPTED không giữ quota. */
+const getMyInvitations = async ({ userId }) => {
+  const invitations = await ProjectMember.find({ userId, status: INVITED }).sort({ createdAt: -1 }).lean();
+  if (!invitations.length) return { invitations: [] };
+
+  const projectIds = invitations.map((invitation) => invitation.projectId);
+  const projects = await Project.find({ _id: { $in: projectIds } })
+    .select('code title category level competitionTitle currentRound')
+    .lean();
+  const projectById = new Map(projects.map((project) => [String(project._id), project]));
+  const inviterIds = invitations.map((invitation) => invitation.invitedBy).filter(Boolean);
+  const inviters = inviterIds.length
+    ? await User.find({ _id: { $in: inviterIds } }).select('fullName email').lean()
+    : [];
+  const inviterById = new Map(inviters.map((inviter) => [String(inviter._id), inviter]));
+
+  return {
+    invitations: invitations
+      .filter((invitation) => projectById.has(String(invitation.projectId)))
+      .map((invitation) => {
+        const project = projectById.get(String(invitation.projectId));
+        const inviter = inviterById.get(String(invitation.invitedBy)) ?? {};
+        return {
+          ...invitation,
+          targetEmail: invitation.email,
+          projectId: String(invitation.projectId),
+          projectCode: project.code,
+          projectTitle: project.title,
+          category: project.category,
+          level: project.level,
+          competitionTitle: project.competitionTitle,
+          currentRound: project.currentRound,
+          inviterName: inviter.fullName || inviter.email || '',
+          inviterEmail: inviter.email || '',
+        };
+      }),
+  };
+};
+
+/** Danh sách accepted members và lời mời đang chờ của thành viên trong dự án. */
+const getProjectMembers = async ({ projectId, userId, userRole }) => {
+  const project = await getProjectOrFail(projectId);
+
+  // RBAC: Admin, OWNER, thành viên đã chấp nhận, Mentor phụ trách, hoặc Giám khảo được phân công.
+  const membership = await findMembership(project._id, userId);
+  const isAdmin = userRole === USER_ROLES.ADMIN;
+  const isOwner = Boolean(membership && membership.role === OWNER);
+  const isAcceptedMember = Boolean(membership && membership.status === ACCEPTED);
+  let hasAccess = isAdmin || isOwner || isAcceptedMember;
+  if (!hasAccess) {
+    const mentorAssignment = await MentorAssignment.findOne({
+      projectId, mentorId: userId, status: ASSIGNMENT_STATUS.ASSIGNED,
+    }).lean();
+    if (mentorAssignment) hasAccess = true;
   }
-  if (invitation.status !== INVITED) {
-    throw ApiError.badRequest(
-      `Lời mời đã được phản hồi trước đó (${invitation.status})`,
-      'INVITATION_ALREADY_RESPONDED',
-    );
+  if (!hasAccess) {
+    const assigned = await HumanEvaluation.findOne({ projectId, evaluatorId: userId }).lean();
+    if (assigned) hasAccess = true;
+  }
+  if (!hasAccess) {
+    throw ApiError.forbidden('Bạn không có quyền xem danh sách thành viên dự án.', 'INSUFFICIENT_ROLE');
   }
 
-  // Ràng buộc: chỉ được tham gia 1 dự án đang hoạt động (chỉ áp dụng khi CHẤP NHẬN)
-  if (response === ACCEPTED) {
-    await assertNoActiveProject(userId);
-  }
+  const memberships = await ProjectMember.find({
+    projectId: project._id,
+    status: { $in: [ACCEPTED, INVITED] },
+  }).sort({ status: 1, joinedAt: 1, createdAt: 1 }).lean();
+  if (!memberships.length) return { project, members: [] };
 
-  invitation.status = response;
-  invitation.joinedAt = response === ACCEPTED ? new Date() : null;
-  await invitation.save();
+  const users = await User.find({ _id: { $in: memberships.map((membership) => membership.userId) } })
+    .select('fullName email studentId className faculty phoneNumber')
+    .lean();
+  const userById = new Map(users.map((user) => [String(user._id), user]));
 
-  const project = await getProjectOrFail(invitation.projectId);
-  return { project, invitation };
+  return {
+    project,
+    members: memberships.map((membership) => {
+      const user = userById.get(String(membership.userId)) ?? {};
+      const phone = user.phoneNumber || '';
+      return {
+        userId: String(membership.userId),
+        fullName: user.fullName || user.email || membership.email || '',
+        email: user.email || membership.email || '',
+        studentId: user.studentId || '',
+        className: user.className || '',
+        faculty: user.faculty || '',
+        phone,
+        phoneNumber: phone,
+        role: membership.role,
+        status: membership.status,
+        joinedAt: membership.joinedAt,
+      };
+    }),
+  };
 };
 
 /** OWNER xoá 1 thành viên khỏi dự án (không thể xoá chính OWNER) */
 const removeMember = async ({ projectId, requester, targetUserId, req }) => {
-  const { project } = await assertProjectOwner(projectId, requester.id);
-  assertProjectEditable(project);
-  if (project.status !== PROJECT_STATUS.DRAFT) {
-    throw ApiError.badRequest('Du an da SUBMITTED hoac vao giai doan sau: khong duoc xoa thanh vien truc tiep. Vui long tao ProjectMemberChangeRequest cho Admin phe duyet.', 'MEMBER_CHANGE_REQUIRES_APPROVAL', { status: project.status });
-  }
+  return runTransaction(async (session) => {
+    const { project } = await assertProjectOwner(projectId, requester.id, { session });
+    assertProjectEditable(project);
 
-  const targetMembership = await findMembership(project._id, targetUserId);
-  if (!targetMembership) throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
-  if (targetMembership.role === OWNER) {
-    throw ApiError.badRequest(
-      'Không thể xoá Trưởng nhóm khỏi dự án. Vui lòng chuyển quyền Trưởng nhóm cho thành viên khác trước.',
-      'CANNOT_REMOVE_OWNER',
-    );
-  }
+    const targetMembership = await findMembership(project._id, targetUserId, { session });
+    if (!targetMembership || targetMembership.status !== ACCEPTED) {
+      throw ApiError.notFound('Không tìm thấy thành viên đã tham gia trong dự án', 'MEMBER_NOT_FOUND');
+    }
+    if (targetMembership.role === OWNER) {
+      throw ApiError.badRequest(
+        'Không thể xoá Trưởng nhóm khỏi dự án. Vui lòng chuyển quyền Trưởng nhóm cho thành viên khác trước.',
+        'CANNOT_REMOVE_OWNER',
+      );
+    }
 
-  const removedSnapshot = {
-    userId: targetMembership.userId,
-    email: targetMembership.email,
-    role: targetMembership.role,
-    status: targetMembership.status,
-  };
+    const removedSnapshot = {
+      userId: targetMembership.userId,
+      email: targetMembership.email,
+      role: targetMembership.role,
+      status: targetMembership.status,
+    };
 
-  await targetMembership.deleteOne();
+    await targetMembership.deleteOne({ session });
+    const syncedProject = await syncProjectEmbeddedMembers({ projectId: project._id, session });
 
-  await logAuditAction({
-    actor: requester,
-    action: AUDIT_ACTIONS.REMOVE_PROJECT_MEMBER,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: targetMembership._id,
-    oldValues: { projectId: project.id, projectCode: project.code, ...removedSnapshot },
-    newValues: null,
-    req,
+    await logAuditAction({
+      actor: requester,
+      action: AUDIT_ACTIONS.REMOVE_PROJECT_MEMBER,
+      targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+      targetId: targetMembership._id,
+      oldValues: { projectId: project.id, projectCode: project.code, ...removedSnapshot },
+      newValues: null,
+      req,
+      session,
+    });
+
+    return { project: syncedProject, removedUserId: targetUserId };
   });
-
-  return { project, removedUserId: targetUserId };
 };
 
 /** OWNER chuyển quyền Trưởng nhóm cho 1 thành viên đã chấp nhận lời mời */
 const transferOwnership = async ({ projectId, requester, targetUserId, req }) => {
-  const { project, membership: ownerMembership } = await assertProjectOwner(projectId, requester.id);
-  assertProjectEditable(project);
+  return runTransaction(async (session) => {
+    const {
+      project,
+      membership: ownerMembership,
+    } = await assertProjectOwner(projectId, requester.id, { session });
+    assertProjectEditable(project);
 
-  if (String(requester.id) === String(targetUserId)) {
-    throw ApiError.badRequest('Bạn đang là Trưởng nhóm của dự án', 'ALREADY_OWNER');
-  }
+    if (String(requester.id) === String(targetUserId)) {
+      throw ApiError.badRequest('Bạn đang là Trưởng nhóm của dự án', 'ALREADY_OWNER');
+    }
 
-  const targetMembership = await findMembership(project._id, targetUserId);
-  if (!targetMembership) throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
-  if (targetMembership.status !== ACCEPTED) {
-    throw ApiError.badRequest(
-      'Chỉ có thể chuyển quyền Trưởng nhóm cho thành viên đã chấp nhận lời mời',
-      'MEMBER_NOT_ACCEPTED',
-    );
-  }
+    const targetMembership = await findMembership(project._id, targetUserId, { session });
+    if (!targetMembership) throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
+    if (targetMembership.status !== ACCEPTED) {
+      throw ApiError.badRequest(
+        'Chỉ có thể chuyển quyền Trưởng nhóm cho thành viên đã chấp nhận lời mời',
+        'MEMBER_NOT_ACCEPTED',
+      );
+    }
 
-  targetMembership.role = OWNER;
-  await targetMembership.save();
+    targetMembership.role = OWNER;
+    await targetMembership.save({ session });
 
-  ownerMembership.role = MEMBER;
-  await ownerMembership.save();
+    ownerMembership.role = MEMBER;
+    await ownerMembership.save({ session });
 
-  project.ownerId = targetMembership.userId;
-  await project.save();
+    project.ownerId = targetMembership.userId;
+    await project.save({ session });
+    const syncedProject = await syncProjectEmbeddedMembers({ projectId: project._id, session });
 
-  await logAuditAction({
-    actor: requester,
-    action: AUDIT_ACTIONS.CHANGE_PROJECT_ROLE,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: targetMembership._id,
-    oldValues: { projectId: project.id, projectCode: project.code, ownerId: requester.id, ownerRole: MEMBER },
-    newValues: { ownerId: targetMembership.userId, ownerRole: OWNER },
-    req,
+    await logAuditAction({
+      actor: requester,
+      action: AUDIT_ACTIONS.CHANGE_PROJECT_ROLE,
+      targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+      targetId: targetMembership._id,
+      oldValues: { projectId: project.id, projectCode: project.code, ownerId: requester.id, ownerRole: MEMBER },
+      newValues: { ownerId: targetMembership.userId, ownerRole: OWNER },
+      req,
+      session,
+    });
+
+    return { project: syncedProject, previousOwner: ownerMembership, newOwner: targetMembership };
   });
-
-  return { project, previousOwner: ownerMembership, newOwner: targetMembership };
 };
 
 /** Thành viên tự rời dự án - nếu là OWNER thì BẮT BUỘC chuyển quyền trước */
-const leaveProject = async ({ projectId, userId }) => {
-  const { project, membership } = await assertProjectMember(projectId, userId);
-  assertProjectEditable(project);
+const leaveProject = async ({ projectId, requester, req }) => {
+  return runTransaction(async (session) => {
+    const { project, membership } = await assertProjectMember(projectId, requester.id, { session });
+    assertProjectEditable(project);
 
+    if (membership.role === OWNER) {
+      throw ApiError.badRequest(OWNER_MUST_TRANSFER_MESSAGE, 'OWNER_MUST_TRANSFER');
+    }
+
+    await membership.deleteOne({ session });
+    const syncedProject = await syncProjectEmbeddedMembers({ projectId: project._id, session });
+    await logAuditAction({
+      actor: requester,
+      action: AUDIT_ACTIONS.REMOVE_PROJECT_MEMBER,
+      targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+      targetId: membership._id,
+      oldValues: {
+        projectId: project.id,
+        projectCode: project.code,
+        userId: requester.id,
+        email: membership.email,
+        role: membership.role,
+        status: membership.status,
+      },
+      newValues: null,
+      req,
+      session,
+    });
+
+    return { project: syncedProject, leftUserId: requester.id };
+  });
+};
+
+/** Thành viên gửi yêu cầu rời nhóm; việc rời nhóm chỉ xảy ra khi Admin duyệt REMOVE. */
+const requestLeaveProject = async ({ projectId, requester, reason, req }) => {
+  const trimmedReason = String(reason ?? '').trim();
+  if (trimmedReason.length < 10) {
+    throw ApiError.badRequest('Lý do xin rời nhóm phải có tối thiểu 10 ký tự', 'REASON_TOO_SHORT');
+  }
+  if (trimmedReason.length > 1000) {
+    throw ApiError.badRequest('Lý do xin rời nhóm không được vượt quá 1000 ký tự', 'REASON_TOO_LONG');
+  }
+
+  const { project, membership } = await assertProjectMember(projectId, requester.id);
   if (membership.role === OWNER) {
     throw ApiError.badRequest(OWNER_MUST_TRANSFER_MESSAGE, 'OWNER_MUST_TRANSFER');
   }
+  if (![...EDITABLE_PROJECT_STATUSES, 'UNDER_MENTORSHIP'].includes(project.status)) {
+    assertProjectEditable(project);
+  }
 
-  await membership.deleteOne();
-  return { project, leftUserId: userId };
+  const existingRequest = await ProjectMemberChangeRequest.findOne({
+    projectId: project._id,
+    requesterId: requester.id,
+    targetUserId: requester.id,
+    type: CHANGE_REQUEST_REMOVE,
+    status: PENDING,
+  });
+  if (existingRequest) {
+    throw ApiError.conflict('Đã có yêu cầu rời nhóm đang chờ duyệt', 'LEAVE_REQUEST_PENDING');
+  }
+
+  let changeRequest;
+  try {
+    changeRequest = await ProjectMemberChangeRequest.create({
+      projectId: project._id,
+      requesterId: requester.id,
+      targetUserId: requester.id,
+      type: CHANGE_REQUEST_REMOVE,
+      status: PENDING,
+      reason: trimmedReason,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw ApiError.conflict('Đã có yêu cầu rời nhóm đang chờ duyệt', 'LEAVE_REQUEST_PENDING');
+    }
+    throw error;
+  }
+
+  await logAuditAction({
+    actor: requester,
+    action: AUDIT_ACTIONS.REQUEST_MEMBER_CHANGE,
+    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+    targetId: changeRequest._id,
+    newValues: {
+      projectId: project.id,
+      projectCode: project.code,
+      targetUserId: requester.id,
+      type: CHANGE_REQUEST_REMOVE,
+      reason: trimmedReason,
+      status: PENDING,
+      requestedByMember: true,
+    },
+    req,
+  });
+
+  return { project, changeRequest };
+};
+
+/** Thành viên có thể rút yêu cầu rời nhóm của chính mình khi yêu cầu còn PENDING. */
+const cancelLeaveRequest = async ({ projectId, requester, req }) => {
+  const { project } = await assertProjectMember(projectId, requester.id);
+  const changeRequest = await ProjectMemberChangeRequest.findOneAndDelete({
+    projectId: project._id,
+    requesterId: requester.id,
+    targetUserId: requester.id,
+    type: CHANGE_REQUEST_REMOVE,
+    status: PENDING,
+  });
+  if (!changeRequest) {
+    throw ApiError.notFound('Không tìm thấy yêu cầu rời nhóm đang chờ duyệt', 'LEAVE_REQUEST_NOT_FOUND');
+  }
+  await logAuditAction({
+    actor: requester,
+    action: AUDIT_ACTIONS.REQUEST_MEMBER_CHANGE,
+    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+    targetId: changeRequest._id,
+    oldValues: { projectId: project.id, projectCode: project.code, type: CHANGE_REQUEST_REMOVE, status: PENDING },
+    newValues: { status: 'CANCELLED' },
+    req,
+  });
+
+  return { project, cancelledRequestId: changeRequest._id };
 };
 
 /** Kiểm tra user có phải Admin */
-const assertAdmin = async (userId) => {
-  const user = await User.findById(userId);
+const assertAdmin = async (userId, { session } = {}) => {
+  const query = User.findById(userId);
+  if (session) query.session(session);
+  const user = await query;
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng', 'USER_NOT_FOUND');
   if (user.role !== USER_ROLES.ADMIN) {
     throw ApiError.forbidden('Chỉ Admin mới được thực hiện thao tác này', 'INSUFFICIENT_ROLE');
@@ -355,10 +733,7 @@ const requestMemberChange = async ({
   req,
 }) => {
   const { project } = await assertProjectOwner(projectId, requester.id);
-  // Sau SUBMITTED, chi duoc thay doi nhan su qua request + Admin duyet
-  if ([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED].includes(project.status)) {
-    throw ApiError.badRequest(PROJECT_LOCKED_MESSAGE, 'PROJECT_LOCKED', { status: project.status });
-  }
+  assertProjectEditable(project);
 
   assertEnum(type, [CHANGE_REQUEST_ADD, CHANGE_REQUEST_REMOVE], 'type', 'INVALID_CHANGE_TYPE');
 
@@ -400,8 +775,7 @@ const requestMemberChange = async ({
     if (existingMembership && existingMembership.status === INVITED) {
       throw ApiError.conflict('Đã có lời mời đang chờ người dùng này phản hồi', 'INVITATION_ALREADY_SENT');
     }
-    // Kiểm tra user không đang tham gia dự án aktiv khác
-    await assertNoActiveProject(targetUserId);
+    // Quota được kiểm tra lại atomically khi Admin duyệt để tránh chiếm quota bằng lời mời chờ.
   } else {
     // CHANGE_REQUEST_REMOVE
     if (!existingMembership || existingMembership.status !== ACCEPTED) {
@@ -415,14 +789,25 @@ const requestMemberChange = async ({
     }
   }
 
-  const changeRequest = await ProjectMemberChangeRequest.create({
-    projectId: project._id,
-    requesterId: requester.id,
-    targetUserId,
-    type,
-    status: PENDING,
-    reason: reason || '',
-  });
+  let changeRequest;
+  try {
+    changeRequest = await ProjectMemberChangeRequest.create({
+      projectId: project._id,
+      requesterId: requester.id,
+      targetUserId,
+      type,
+      status: PENDING,
+      reason: reason || '',
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw ApiError.conflict(
+        'Đã có yêu cầu thay đổi thành viên này đang chờ duyệt',
+        'CHANGE_REQUEST_PENDING',
+      );
+    }
+    throw error;
+  }
 
   await logAuditAction({
     actor: requester,
@@ -447,99 +832,133 @@ const requestMemberChange = async ({
 const respondMemberChangeRequest = async ({
   requestId,
   responder,
-  userRole,
   response,
   responseReason,
   req,
 }) => {
   assertEnum(response, [APPROVED, CHANGE_REQUEST_REJECTED], 'response', 'INVALID_RESPONSE');
 
-  const changeRequest = await ProjectMemberChangeRequest.findById(requestId);
-  if (!changeRequest) {
-    throw ApiError.notFound('Không tìm thấy yêu cầu thay đổi thành viên', 'CHANGE_REQUEST_NOT_FOUND');
-  }
-  if (changeRequest.status !== PENDING) {
-    throw ApiError.badRequest(
-      `Yêu cầu đã được xử lý trước đó (${changeRequest.status})`,
-      'CHANGE_REQUEST_ALREADY_RESPONDED',
-    );
-  }
+  const result = await runTransaction(async (session) => {
+    const changeRequest = await ProjectMemberChangeRequest.findById(requestId).session(session);
+    if (!changeRequest) {
+      throw ApiError.notFound('Không tìm thấy yêu cầu thay đổi thành viên', 'CHANGE_REQUEST_NOT_FOUND');
+    }
+    if (changeRequest.status !== PENDING) {
+      throw ApiError.badRequest(
+        `Yêu cầu đã được xử lý trước đó (${changeRequest.status})`,
+        'CHANGE_REQUEST_ALREADY_RESPONDED',
+      );
+    }
 
-  const project = await getProjectOrFail(changeRequest.projectId);
-  const isAdmin = userRole === USER_ROLES.ADMIN;
-  const responderMembership = await findMembership(project._id, responder.id);
-  const isOwner = Boolean(responderMembership && responderMembership.role === OWNER);
-  if (!isAdmin && !isOwner) {
-    throw ApiError.forbidden('Chỉ Admin hoặc Chủ đề tài dự án được duyệt yêu cầu này.', 'INSUFFICIENT_ROLE');
-  }
+    const admin = await assertAdmin(responder.id, { session });
+    const project = await Project.findById(changeRequest.projectId).session(session);
+    if (!project) throw ApiError.notFound('Không tìm thấy dự án', 'PROJECT_NOT_FOUND');
 
-  changeRequest.status = response;
-  changeRequest.responseReason = responseReason || '';
-  changeRequest.respondedBy = responder.id;
-  changeRequest.respondedAt = new Date();
+    changeRequest.status = response;
+    changeRequest.responseReason = responseReason || '';
+    changeRequest.respondedBy = admin._id;
+    changeRequest.respondedAt = new Date();
 
-  let executed = false;
+    let executed = false;
+    let projectResponse = project;
 
-  if (response === APPROVED) {
-    if (changeRequest.type === CHANGE_REQUEST_ADD) {
-      // Thêm thành viên vào dự án (trạng thái ACCEPTED trực tiếp, bỏ qua luồng mời)
-      const existingMembership = await findMembership(project._id, changeRequest.targetUserId);
-      if (existingMembership) {
-        existingMembership.set({
-          role: MEMBER,
-          status: ACCEPTED,
-          invitedBy: changeRequest.requesterId,
-          joinedAt: new Date(),
-        });
-        await existingMembership.save();
-      } else {
-        await ProjectMember.create({
+    if (response === APPROVED) {
+      if (changeRequest.type === CHANGE_REQUEST_ADD) {
+        const targetUser = await User.findById(changeRequest.targetUserId).session(session);
+        if (!targetUser) {
+          throw ApiError.notFound('Không tìm thấy người dùng đối tượng', 'TARGET_USER_NOT_FOUND');
+        }
+        await assertActivatedStudent(targetUser.email, { session });
+
+        const existingMembership = await ProjectMember.findOne({
           projectId: project._id,
           userId: changeRequest.targetUserId,
-          email: '',
-          role: MEMBER,
-          status: ACCEPTED,
-          invitedBy: changeRequest.requesterId,
-          joinedAt: new Date(),
-        });
+        }).session(session);
+
+        if (existingMembership?.status === ACCEPTED) {
+          throw ApiError.conflict('Người dùng này đã là thành viên của dự án', 'MEMBER_ALREADY_JOINED');
+        }
+
+        await assertCanJoinActiveProject({ userId: changeRequest.targetUserId, session });
+        if (existingMembership) {
+          existingMembership.set({
+            role: MEMBER,
+            status: ACCEPTED,
+            invitedBy: changeRequest.requesterId,
+            email: targetUser.email,
+            joinedAt: new Date(),
+          });
+          await existingMembership.save({ session });
+        } else {
+          await ProjectMember.create(
+            [{
+              projectId: project._id,
+              userId: changeRequest.targetUserId,
+              email: targetUser.email,
+              role: MEMBER,
+              status: ACCEPTED,
+              invitedBy: changeRequest.requesterId,
+              joinedAt: new Date(),
+            }],
+            { session },
+          );
+        }
+      } else {
+        const membership = await ProjectMember.findOne({
+          projectId: project._id,
+          userId: changeRequest.targetUserId,
+        }).session(session);
+        if (!membership || membership.status !== ACCEPTED) {
+          throw ApiError.conflict(
+            'Thành viên không còn ở trạng thái có thể xóa khỏi dự án',
+            'MEMBER_CHANGE_REQUEST_STALE',
+          );
+        }
+        if (membership.role === OWNER) {
+          throw ApiError.badRequest(
+            'Không thể xóa Trưởng nhóm. Vui lòng chuyển quyền Trưởng nhóm trước.',
+            'CANNOT_REMOVE_OWNER',
+          );
+        }
+        await membership.deleteOne({ session });
       }
-    } else {
-      // Xóa thành viên khỏi dự án
-      const membership = await findMembership(project._id, changeRequest.targetUserId);
-      if (membership) {
-        await membership.deleteOne();
-      }
+
+      projectResponse = await syncProjectEmbeddedMembers({ projectId: project._id, session });
+      changeRequest.executedAt = new Date();
+      executed = true;
     }
-    changeRequest.executedAt = new Date();
-    executed = true;
-  }
 
-  await changeRequest.save();
+    await changeRequest.save({ session });
 
-  // Thông báo in-app cho người gửi yêu cầu và thành viên bị tác động khi được duyệt.
-  if (response === APPROVED) {
-    await notificationService.notifyMemberChangeApproved({ project, changeRequest });
-  }
+    await logAuditAction({
+      actor: admin,
+      action: AUDIT_ACTIONS.RESPOND_MEMBER_CHANGE,
+      targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+      targetId: changeRequest._id,
+      oldValues: { status: PENDING },
+      newValues: {
+        projectId: project.id,
+        projectCode: project.code,
+        targetUserId: changeRequest.targetUserId,
+        type: changeRequest.type,
+        response,
+        responseReason,
+        executed,
+      },
+      req,
+      session,
+    });
 
-  await logAuditAction({
-    actor: responder,
-    action: AUDIT_ACTIONS.RESPOND_MEMBER_CHANGE,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: changeRequest._id,
-    oldValues: { status: PENDING },
-    newValues: {
-      projectId: project.id,
-      projectCode: project.code,
-      targetUserId: changeRequest.targetUserId,
-      type: changeRequest.type,
-      response,
-      responseReason,
-      executed,
-    },
-    req,
+    return { project: projectResponse, changeRequest, executed };
   });
 
-  return { project, changeRequest, executed };
+  if (response === APPROVED && result.executed) {
+    await notificationService.notifyMemberChangeApproved({
+      project: result.project,
+      changeRequest: result.changeRequest,
+    });
+  }
+  return result;
 };
 
 /** Admin can thiệp ép chuyển quyền Owner kèm lý do bắt buộc (khẩn cấp) */
@@ -550,251 +969,76 @@ const emergencyTransferOwnership = async ({
   reason,
   req,
 }) => {
-  if (!isNonEmptyString(reason)) {
+  const normalizedReason = String(reason ?? '').trim();
+  if (!normalizedReason) {
     throw ApiError.badRequest('Lý do chuyển quyền khẩn cấp là bắt buộc', 'MISSING_REASON');
   }
-
-  const admin = await assertAdmin(adminId);
-  const project = await getProjectOrFail(projectId);
-
-  const targetMembership = await findMembership(project._id, targetUserId);
-  if (!targetMembership) {
-    throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
-  }
-  if (targetMembership.status !== ACCEPTED) {
-    throw ApiError.badRequest(
-      'Chỉ có thể chuyển quyền Trưởng nhóm cho thành viên đã chấp nhận lời mời',
-      'MEMBER_NOT_ACCEPTED',
-    );
+  if (normalizedReason.length > 1000) {
+    throw ApiError.badRequest('Lý do chuyển quyền không được vượt quá 1000 ký tự', 'REASON_TOO_LONG');
   }
 
-  const ownerMembership = await findMembership(project._id, project.ownerId);
-  if (!ownerMembership) {
-    throw ApiError.notFound('Không tìm thấy Trưởng nhóm hiện tại', 'OWNER_NOT_FOUND');
-  }
-  if (String(targetUserId) === String(ownerMembership.userId)) {
-    throw ApiError.badRequest('Người nhận đã là Trưởng nhóm', 'ALREADY_OWNER');
-  }
+  return runTransaction(async (session) => {
+    const admin = await assertAdmin(adminId, { session });
+    const project = await getProjectOrFail(projectId, { session });
+    const targetMembership = await findMembership(project._id, targetUserId, { session });
+    if (!targetMembership) {
+      throw ApiError.notFound('Không tìm thấy thành viên trong dự án', 'MEMBER_NOT_FOUND');
+    }
+    if (targetMembership.status !== ACCEPTED) {
+      throw ApiError.badRequest(
+        'Chỉ có thể chuyển quyền Trưởng nhóm cho thành viên đã chấp nhận lời mời',
+        'MEMBER_NOT_ACCEPTED',
+      );
+    }
 
-  const oldOwnerId = ownerMembership.userId;
+    const ownerMembership = await findMembership(project._id, project.ownerId, { session });
+    if (!ownerMembership) {
+      throw ApiError.notFound('Không tìm thấy Trưởng nhóm hiện tại', 'OWNER_NOT_FOUND');
+    }
+    if (String(targetUserId) === String(ownerMembership.userId)) {
+      throw ApiError.badRequest('Người nhận đã là Trưởng nhóm', 'ALREADY_OWNER');
+    }
 
-  // Chuyển quyền
-  targetMembership.role = OWNER;
-  await targetMembership.save();
+    const oldOwnerId = ownerMembership.userId;
+    targetMembership.role = OWNER;
+    await targetMembership.save({ session });
 
-  ownerMembership.role = MEMBER;
-  await ownerMembership.save();
+    ownerMembership.role = MEMBER;
+    await ownerMembership.save({ session });
 
-  project.ownerId = targetMembership.userId;
-  await project.save();
+    project.ownerId = targetMembership.userId;
+    await project.save({ session });
+    const syncedProject = await syncProjectEmbeddedMembers({ projectId: project._id, session });
 
-  await logAuditAction({
-    actor: admin,
-    action: AUDIT_ACTIONS.EMERGENCY_TRANSFER_OWNERSHIP,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: targetMembership._id,
-    oldValues: {
-      projectId: project.id,
-      projectCode: project.code,
-      oldOwnerId: oldOwnerId,
-      newOwnerId: targetUserId,
-      reason: 'EMERGENCY_ADMIN_TRANSFER',
-    },
-    newValues: {
-      ownerId: targetMembership.userId,
-      ownerRole: OWNER,
-      previousOwnerRole: MEMBER,
-      emergencyReason: reason,
-      transferredByAdmin: admin._id,
-    },
-    req,
+    await logAuditAction({
+      actor: admin,
+      action: AUDIT_ACTIONS.EMERGENCY_TRANSFER_OWNERSHIP,
+      targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
+      targetId: targetMembership._id,
+      oldValues: {
+        projectId: project.id,
+        projectCode: project.code,
+        oldOwnerId,
+        newOwnerId: targetUserId,
+        reason: 'EMERGENCY_ADMIN_TRANSFER',
+      },
+      newValues: {
+        ownerId: targetMembership.userId,
+        ownerRole: OWNER,
+        previousOwnerRole: MEMBER,
+        emergencyReason: normalizedReason,
+        transferredByAdmin: admin._id,
+      },
+      req,
+      session,
+    });
+
+    return {
+      project: syncedProject,
+      previousOwner: { userId: oldOwnerId, role: MEMBER },
+      newOwner: targetMembership,
+    };
   });
-
-  return {
-    project,
-    previousOwner: { userId: oldOwnerId, role: MEMBER },
-    newOwner: targetMembership,
-  };
-};
-
-/** Lấy danh sách thành viên đã chấp nhận + lời mời đang chờ của dự án.
- *  Được xem bởi: Admin, Chủ đề tài, thành viên đã chấp nhận, Mentor phụ trách, Giám khảo được phân công. */
-const getProjectMembers = async ({ projectId, userId, userRole }) => {
-  const project = await getProjectOrFail(projectId);
-
-  const membership = await findMembership(project._id, userId);
-  const isAdmin = userRole === USER_ROLES.ADMIN;
-  const isOwner = Boolean(membership && membership.role === OWNER);
-  const isAcceptedMember = Boolean(membership && membership.status === ACCEPTED);
-
-  let hasAccess = isAdmin || isOwner || isAcceptedMember;
-  if (!hasAccess) {
-    const mentorAssignment = await MentorAssignment.findOne({
-      projectId, mentorId: userId, status: ASSIGNMENT_STATUS.ASSIGNED,
-    }).lean();
-    if (mentorAssignment) hasAccess = true;
-  }
-  if (!hasAccess) {
-    const assigned = await HumanEvaluation.findOne({ projectId, evaluatorId: userId }).lean();
-    if (assigned) hasAccess = true;
-  }
-  if (!hasAccess) {
-    throw ApiError.forbidden('Bạn không có quyền xem danh sách thành viên dự án.', 'INSUFFICIENT_ROLE');
-  }
-
-  const members = await ProjectMember.find({ projectId: project._id, status: ACCEPTED })
-    .populate('userId', 'fullName email studentId')
-    .lean();
-
-  // Lời mời đang chờ: hiển thị toàn bộ với Admin/Chủ đề tài, chỉ hiển thị của bản thân với thành viên khác
-  let invitations;
-  if (isAdmin || isOwner) {
-    invitations = await ProjectMember.find({ projectId: project._id, status: INVITED })
-      .populate('userId', 'fullName email studentId')
-      .lean();
-  } else {
-    invitations = await ProjectMember.find({ projectId: project._id, userId, status: INVITED })
-      .populate('userId', 'fullName email studentId')
-      .lean();
-  }
-
-  return {
-    project,
-    members: members.map((pm) => ({
-      _id: pm._id,
-      userId: pm.userId,
-      fullName: pm.userId ? pm.userId.fullName : '',
-      email: pm.userId ? pm.userId.email : (pm.email || ''),
-      studentId: pm.userId ? pm.userId.studentId : '',
-      role: pm.role,
-      status: pm.status,
-    })),
-    invitations: invitations.map((pm) => ({
-      _id: pm._id,
-      email: pm.email,
-      userId: pm.userId,
-      fullName: pm.userId ? pm.userId.fullName : '',
-      role: pm.role,
-      status: pm.status,
-      invitedAt: pm.createdAt,
-    })),
-  };
-};
-
-/** Chủ đề tài thu hồi một lời mời đang chờ (theo _id hoặc email). */
-const cancelInvitation = async ({ projectId, requester, identifier, req }) => {
-  const { project } = await assertProjectOwner(projectId, requester.id);
-  assertProjectEditable(project);
-
-  const baseQuery = { projectId: project._id, status: INVITED };
-  const invitation = isValidObjectIdLike(identifier)
-    ? await ProjectMember.findOne({ ...baseQuery, _id: identifier })
-    : await ProjectMember.findOne({ ...baseQuery, email: String(identifier).toLowerCase().trim() });
-
-  if (!invitation) {
-    throw ApiError.notFound('Không tìm thấy lời mời đang chờ.', 'INVITATION_NOT_FOUND');
-  }
-
-  await invitation.deleteOne();
-
-  await logAuditAction({
-    actor: requester,
-    action: AUDIT_ACTIONS.CANCEL_PROJECT_INVITATION,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: invitation._id,
-    oldValues: { projectId: project.id, projectCode: project.code, email: invitation.email, role: invitation.role, status: invitation.status },
-    newValues: null,
-    req,
-  });
-
-  return { project, invitation };
-};
-
-/** Thành viên (không phải Chủ đề tài) gửi yêu cầu rời nhóm, chờ Admin hoặc Chủ đề tài duyệt. */
-const requestLeaveProject = async ({ projectId, requester, reason, req }) => {
-  const { project, membership } = await assertProjectMember(projectId, requester.id);
-  if (membership.role === OWNER) {
-    throw ApiError.badRequest(OWNER_MUST_TRANSFER_MESSAGE, 'OWNER_MUST_TRANSFER');
-  }
-  if ([PROJECT_STATUS.COMPLETED, PROJECT_STATUS.REJECTED].includes(project.status)) {
-    throw ApiError.badRequest(PROJECT_LOCKED_MESSAGE, 'PROJECT_LOCKED', { status: project.status });
-  }
-
-  const existing = await ProjectMemberChangeRequest.findOne({
-    projectId: project._id,
-    targetUserId: requester.id,
-    type: CHANGE_REQUEST_REMOVE,
-    status: PENDING,
-  });
-  if (existing) {
-    throw ApiError.conflict('Bạn đã có yêu cầu rời nhóm đang chờ duyệt.', 'CHANGE_REQUEST_PENDING');
-  }
-
-  const changeRequest = await ProjectMemberChangeRequest.create({
-    projectId: project._id,
-    requesterId: requester.id,
-    targetUserId: requester.id,
-    type: CHANGE_REQUEST_REMOVE,
-    status: PENDING,
-    reason: reason || '',
-  });
-
-  await logAuditAction({
-    actor: requester,
-    action: AUDIT_ACTIONS.REQUEST_MEMBER_CHANGE,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: changeRequest._id,
-    newValues: {
-      projectId: project.id, projectCode: project.code, targetUserId: requester.id,
-      type: CHANGE_REQUEST_REMOVE, reason, status: PENDING,
-    },
-    req,
-  });
-
-  return { project, changeRequest };
-};
-
-/** Thành viên rút yêu cầu rời nhóm của bản thân (chỉ khi còn PENDING). */
-const cancelLeaveRequest = async ({ projectId, requester, req }) => {
-  const { membership } = await assertProjectMember(projectId, requester.id);
-  if (membership.role === OWNER) {
-    throw ApiError.badRequest(OWNER_MUST_TRANSFER_MESSAGE, 'OWNER_MUST_TRANSFER');
-  }
-
-  const changeRequest = await ProjectMemberChangeRequest.findOne({
-    projectId,
-    targetUserId: requester.id,
-    type: CHANGE_REQUEST_REMOVE,
-    status: PENDING,
-  });
-  if (!changeRequest) {
-    throw ApiError.notFound('Không tìm thấy yêu cầu rời nhóm đang chờ.', 'CHANGE_REQUEST_NOT_FOUND');
-  }
-
-  await changeRequest.deleteOne();
-  const project = await getProjectOrFail(projectId);
-
-  await logAuditAction({
-    actor: requester,
-    action: AUDIT_ACTIONS.REQUEST_MEMBER_CHANGE,
-    targetEntity: AUDIT_TARGETS.PROJECT_MEMBER,
-    targetId: changeRequest._id,
-    oldValues: { status: PENDING },
-    newValues: { status: 'CANCELLED_BY_MEMBER', targetUserId: requester.id },
-    req,
-  });
-
-  return { project };
-};
-
-/** Danh sách lời mời tham gia dự án gửi đến chính sinh viên hiện tại. */
-const getMyInvitations = async ({ userId }) => {
-  const invitations = await ProjectMember.find({ userId, status: INVITED })
-    .populate('projectId', 'code title status ownerId')
-    .populate('invitedBy', 'fullName email')
-    .sort({ createdAt: -1 })
-    .lean();
-  return { invitations };
 };
 
 /** Lấy danh sách yêu cầu thay đổi thành viên của dự án (Admin hoặc OWNER) */
@@ -826,10 +1070,14 @@ module.exports = {
   assertProjectMember,
   assertProjectOwner,
   assertProjectEditable,
+  assertCanJoinActiveProject,
   assertNoActiveProject,
+  syncProjectEmbeddedMembers,
   inviteMember,
-  respondInvitation,
   cancelInvitation,
+  respondInvitation,
+  getMyInvitations,
+  getProjectMembers,
   removeMember,
   transferOwnership,
   leaveProject,
@@ -838,7 +1086,5 @@ module.exports = {
   requestMemberChange,
   respondMemberChangeRequest,
   emergencyTransferOwnership,
-  getProjectMembers,
   getMemberChangeRequests,
-  getMyInvitations,
 };

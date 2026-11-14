@@ -42,6 +42,7 @@
             </div>
           </div>
 
+          <router-link v-if="isAuthenticated && userRole === 'student'" to="/student/projects" class="nav-link" active-class="is-active">Dự án của tôi</router-link>
           <router-link to="/support" class="nav-link" active-class="is-active">Hỗ trợ</router-link>
           <router-link to="/resources" class="nav-link" active-class="is-active">Tài nguyên</router-link>
           <router-link to="/about" class="nav-link" active-class="is-active">Về chúng tôi</router-link>
@@ -109,6 +110,7 @@
                 <router-link to="/criteria" class="m-link m-sub" @click="closeAll">Tiêu chí đánh giá</router-link>
                 <router-link to="/news" class="m-link" @click="closeAll">Tin tức &amp; Sự kiện</router-link>
                 <router-link to="/contact" class="m-link m-sub" @click="closeAll">Liên hệ</router-link>
+                <router-link v-if="isAuthenticated && userRole === 'student'" to="/student/projects" class="m-link" @click="closeAll">Dự án của tôi</router-link>
                 <router-link to="/support" class="m-link" @click="closeAll">Hỗ trợ</router-link>
                 <router-link to="/resources" class="m-link" @click="closeAll">Tài nguyên</router-link>
                 <router-link to="/about" class="m-link" @click="closeAll">Về chúng tôi</router-link>

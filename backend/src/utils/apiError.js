@@ -34,6 +34,10 @@ class ApiError extends Error {
     return new ApiError(409, message, code);
   }
 
+  static gone(message = 'Tài nguyên không còn khả dụng', code = 'GONE') {
+    return new ApiError(410, message, code);
+  }
+
   static tooManyRequests(message, code = 'TOO_MANY_REQUESTS') {
     return new ApiError(429, message, code);
   }
