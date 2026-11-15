@@ -66,7 +66,7 @@ onMounted(async () => {
       type="button"
       :disabled="isDisabled || isLoading"
       @click="handleUnconfiguredClick"
-      class="w-full flex items-center justify-center gap-2.5 px-3.5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl border border-slate-300 bg-white text-slate-700 font-medium text-xs sm:text-sm shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+      class="w-full h-10 flex items-center justify-center gap-2.5 px-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors font-medium text-xs sm:text-sm shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <svg class="h-4 w-4 shrink-0" viewBox="0 0 48 48" aria-hidden="true">
         <path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15z" />
@@ -76,8 +76,5 @@ onMounted(async () => {
       </svg>
       <span>Đăng nhập với Google</span>
     </button>
-    <p class="mt-2 text-center text-xs text-slate-500" role="status">
-      Cần cấu hình Google Client ID để bật đăng nhập.
-    </p>
   </div>
 </template>

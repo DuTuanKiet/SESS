@@ -1,5 +1,5 @@
-﻿<script setup>
-import { ref, onMounted } from "vue";
+<script setup>
+import { ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
 import { useToastStore } from "@/stores/toast";
@@ -30,6 +30,41 @@ const fieldErrors = ref({
   email: "",
   password: "",
 });
+
+// Giữ bản sao thông báo lỗi tạm thời trong lúc Transition đang thu gọn chiều cao để không bị sụp tức thì
+const staleErrors = ref({
+  email: "",
+  password: "",
+  general: "",
+});
+
+watch(
+  () => fieldErrors.value.email,
+  (nextValue) => {
+    if (nextValue) staleErrors.value.email = nextValue;
+  }
+);
+
+watch(
+  () => fieldErrors.value.password,
+  (nextValue) => {
+    if (nextValue) staleErrors.value.password = nextValue;
+  }
+);
+
+watch(errorMessage, (nextValue) => {
+  if (nextValue) staleErrors.value.general = nextValue;
+});
+
+function handleClearStaleError(key) {
+  if (key === "general") {
+    if (!errorMessage.value) staleErrors.value.general = "";
+    return;
+  }
+  if (!fieldErrors.value[key]) {
+    staleErrors.value[key] = "";
+  }
+}
 
 const isOtpModalOpen = ref(false);
 const otpEmail = ref("");
@@ -303,16 +338,24 @@ function handleForgotPasswordClick() {
 
 <template>
   <div class="mt-4">
-    <div v-if="errorMessage" role="alert" class="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in">
-      <svg class="w-4 h-4 shrink-0 mt-0.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      <span class="font-medium">{{ errorMessage }}</span>
-    </div>
+    <Transition name="alert-collapse" @after-leave="handleClearStaleError('general')">
+      <div v-if="errorMessage" class="alert-collapse">
+        <div class="alert-collapse-inner">
+          <div class="pb-3">
+            <div role="alert" class="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+              <svg class="w-4 h-4 shrink-0 mt-0.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span class="font-medium">{{ errorMessage || staleErrors.general }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <form @submit.prevent="handleSubmitLogin" class="space-y-3" novalidate>
-      <div class="space-y-1">
-        <label for="email" class="block text-xs font-semibold text-slate-700">
+      <div>
+        <label for="email" class="block mb-1 text-xs font-semibold text-slate-700">
           {{ portalType === "admin" ? "Tài khoản Quản trị viên" : "Email" }}
           <span class="text-red-500">*</span>
         </label>
@@ -322,26 +365,38 @@ function handleForgotPasswordClick() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
           </div>
-          <input id="email" v-model="email" type="email" autocomplete="username" placeholder="Nhập email của bạn" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.email ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputEmail" @blur="handleBlurEmail" />
+          <input id="email" v-model="email" type="email" autocomplete="username" placeholder="Nhập email của bạn" :disabled="isLoading" class="block w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border transition-[border-color,box-shadow] duration-200 ease-out" :class="fieldErrors.email ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputEmail" @blur="handleBlurEmail" />
         </div>
-        <p v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">{{ fieldErrors.email }}</p>
+        <Transition name="alert-collapse" @after-leave="handleClearStaleError('email')">
+          <div v-if="fieldErrors.email" class="alert-collapse">
+            <div class="alert-collapse-inner">
+              <p role="alert" class="pt-1 text-[11px] leading-4 text-red-600 flex items-center gap-1 font-medium">{{ fieldErrors.email || staleErrors.email }}</p>
+            </div>
+          </div>
+        </Transition>
       </div>
 
-      <div class="space-y-1">
-        <label for="password" class="block text-xs font-semibold text-slate-700">Mật khẩu <span class="text-red-500">*</span></label>
+      <div>
+        <label for="password" class="block mb-1 text-xs font-semibold text-slate-700">Mật khẩu <span class="text-red-500">*</span></label>
         <div class="relative rounded-lg shadow-xs">
           <div class="pointer-events-none absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <input id="password" v-model="password" :type="isPasswordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="Nhập mật khẩu" :disabled="isLoading" class="block w-full pl-8 pr-9 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border" :class="fieldErrors.password ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputPassword" @blur="handleBlurPassword" />
+          <input id="password" v-model="password" :type="isPasswordVisible ? 'text' : 'password'" autocomplete="current-password" placeholder="Nhập mật khẩu" :disabled="isLoading" class="block w-full pl-8 pr-9 py-1.5 text-xs sm:text-sm bg-white rounded-lg text-slate-900 placeholder:text-slate-400 border transition-[border-color,box-shadow] duration-200 ease-out" :class="fieldErrors.password ? 'border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500' : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/20 focus:border-[#1e3a8a]'" @input="handleInputPassword" @blur="handleBlurPassword" />
           <button type="button" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600 transition-colors" @click="handleTogglePasswordVisibility">
             <svg v-if="!isPasswordVisible" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
             <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
           </button>
         </div>
-        <p v-if="fieldErrors.password" class="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-medium">{{ fieldErrors.password }}</p>
+        <Transition name="alert-collapse" @after-leave="handleClearStaleError('password')">
+          <div v-if="fieldErrors.password" class="alert-collapse">
+            <div class="alert-collapse-inner">
+              <p role="alert" class="pt-1 text-[11px] leading-4 text-red-600 flex items-center gap-1 font-medium">{{ fieldErrors.password || staleErrors.password }}</p>
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <div class="flex items-center justify-between pt-0.5">
@@ -372,3 +427,44 @@ function handleForgotPasswordClick() {
     <ForgotPasswordModal :is-open="isForgotPasswordOpen" @close="isForgotPasswordOpen = false" />
   </div>
 </template>
+
+<style scoped>
+/* Mở/thu gọn vùng cảnh báo theo grid-template-rows (0fr <-> 1fr) để các thành phần bên dưới trượt êm ái */
+.alert-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.alert-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.alert-collapse-enter-active {
+  transition:
+    grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease-out,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.alert-collapse-leave-active {
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease-in,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.alert-collapse-enter-from,
+.alert-collapse-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-collapse-enter-active,
+  .alert-collapse-leave-active {
+    transition-duration: 0.01ms;
+  }
+}
+</style>

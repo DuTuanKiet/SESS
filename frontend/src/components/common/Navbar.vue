@@ -56,6 +56,13 @@
             <input ref="searchInput" v-model="searchQuery" type="search" class="search-input" placeholder="Tìm kiếm..." aria-label="Tìm kiếm" @keydown.esc="closeSearch" />
           </div>
 
+          <NotificationDropdown
+            v-if="isAuthenticated && userRole === 'student'"
+            variant="glass"
+            view-all-path="/student/notifications"
+            @open="profileOpen = false; mobileOpen = false"
+          />
+
           <template v-if="isAuthenticated && user">
             <div class="relative hidden sm:block">
               <button type="button" class="account-chip" @click.stop="profileOpen=!profileOpen" :aria-expanded="profileOpen?'true':'false'" aria-haspopup="menu">
@@ -72,6 +79,7 @@
                   <p class="truncate text-[11px] text-slate-400">{{ user?.email || '' }}</p>
                 </div>
                 <RouterLink :to="dashboardPath" class="menu-action" @click="profileOpen=false"><LayoutDashboard class="h-4 w-4 text-cyan-300/90" />{{ dashboardLabel }}</RouterLink>
+                <RouterLink v-if="userRole === 'student'" to="/student/profile" class="menu-action" @click="profileOpen=false"><User class="h-4 w-4 text-cyan-300/90" />Hồ sơ cá nhân</RouterLink>
                 <button type="button" class="menu-action text-rose-200/90 hover:bg-rose-500/10 hover:text-rose-100" @click="profileOpen=false; handleLogout()"><LogOut class="h-4 w-4" />Đăng xuất</button>
               </div>
             </div>
@@ -82,7 +90,7 @@
             </router-link>
           </template>
 
-          <button type="button" class="icon-glass lg:hidden" aria-label="Mở menu" :aria-expanded="mobileOpen?'true':'false'" @click.stop="mobileOpen=!mobileOpen">
+          <button type="button" class="icon-glass mobile-toggle lg:hidden" aria-label="Mở menu" :aria-expanded="mobileOpen?'true':'false'" @click.stop="mobileOpen=!mobileOpen">
             <X v-if="mobileOpen" class="h-[17px] w-[17px]" /><Menu v-else class="h-[17px] w-[17px]" />
           </button>
         </div>
@@ -124,6 +132,7 @@
                     <span class="mt-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">{{ dashboardLabel }}</span>
                   </div>
                   <RouterLink :to="dashboardPath" class="cta-lux mb-2 w-full justify-center" @click="closeAll"><span class="cta-lux-inner justify-center"><LayoutDashboard class="h-4 w-4" />{{ dashboardLabel }}</span></RouterLink>
+                  <RouterLink v-if="userRole === 'student'" to="/student/profile" class="m-link mb-1" @click="closeAll"><User class="mr-2 inline h-4 w-4 text-cyan-300/90" />Hồ sơ cá nhân</RouterLink>
                   <button type="button" class="m-link w-full text-rose-200/90 hover:bg-rose-500/10" @click="closeAll(); handleLogout()"><LogOut class="mr-2 inline h-4 w-4" />Đăng xuất</button>
                 </template>
                 <template v-else>
@@ -143,6 +152,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { ChevronDown, LayoutDashboard, LogOut, Menu, Search, User, X } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/authStore";
+import NotificationDropdown from "@/components/common/NotificationDropdown.vue";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -234,11 +244,13 @@ const handleLogout = async () => {
 .drop-link:hover { background: rgba(255,255,255,.07); color:#fff; }
 .icon-glass { display:inline-flex; align-items:center; justify-content:center; height:34px; width:34px; border-radius:9999px; flex-shrink:0; color:rgb(226,232,240); background: rgba(148,163,184,.1); border:1px solid rgba(255,255,255,.1); transition: all 200ms ease; }
 .icon-glass:hover { color:#fff; background: rgba(148,163,184,.18); border-color: rgba(255,255,255,.14); }
+@media (min-width:1024px){ .mobile-toggle { display:none !important; } }
 .search-shell { display:inline-flex; align-items:center; position:relative; }
 .search-input { width:0; opacity:0; padding:0; margin-left:0; height:34px; border-radius:9999px; background: rgba(148,163,184,.1); border:1px solid rgba(255,255,255,0); color:#f8fafc; font-size:12.5px; transition: width 260ms cubic-bezier(.22,.61,.36,1), opacity 200ms ease, padding 260ms ease, margin 260ms ease, border-color 200ms ease; }
 .search-input::placeholder { color: rgba(148,163,184,.85); }
 .search-shell.open .search-input { width:176px; opacity:1; padding:0 .82rem; margin-left:.3rem; border-color: rgba(255,255,255,.1); }
-@media (max-width:639px){ .search-shell.open .search-input { width:112px; } }
+@media (max-width:1279px) and (min-width:1024px){ .nav-link { padding:.38rem .46rem; font-size:12.5px; } .search-shell.open .search-input { width:112px; } }
+@media (max-width:639px){ .search-shell.open .search-input { width:108px; } }
 .search-input:focus { outline:none; border-color: rgba(148,163,184,.32); background: rgba(148,163,184,.14); }
 .cta-lux { position:relative; display:inline-flex; padding:0; border-radius:9999px; flex-shrink:0; background: transparent; transition: transform 200ms ease; }
 .cta-lux:hover { transform: translateY(-1px); }

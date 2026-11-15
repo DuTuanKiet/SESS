@@ -1,8 +1,8 @@
-﻿<template>
-  <!-- Bố cục Website thông thường đồng nhất với PublicLayout: Navbar ngang ở trên, Nội dung ở giữa, Footer ở dưới chân trang -->
+<template>
+  <!-- Bố cục Không gian Sinh viên: StudentNavbar cố định ở trên (64px), main có pt-16 để không lấn vào header trang con -->
   <div class="min-h-screen flex flex-col bg-white text-slate-800 font-sans">
-    <Navbar />
-    <main class="flex-1">
+    <StudentNavbar />
+    <main class="flex-1 pt-16">
       <router-view />
     </main>
     <Footer />
@@ -10,6 +10,6 @@
 </template>
 
 <script setup>
-import Navbar from '@/components/common/Navbar.vue';
+import StudentNavbar from '@/modules/student/common/StudentNavbar.vue';
 import Footer from '@/components/common/Footer.vue';
 </script>

@@ -4,11 +4,17 @@ import { notificationService } from '@/services/notificationService';
 
 const DEFAULT_PAGE_SIZE = 20;
 
+// Chuẩn hóa bản ghi thông báo để tương thích với cấu trúc Backend (content/link/_id) lẫn legacy (message/actionUrl/id)
 function normalizeNotification(notification) {
   return {
     ...notification,
-    id: notification.id ?? notification._id,
-    targetUrl: notification.targetUrl ?? notification.actionUrl ?? '',
+    id: String(notification.id ?? notification._id ?? ''),
+    title: notification.title || 'Thông báo hệ thống',
+    message: notification.message ?? notification.content ?? '',
+    content: notification.content ?? notification.message ?? '',
+    type: notification.type || 'info',
+    isRead: Boolean(notification.isRead ?? notification.read ?? false),
+    targetUrl: notification.targetUrl ?? notification.actionUrl ?? notification.link ?? '',
   };
 }
 
@@ -27,6 +33,8 @@ export const useNotificationStore = defineStore('notification', () => {
   });
   let latestFetchId = 0;
   let sessionGeneration = 0;
+  const loadedUserId = ref('');
+  const hasInitialLoaded = ref(false);
 
   const filteredNotifications = computed(() => notifications.value);
   const hasMore = computed(() => pagination.value.page < pagination.value.totalPages);
@@ -44,9 +52,13 @@ export const useNotificationStore = defineStore('notification', () => {
       });
       if (fetchId !== latestFetchId) return notifications.value;
 
-      const fetchedNotifications = Array.isArray(response?.data)
-        ? response.data.map(normalizeNotification)
-        : [];
+      const payload = response?.data && !Array.isArray(response.data) ? response.data : response;
+      const rawList = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(payload?.notifications)
+          ? payload.notifications
+          : [];
+      const fetchedNotifications = rawList.map(normalizeNotification);
 
       if (append) {
         const existingIds = new Set(notifications.value.map((item) => item.id));
@@ -58,12 +70,19 @@ export const useNotificationStore = defineStore('notification', () => {
         notifications.value = fetchedNotifications;
       }
 
-      unreadCount.value = Number(response?.unreadCount ?? 0);
+      const resolvedUnread = payload?.unreadCount ?? response?.unreadCount;
+      unreadCount.value = Number.isFinite(Number(resolvedUnread))
+        ? Number(resolvedUnread)
+        : fetchedNotifications.filter((item) => !item.isRead).length;
+
+      const pageMeta = payload?.pagination ?? response?.pagination ?? {};
+      const totalItems = Number(pageMeta.totalItems ?? payload?.total ?? fetchedNotifications.length);
+      const limitVal = Number(pageMeta.limit ?? DEFAULT_PAGE_SIZE);
       pagination.value = {
-        page: Number(response?.pagination?.page ?? page),
-        limit: Number(response?.pagination?.limit ?? DEFAULT_PAGE_SIZE),
-        totalItems: Number(response?.pagination?.totalItems ?? fetchedNotifications.length),
-        totalPages: Number(response?.pagination?.totalPages ?? (fetchedNotifications.length ? 1 : 0)),
+        page: Number(pageMeta.page ?? page),
+        limit: limitVal,
+        totalItems,
+        totalPages: Number(pageMeta.totalPages ?? (fetchedNotifications.length ? 1 : 0)),
       };
       return notifications.value;
     } catch (requestError) {
@@ -106,8 +125,9 @@ export const useNotificationStore = defineStore('notification', () => {
       const response = await notificationService.markAsRead(id);
       if (generation !== sessionGeneration) return false;
       error.value = null;
-      if (Number.isFinite(Number(response?.unreadCount))) {
-        unreadCount.value = Number(response.unreadCount);
+      const serverUnreadCount = response?.data?.unreadCount ?? response?.unreadCount;
+      if (serverUnreadCount !== undefined && Number.isFinite(Number(serverUnreadCount))) {
+        unreadCount.value = Number(serverUnreadCount);
       }
       if (activeFilter.value === 'unread') {
         notifications.value = [];
@@ -142,8 +162,9 @@ export const useNotificationStore = defineStore('notification', () => {
       const response = await notificationService.markAllAsRead();
       if (generation !== sessionGeneration) return false;
       error.value = null;
-      if (Number.isFinite(Number(response?.unreadCount))) {
-        unreadCount.value = Number(response.unreadCount);
+      const serverUnreadCount = response?.data?.unreadCount ?? response?.unreadCount;
+      if (serverUnreadCount !== undefined && Number.isFinite(Number(serverUnreadCount))) {
+        unreadCount.value = Number(serverUnreadCount);
       }
       if (activeFilter.value === 'unread') {
         notifications.value = [];
@@ -168,6 +189,8 @@ export const useNotificationStore = defineStore('notification', () => {
   function clear() {
     sessionGeneration += 1;
     latestFetchId += 1;
+    loadedUserId.value = '';
+    hasInitialLoaded.value = false;
     notifications.value = [];
     unreadCount.value = 0;
     isLoading.value = false;
@@ -175,6 +198,26 @@ export const useNotificationStore = defineStore('notification', () => {
     activeFilter.value = 'all';
     error.value = null;
     pagination.value = { page: 1, limit: DEFAULT_PAGE_SIZE, totalItems: 0, totalPages: 0 };
+  }
+
+  // Giữ nguyên dữ liệu thông báo khi Navbar remount giữa các Layout của cùng một người dùng
+  async function syncUserSession(userId) {
+    const normalizedId = String(userId || '');
+    if (!normalizedId) {
+      clear();
+      return;
+    }
+    if (loadedUserId.value !== normalizedId) {
+      clear();
+      loadedUserId.value = normalizedId;
+      hasInitialLoaded.value = true;
+      await fetchNotifications();
+      return;
+    }
+    if (!hasInitialLoaded.value && !isLoading.value) {
+      hasInitialLoaded.value = true;
+      await fetchNotifications();
+    }
   }
 
   return {
@@ -193,5 +236,6 @@ export const useNotificationStore = defineStore('notification', () => {
     markAsRead,
     markAllAsRead,
     clear,
+    syncUserSession,
   };
 });

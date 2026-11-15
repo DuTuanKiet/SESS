@@ -2,9 +2,11 @@ import httpClient from './http/httpClient';
 
 export const notificationService = {
   async getNotifications({ status = 'all', page = 1, limit = 20 } = {}) {
-    const response = await httpClient.get('/notifications', {
-      params: { status, page, limit },
-    });
+    const params = { page, limit };
+    if (status === 'unread') {
+      params.unreadOnly = 'true';
+    }
+    const response = await httpClient.get('/notifications', { params });
     return response.data;
   },
 

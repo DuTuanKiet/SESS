@@ -4,17 +4,27 @@
     <button
       type="button"
       @click="toggleDropdown"
-      class="relative p-2.5 rounded-full text-slate-600 hover:text-[#0B1F4B] hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1E56D9]/20 cursor-pointer"
-      :class="{ 'bg-slate-100 text-[#0B1F4B]': isOpen }"
+      :class="[
+        'relative inline-flex items-center justify-center rounded-full transition-all focus:outline-none cursor-pointer shrink-0',
+        variant === 'glass'
+          ? 'h-[34px] w-[34px] text-slate-200 bg-slate-400/10 border border-white/10 hover:text-white hover:bg-slate-400/20 hover:border-white/15'
+          : 'p-2.5 text-slate-600 hover:text-[#0B1F4B] hover:bg-slate-100 focus:ring-2 focus:ring-[#1E56D9]/20',
+        isOpen && variant === 'glass' ? 'bg-slate-400/20 text-white border-white/20' : '',
+        isOpen && variant !== 'glass' ? 'bg-slate-100 text-[#0B1F4B]' : '',
+      ]"
       title="Thông báo"
       aria-label="Xem thông báo"
+      :aria-expanded="isOpen ? 'true' : 'false'"
     >
-      <Bell class="w-5 h-5" />
+      <Bell :class="variant === 'glass' ? 'w-4 h-4' : 'w-5 h-5'" />
 
       <!-- Badge hiển thị số lượng chưa đọc (Tĩnh, không nhấp nháy giật mắt) -->
       <span
         v-if="notificationStore.unreadCount > 0"
-        class="absolute top-1.5 right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs"
+        :class="[
+          'absolute flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs',
+          variant === 'glass' ? '-top-1 -right-1 ring-2 ring-[#0f172a]' : 'top-1 right-1 ring-2 ring-white',
+        ]"
       >
         {{ notificationStore.unreadCount > 9 ? '9+' : notificationStore.unreadCount }}
       </span>
@@ -31,7 +41,7 @@
     >
       <div
         v-if="isOpen"
-        class="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200/80 z-50 overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[520px]"
+        class="fixed inset-x-3 top-[68px] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200/80 z-[80] overflow-hidden flex flex-col max-h-[78vh] sm:max-h-[520px] text-slate-800"
       >
         <!-- Header Popover -->
         <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
@@ -191,6 +201,17 @@
             </button>
           </div>
         </div>
+
+        <!-- Chân Popover: Chuyển sang trang Thông báo sinh viên -->
+        <div class="border-t border-slate-100 bg-slate-50/80 p-2.5 text-center shrink-0">
+          <button
+            type="button"
+            @click="handleViewAll"
+            class="w-full py-1.5 rounded-lg text-xs font-semibold text-[#1E56D9] hover:bg-blue-50/80 transition-colors cursor-pointer"
+          >
+            Xem tất cả thông báo
+          </button>
+        </div>
       </div>
     </transition>
   </div>
@@ -200,6 +221,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+  AlertTriangle,
   Bell,
   CheckCheck,
   Clock,
@@ -210,9 +232,24 @@ import {
   UserPlus,
   ClipboardCheck,
   CircleCheck,
+  XCircle,
 } from 'lucide-vue-next';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAuthStore } from '@/stores/authStore';
+
+const props = defineProps({
+  variant: {
+    type: String,
+    default: 'glass',
+    validator: (value) => ['glass', 'light'].includes(value),
+  },
+  viewAllPath: {
+    type: String,
+    default: '/student/notifications',
+  },
+});
+
+const emit = defineEmits(['open']);
 
 const router = useRouter();
 const notificationStore = useNotificationStore();
@@ -223,8 +260,11 @@ const dropdownRef = ref(null);
 
 function toggleDropdown() {
   isOpen.value = !isOpen.value;
-  if (isOpen.value && !notificationStore.isLoading && !notificationStore.isUpdating) {
-    notificationStore.fetchNotifications();
+  if (isOpen.value) {
+    emit('open');
+    if (!notificationStore.isLoading && !notificationStore.isUpdating) {
+      notificationStore.fetchNotifications();
+    }
   }
 }
 
@@ -234,12 +274,19 @@ function handleClickOutside(event) {
   }
 }
 
-function handleNotificationClick(item) {
-  notificationStore.markAsRead(item.id);
+async function handleNotificationClick(item) {
+  if (!item?.id) return;
   isOpen.value = false;
-  if (item.targetUrl && item.targetUrl.startsWith('/') && !item.targetUrl.startsWith('//')) {
-    router.push(item.targetUrl);
-  }
+  await notificationStore.markAsRead(item.id);
+  router.push({
+    path: props.viewAllPath,
+    query: { id: item.id },
+  });
+}
+
+function handleViewAll() {
+  isOpen.value = false;
+  router.push(props.viewAllPath);
 }
 
 function handleMarkAllRead() {
@@ -255,6 +302,22 @@ function getTypeBadgeConfig(type) {
       return {
         icon: Clock,
         classes: 'bg-amber-50 text-amber-600 border-amber-200',
+      };
+    case 'warning':
+    case 'cancellation':
+      return {
+        icon: AlertTriangle,
+        classes: 'bg-amber-50 text-amber-600 border-amber-200',
+      };
+    case 'error':
+      return {
+        icon: XCircle,
+        classes: 'bg-rose-50 text-rose-600 border-rose-200',
+      };
+    case 'success':
+      return {
+        icon: CircleCheck,
+        classes: 'bg-emerald-50 text-emerald-600 border-emerald-200',
       };
     case 'feedback':
       return {
@@ -272,7 +335,6 @@ function getTypeBadgeConfig(type) {
         classes: 'bg-emerald-50 text-emerald-600 border-emerald-200',
       };
     case 'review':
-    case 'cancellation':
       return {
         icon: CircleCheck,
         classes: 'bg-violet-50 text-violet-600 border-violet-200',
@@ -282,11 +344,12 @@ function getTypeBadgeConfig(type) {
         icon: Trophy,
         classes: 'bg-emerald-50 text-emerald-600 border-emerald-200',
       };
+    case 'info':
     case 'system':
     default:
       return {
         icon: Info,
-        classes: 'bg-purple-50 text-purple-600 border-purple-200',
+        classes: 'bg-blue-50 text-[#1E56D9] border-blue-200',
       };
   }
 }
@@ -319,8 +382,7 @@ function formatRelativeTime(dateString) {
 watch(
   () => String(authStore.user?._id ?? authStore.user?.id ?? ''),
   (userId) => {
-    notificationStore.clear();
-    if (userId) notificationStore.fetchNotifications();
+    notificationStore.syncUserSession(userId);
   },
   { immediate: true },
 );

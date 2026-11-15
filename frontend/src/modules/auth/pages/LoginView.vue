@@ -9,11 +9,12 @@ const currentYear = new Date().getFullYear();
 </script>
 
 <template>
-  <div class="h-screen max-h-screen overflow-y-auto lg:overflow-hidden flex flex-col justify-between bg-gradient-to-b from-[#F0F5FA] via-[#F8FAFD] to-[#EAF1F9] text-slate-800 antialiased selection:bg-[#0B1F4B] selection:text-white">
-    <Navbar class="shrink-0" />
+  <!-- pt-16 chừa đúng 64px chiều cao của Navbar cố định (--nav-h: 64px) để tránh đè lên form đăng nhập -->
+  <div class="min-h-screen flex flex-col justify-between pt-16 bg-gradient-to-b from-[#F0F5FA] via-[#F8FAFD] to-[#EAF1F9] text-slate-800 antialiased selection:bg-[#0B1F4B] selection:text-white">
+    <Navbar />
 
     <!-- Khối thân trang: Split-Card trung tâm 2 cột với mạng lưới công nghệ màu xanh phía sau -->
-    <main class="relative flex-1 min-h-0 flex items-center justify-center p-2 sm:p-3 lg:p-4 overflow-hidden">
+    <main class="relative flex-1 min-h-0 flex items-center justify-center p-3 sm:p-4 lg:p-5 overflow-hidden">
       <!-- Quầng sáng dịu nhẹ (Ambient Glow) tạo chiều sâu -->
       <div class="pointer-events-none absolute -top-16 -left-16 w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-blue-600/10 blur-[100px] z-0"></div>
       <div class="pointer-events-none absolute -bottom-16 -right-16 w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-[#1E56D9]/10 blur-[110px] z-0"></div>
@@ -104,10 +105,10 @@ const currentYear = new Date().getFullYear();
         </g>
       </svg>
 
-      <!-- Thẻ Split-Card nổi khối 3D với bóng đổ đa tầng và viền kép sang trọng -->
-      <div class="relative z-10 w-full max-w-5xl bg-white rounded-2xl sm:rounded-3xl border border-white/80 ring-1 ring-slate-900/5 shadow-[0_25px_60px_-15px_rgba(11,31,75,0.12),0_8px_20px_-6px_rgba(11,31,75,0.06)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 my-auto backdrop-blur-xs">
+      <!-- Khóa chiều cao cố định trên desktop (lg:h-[536px]) để nền bên trái không giãn và đủ chỗ cho các trạng thái lỗi không hiện thanh cuộn -->
+      <div class="relative z-10 w-full max-w-5xl bg-white rounded-2xl sm:rounded-3xl border border-white/80 ring-1 ring-slate-900/5 shadow-[0_25px_60px_-15px_rgba(11,31,75,0.12),0_8px_20px_-6px_rgba(11,31,75,0.06)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 lg:h-[536px] my-auto backdrop-blur-xs">
         <!-- Cột trái: Ảnh nền trường CTUT + 3 giá trị cốt lõi kính mờ -->
-        <div class="lg:col-span-7 relative p-5 sm:p-7 lg:p-8 flex flex-col justify-between overflow-hidden text-white min-h-[360px] lg:min-h-[460px]">
+        <div class="lg:col-span-7 relative p-5 sm:p-7 lg:p-8 flex flex-col justify-between overflow-hidden text-white h-[320px] sm:h-[360px] lg:h-full">
           <!-- Ảnh nền tòa nhà trường CTUT blur nhẹ 1px, thấy rõ kiến trúc và cảnh quan trường -->
           <img
             :src="anhTruongCtut"
@@ -184,10 +185,12 @@ const currentYear = new Date().getFullYear();
           </div>
         </div>
 
-        <!-- Cột phải: Form đăng nhập -->
-        <div class="lg:col-span-5 p-5 sm:p-6 lg:p-7 flex flex-col justify-center bg-white">
-          <LoginHeader />
-          <LoginForm portal-type="user" />
+        <!-- Cột phải: Dùng my-auto để căn giữa cân đối lúc bình thường và không cắt phần đầu khi lỗi quá dài cần cuộn -->
+        <div class="lg:col-span-5 p-5 sm:p-6 lg:px-7 lg:py-4 flex flex-col bg-white lg:h-full lg:overflow-y-auto">
+          <div class="my-auto w-full">
+            <LoginHeader />
+            <LoginForm portal-type="user" />
+          </div>
         </div>
       </div>
     </main>
