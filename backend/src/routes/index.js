@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const mongoose = require('mongoose');
 
 // --- Routes của nhánh FR05-FR08 (mentor, rubric, milestone, admin duyệt dự án) ---
@@ -6,23 +6,22 @@ const mentorRoutes = require('./mentorRoutes');
 const rubricRoutes = require('./rubricRoutes');
 const milestoneRoutes = require('./milestoneRoutes');
 const feedbackRoutes = require('./feedbackRoutes');
-const fr05ProjectRoutes = require('./projectRoutes');
 
 // --- Routes của nhánh FR01-FR04 (auth, user, admin, project FR03/FR04) ---
-const authRouter = require('./authRouter');
-const userRouter = require('./userRouter');
-const adminRouter = require('./adminRouter');
+const authRoutes = require('./authRoutes');
+const userRoutes = require('./userRoutes');
+const adminRoutes = require('./adminRoutes');
 const adminEvaluationRoutes = require('./adminEvaluationRoutes');
-const projectRouter = require('./projectRouter');
-const judgeWhitelistRouter = require('./judgeWhitelistRouter');
-const cloudUploadRouter = require('./cloudUploadRouter');
+const projectRoutes = require('./projectRoutes');
+const judgeWhitelistRoutes = require('./judgeWhitelistRoutes');
+const cloudUploadRoutes = require('./cloudUploadRoutes');
 const scoreOverrideRoutes = require('./scoreOverrideRoutes');
 const emergencyJudgeReassignmentRoutes = require('./emergencyJudgeReassignmentRoutes');
-const votingRouter = require('./votingRouter');
-const newsRouter = require('./newsRouter');
+const votingRoutes = require('./votingRoutes');
+const newsRoutes = require('./newsRoutes');
 const competitionRoutes = require('./competitionRoutes');
-const notificationRouter = require('./notificationRoutes');
-const appealRouter = require('./appealRouter');
+const notificationRoutes = require('./notificationRoutes');
+const appealRoutes = require('./appealRoutes');
 
 // --- Routes vòng đời nâng cao (Enterprise Edition) ---
 const projectCancellationRoutes = require('./projectCancellationRoutes');
@@ -84,33 +83,29 @@ router.use('/projects/:projectId/feedbacks', feedbackRoutes);
 // ---------------------------------------------------------------------------
 // Nhánh FR01-FR04
 // ---------------------------------------------------------------------------
-router.use('/auth', authRouter);
-router.use('/users', userRouter);
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
 router.use('/admin/evaluations', adminEvaluationRoutes);
-router.use('/admin', adminRouter);
-router.use('/admin/judge-whitelist', judgeWhitelistRouter);
-router.use('/cloud-upload', cloudUploadRouter);
+router.use('/admin', adminRoutes);
+router.use('/admin/judge-whitelist', judgeWhitelistRoutes);
+router.use('/cloud-upload', cloudUploadRoutes);
 router.use('/score-overrides', scoreOverrideRoutes);
 router.use('/emergency-judge-reassignments', emergencyJudgeReassignmentRoutes);
-router.use('/public/votes', votingRouter);
- router.use('/news', newsRouter);
- router.use('/competitions', competitionRoutes);
-router.use('/notifications', notificationRouter);
-router.use('/', appealRouter);
+router.use('/public/votes', votingRoutes);
+router.use('/news', newsRoutes);
+router.use('/competitions', competitionRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/', appealRoutes);
 
 // ---------------------------------------------------------------------------
-// /projects: mount CẢ HAI bộ route (không trùng path nên không che nhau)
-//   FR05-FR08: GET /unassigned-mentor, PATCH /:projectId/status
-//   FR01-FR04: GET /, POST /, GET /:id, PUT /:id, POST /:id/submit, GET /:id/revisions, các route thành viên (FR04)
-//
-// Vòng đời nâng cao PHẢI được mount TRƯỚC projectRouter vì có path tĩnh
+// /projects: mount CẢ bộ route (không trùng path nên không che nhau)
+// Vòng đời nâng cao PHẢI được mount TRƯỚC projectRoutes vì có path tĩnh
 // (/cancellation-requests) - nếu mount sau sẽ bị route GET /:id bắt mất.
 // ---------------------------------------------------------------------------
 router.use('/projects', projectCancellationRoutes);
 router.use('/projects', projectHierarchyRoutes);
 router.use('/projects', evaluationRoutes);
 router.use('/evaluator', evaluatorRoutes);
-router.use('/projects', fr05ProjectRoutes);
-router.use('/projects', projectRouter);
+router.use('/projects', projectRoutes);
 
 module.exports = router;

@@ -1,57 +1,52 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
+const validate = require('../middlewares/validateMiddleware');
 const {
   handleCreateEmergencyReassignment,
   handleGetEmergencyReassignments,
   handleCompleteEmergencyReassignment,
   handleRevokeEmergencyReassignment,
 } = require('../controllers/emergencyJudgeReassignmentController');
+const {
+  createEmergencyReassignmentBodySchema,
+  emergencyReassignmentQuerySchema,
+  emergencyReassignmentParamsSchema,
+  revokeEmergencyReassignmentBodySchema,
+} = require('../validations/emergencyJudgeReassignmentValidation');
 const { SYSTEM_ROLES } = require('../utils/constants');
 
-/**
- * POST /api/v1/emergency-judge-reassignments
- * Tạo điều chuyển khẩn cấp BGK (Admin).
- */
 router.post(
   '/',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
+  validate({ body: createEmergencyReassignmentBodySchema }),
   handleCreateEmergencyReassignment,
 );
 
-/**
- * GET /api/v1/emergency-judge-reassignments
- * Lấy danh sách điều chuyển khẩn cấp (Admin).
- */
 router.get(
   '/',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
+  validate({ query: emergencyReassignmentQuerySchema }),
   handleGetEmergencyReassignments,
 );
 
-/**
- * POST /api/v1/emergency-judge-reassignments/:reassignmentId/complete
- * Hoàn thành điều chuyển khẩn cấp (Admin).
- */
 router.post(
   '/:reassignmentId/complete',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
+  validate({ params: emergencyReassignmentParamsSchema }),
   handleCompleteEmergencyReassignment,
 );
 
-/**
- * POST /api/v1/emergency-judge-reassignments/:reassignmentId/revoke
- * Thu hồi điều chuyển khẩn cấp (Admin).
- */
 router.post(
   '/:reassignmentId/revoke',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
+  validate({ params: emergencyReassignmentParamsSchema, body: revokeEmergencyReassignmentBodySchema }),
   handleRevokeEmergencyReassignment,
 );
 

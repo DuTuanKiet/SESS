@@ -1,47 +1,183 @@
-const express = require('express');
-const router = express.Router();
-
-const authMiddleware = require('../middlewares/authMiddleware');
+﻿const express = require('express');
+const projectController = require('../controllers/projectController');
+const projectMemberController = require('../controllers/projectMemberController');
+const projectSubmissionController = require('../controllers/projectSubmissionController');
+const rewardClaimController = require('../controllers/rewardClaimController');
+const { authenticate } = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
 const validate = require('../middlewares/validateMiddleware');
+const { USER_ROLES, SYSTEM_ROLES } = require('../utils/constants');
 const {
+  projectParamsSchema,
+  listProjectsQuerySchema,
+  createProjectBodySchema,
+  updateProjectBodySchema,
   getUnassignedProjectsQuerySchema,
   updateProjectStatusParamsSchema,
   updateProjectStatusBodySchema,
 } = require('../validations/projectValidation');
 const {
+  projectParamsSchema: projectMemberParamsSchema,
+  invitationParamsSchema,
+  changeRequestParamsSchema,
+  memberParamsSchema,
+  invitationIdentifierParamsSchema,
+  inviteMemberBodySchema,
+  respondInvitationBodySchema,
+  transferOwnershipBodySchema,
+  requestLeaveBodySchema,
+  memberChangeBodySchema,
+  respondMemberChangeBodySchema,
+  emergencyTransferBodySchema,
+  memberChangeQuerySchema,
+} = require('../validations/projectMemberValidation');
+const {
+  projectSubmissionParamsSchema,
+  updateProjectSubmissionsBodySchema,
+} = require('../validations/projectSubmissionValidation');
+const {
+  projectRewardClaimParamsSchema,
+  saveRewardClaimBodySchema,
+} = require('../validations/rewardClaimValidation');
+const {
   handleGetUnassignedProjects,
   handleUpdateProjectStatus,
 } = require('../controllers/projectController');
-const { SYSTEM_ROLES } = require('../utils/constants');
 
-/**
- * GET /api/v1/projects/unassigned-mentor
- * Lấy danh sách dự án đủ điều kiện cần mentor nhưng chưa có mentor cố vấn. Chỉ Admin.
- */
+const router = express.Router();
+
+// Toàn bộ API dự án yêu cầu đăng nhập
+router.use(authenticate);
+
+// FR05/FR08 - Route tĩnh: phải đặt TRƯỚC các route động :id để tránh nhầm "unassigned-mentor" là id
 router.get(
   '/unassigned-mentor',
-  authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
   validate({ query: getUnassignedProjectsQuerySchema }),
-  handleGetUnassignedProjects
+  handleGetUnassignedProjects,
 );
 
-/**
- * PATCH /api/v1/projects/:projectId/status
- * Cập nhật trạng thái dự án (FR03 / FR14). Chỉ Admin.
- * Khi trạng thái thành 'Completed', MentorAssignment sẽ tự động thành 'Completed'.
- */
+// FR03 - Quản lý dự án & lịch sử phiên bản
+router.get('/', validate({ query: listProjectsQuerySchema }), projectController.getProjects);
+router.post('/', validate({ body: createProjectBodySchema }), projectController.createProject);
+router.get('/invitations/me', projectMemberController.getMyInvitations);
+// Giữ route cũ cho các client chưa chuyển sang /invitations/me.
+router.get('/invitations', projectMemberController.getMyInvitations);
+router.post(
+  '/invitations/:invitationId/respond',
+  validate({ params: invitationParamsSchema, body: respondInvitationBodySchema }),
+  projectMemberController.respondInvitation,
+);
+
+// FR05/FR14 - Cập nhật trạng thái dự án (Admin), đặt trước /:id để ưu tiên khớp tĩnh/dynamic an toàn
 router.patch(
   '/:projectId/status',
-  authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN),
   validate({
     params: updateProjectStatusParamsSchema,
     body: updateProjectStatusBodySchema,
   }),
-  handleUpdateProjectStatus
+  handleUpdateProjectStatus,
+);
+
+router.get('/:id', validate({ params: projectParamsSchema }), projectController.getProject);
+router.put(
+  '/:id',
+  validate({ params: projectParamsSchema, body: updateProjectBodySchema }),
+  projectController.updateProject,
+);
+router.post('/:id/submit', validate({ params: projectParamsSchema }), projectController.submitProject);
+router.get('/:id/revisions', validate({ params: projectParamsSchema }), projectController.getProjectRevisions);
+router.get(
+  '/:id/submissions',
+  validate({ params: projectSubmissionParamsSchema }),
+  projectSubmissionController.getProjectSubmissions,
+);
+router.put(
+  '/:id/submissions',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectSubmissionParamsSchema, body: updateProjectSubmissionsBodySchema }),
+  projectSubmissionController.updateProjectSubmissions,
+);
+router.get(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema }),
+  rewardClaimController.getRewardClaim,
+);
+router.post(
+  '/:id/reward-claim',
+  authorizeRoles(USER_ROLES.STUDENT),
+  validate({ params: projectRewardClaimParamsSchema, body: saveRewardClaimBodySchema }),
+  rewardClaimController.saveRewardClaim,
+);
+
+// FR04 - Quản lý thành viên dự án
+router.get(
+  '/:id/members',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.getProjectMembers,
+);
+router.post(
+  '/:id/members/invite',
+  validate({ params: projectMemberParamsSchema, body: inviteMemberBodySchema }),
+  projectMemberController.inviteMember,
+);
+router.delete(
+  '/:id/members/invitations/:identifier',
+  validate({ params: invitationIdentifierParamsSchema }),
+  projectMemberController.cancelInvitation,
+);
+router.post(
+  '/:id/members/leave-request',
+  validate({ params: projectMemberParamsSchema, body: requestLeaveBodySchema }),
+  projectMemberController.requestLeaveProject,
+);
+router.delete(
+  '/:id/members/leave-request',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.cancelLeaveRequest,
+);
+router.delete(
+  '/:id/members/:userId',
+  validate({ params: memberParamsSchema }),
+  projectMemberController.removeMember,
+);
+router.post(
+  '/:id/members/transfer-ownership',
+  validate({ params: projectMemberParamsSchema, body: transferOwnershipBodySchema }),
+  projectMemberController.transferOwnership,
+);
+router.post(
+  '/:id/members/leave',
+  validate({ params: projectMemberParamsSchema }),
+  projectMemberController.leaveProject,
+);
+
+// FR05 - Member Change Request (yêu cầu thay đổi thành viên)
+router.post(
+  '/:id/members/change-request',
+  validate({ params: projectMemberParamsSchema, body: memberChangeBodySchema }),
+  projectMemberController.requestMemberChange,
+);
+router.post(
+  '/change-requests/:requestId/respond',
+  authorizeRoles(USER_ROLES.ADMIN, USER_ROLES.STUDENT),
+  validate({ params: changeRequestParamsSchema, body: respondMemberChangeBodySchema }),
+  projectMemberController.respondMemberChangeRequest,
+);
+router.get(
+  '/:id/members/change-requests',
+  validate({ params: projectMemberParamsSchema, query: memberChangeQuerySchema }),
+  projectMemberController.getMemberChangeRequests,
+);
+
+// FR05 - Emergency transfer ownership (Admin ép chuyển quyền)
+router.post(
+  '/:id/members/emergency-transfer-ownership',
+  authorizeRoles(USER_ROLES.ADMIN),
+  validate({ params: projectMemberParamsSchema, body: emergencyTransferBodySchema }),
+  projectMemberController.emergencyTransferOwnership,
 );
 
 module.exports = router;
-

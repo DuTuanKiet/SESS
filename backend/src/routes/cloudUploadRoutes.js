@@ -29,13 +29,13 @@ const projectFilesParamsSchema = z.object({
   projectId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'projectId không đúng định dạng ObjectId.'),
 });
 
+router.use(authenticate);
+
 // URL giả lập chỉ được mount ở môi trường development với storage provider dev.
 if (STORAGE_PROVIDER === 'dev' && (process.env.NODE_ENV || 'development') === 'development') {
   router.put(/^\/dev-mock\/(.+)$/, devCloudUploadController.uploadDevelopmentFile);
   router.get(/^\/dev-mock\/(.+)$/, devCloudUploadController.readDevelopmentFile);
 }
-
-router.use(authenticate);
 
 /** POST /api/v1/cloud-upload/presigned-url */
 router.post(

@@ -1,45 +1,43 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 
 const authMiddleware = require('../middlewares/authMiddleware');
 const authorizeRoles = require('../middlewares/roleMiddleware');
+const validate = require('../middlewares/validateMiddleware');
 const {
   handleCreateScoreOverride,
   handleGetScoreOverrides,
   handleRevokeScoreOverride,
 } = require('../controllers/scoreOverrideController');
+const {
+  createScoreOverrideBodySchema,
+  scoreOverrideQuerySchema,
+  revokeScoreOverrideParamsSchema,
+  revokeScoreOverrideBodySchema,
+} = require('../validations/scoreOverrideValidation');
 const { SYSTEM_ROLES } = require('../utils/constants');
 
-/**
- * POST /api/v1/score-overrides
- * Điều chỉnh điểm số Rubric (Admin / Judge). Bắt buộc lý do + audit log.
- */
 router.post(
   '/',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN, SYSTEM_ROLES.JUDGE),
+  validate({ body: createScoreOverrideBodySchema }),
   handleCreateScoreOverride,
 );
 
-/**
- * GET /api/v1/score-overrides
- * Lấy danh sách điều chỉnh điểm (Admin / Judge).
- */
 router.get(
   '/',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN, SYSTEM_ROLES.JUDGE),
+  validate({ query: scoreOverrideQuerySchema }),
   handleGetScoreOverrides,
 );
 
-/**
- * POST /api/v1/score-overrides/:overrideId/revoke
- * Thu hồi điều chỉnh điểm (Admin / Judge).
- */
 router.post(
   '/:overrideId/revoke',
   authMiddleware,
   authorizeRoles(SYSTEM_ROLES.ADMIN, SYSTEM_ROLES.JUDGE),
+  validate({ params: revokeScoreOverrideParamsSchema, body: revokeScoreOverrideBodySchema }),
   handleRevokeScoreOverride,
 );
 
