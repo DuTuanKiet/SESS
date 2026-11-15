@@ -94,11 +94,11 @@ const env = {
   voteHashSalt: process.env.VOTE_HASH_SALT || 'sess-vote-salt-dev',
 
   mail: {
-    host: process.env.SMTP_HOST || '',
-    port: toInt(process.env.SMTP_PORT, 587),
-    secure: toBool(process.env.SMTP_SECURE, false),
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    host: process.env.SMTP_HOST || process.env.MAIL_HOST || '',
+    port: toInt(process.env.SMTP_PORT || process.env.MAIL_PORT, 587),
+    secure: toBool(process.env.SMTP_SECURE ?? process.env.MAIL_SECURE, false),
+    user: process.env.SMTP_USER || process.env.MAIL_USER || '',
+    pass: process.env.SMTP_PASS || process.env.MAIL_PASS || '',
     from: process.env.MAIL_FROM || 'SESS System <no-reply@ctuet.edu.vn>',
   },
 };
