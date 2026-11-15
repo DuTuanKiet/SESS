@@ -9,8 +9,8 @@ const { JOB_NAMES } = require('../../queues/queueNames');
 
 /** Gửi email biên nhận số cho 1 dự án */
 const processDigitalReceiptEmail = async (data) => {
-  const { to, payload } = data;
-  await mailerService.sendDigitalReceiptEmail(to, payload);
+  const { to, payload, userId } = data;
+  await mailerService.sendDigitalReceiptEmail(to, payload, userId);
   return { sent: true, to, projectCode: payload?.projectCode ?? '' };
 };
 
@@ -21,7 +21,7 @@ const processBulkDigitalReceiptEmail = async (data) => {
 
   for (const item of items) {
     try {
-      await mailerService.sendDigitalReceiptEmail(item.to, item.payload);
+      await mailerService.sendDigitalReceiptEmail(item.to, item.payload, item.userId);
       results.sent += 1;
     } catch (error) {
       results.failed += 1;
@@ -34,8 +34,8 @@ const processBulkDigitalReceiptEmail = async (data) => {
 
 /** Gửi email mời tham gia dự án */
 const processProjectInvitationEmail = async (data) => {
-  const { to, payload } = data;
-  await mailerService.sendProjectInvitationEmail(to, payload);
+  const { to, payload, userId } = data;
+  await mailerService.sendProjectInvitationEmail(to, payload, userId);
   return { sent: true, to };
 };
 

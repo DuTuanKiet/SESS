@@ -3,6 +3,7 @@ const env = require('../config/env');
 const ApiError = require('../utils/apiError');
 const { normalizeEmail } = require('../utils/validation');
 const { GLOBAL_TEST_EMAIL } = require('../utils/constants');
+const EmailLog = require('../models/EmailLog');
 
 let transporter;
 let isPreviewMode = false;
@@ -133,24 +134,44 @@ const buildDeliveryNotice = (intendedTo) => ({
  * các địa chỉ sinh viên mẫu không tồn tại -> mọi email đều hội tụ về email test chính.
  */
 
-/** Chỉ gửi mail thật khi có đủ host + tài khoản SMTP; thiếu bất kỳ phần nào -> in ra console (chế độ dev) */
+/**
+ * Kiểm tra xem đã cấu hình đủ thông tin SMTP để gửi mail thật chưa
+ * Cần: MAIL_HOST, MAIL_PORT, MAIL_USER, MAIL_PASS
+ */
 const isSmtpConfigured = () => Boolean(env.mail.host && env.mail.user && env.mail.pass);
 
+/**
+ * Tạo transporter nodemailer.
+ * - Port 465: SSL (secure: true)
+ * - Port 587: STARTTLS (secure: false)
+ * - Các port khác: dùng giá trị MAIL_SECURE từ .env
+ */
 const getTransporter = () => {
   if (transporter) return transporter;
 
   if (isSmtpConfigured()) {
+    const port = Number(env.mail.port) || 587;
+    // Port 465 dùng SSL (secure: true), port 587 dùng STARTTLS (secure: false)
+    const secure = port === 465 ? true : port === 587 ? false : Boolean(env.mail.secure);
+
     transporter = nodemailer.createTransport({
       host: env.mail.host,
-      port: env.mail.port,
-      secure: env.mail.secure,
+      port,
+      secure,
       auth: { user: env.mail.user, pass: env.mail.pass },
+      // Tăng timeout để tránh treo khi SMTP chậm
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
+
+    console.log(`[Mail] SMTP transporter đã sẵn sàng: ${env.mail.host}:${port} (${secure ? 'SSL' : 'STARTTLS'})`);
   } else {
     isPreviewMode = true;
     transporter = nodemailer.createTransport({ jsonTransport: true });
     const reason = env.mail.host ? 'đã có SMTP_HOST nhưng thiếu SMTP_USER/SMTP_PASS' : 'chưa cấu hình SMTP';
-    console.warn(`[Mail] ${reason} -> email sẽ được in ra console (chế độ dev).`);
+    console.warn(`[Mail] ${reason} -> email sẽ được in ra console (chế độ dev/jsonTransport).`);
+    console.warn('[Mail] Để gửi email thật, hãy cấu hình đầy đủ: MAIL_HOST, MAIL_PORT, MAIL_USER, MAIL_PASS trong file .env');
   }
 
   return transporter;
@@ -166,18 +187,73 @@ const logMailToConsole = (to, subject, text) => {
 };
 
 /**
+ * Hàm ghi log email vào collection EmailLog
+ */
+const logEmail = async ({
+  userId,
+  recipients,
+  subject,
+  content,
+  status,
+  provider,
+  error = '',
+  messageId = '',
+  metadata = {},
+}) => {
+  try {
+    await EmailLog.create({
+      userId,
+      recipients,
+      subject,
+      content,
+      status,
+      provider,
+      error,
+      messageId,
+      metadata,
+      sentAt: status === 'SENT' || status === 'FAILED' ? new Date() : null,
+    });
+  } catch (logError) {
+    console.error('[EmailLog] Ghi log email thất bại:', logError.message);
+  }
+};
+
+/**
  * Hàm gửi email DUY NHẤT của hệ thống.
  * Mọi email (OTP, chào mừng, thông báo đăng nhập, lời mời dự án, biên nhận số)
  * đều đi qua đây -> đảm bảo định tuyến đúng về GLOBAL_TEST_EMAIL ở dev/test.
  */
-const sendMail = async ({ to, subject, text, html }) => {
+const sendMail = async ({ to, subject, text, html, userId, metadata = {} }) => {
   const target = resolveDeliveryTarget(to);
+  const provider = isPreviewMode ? 'JSON_TRANSPORT' : 'SMTP';
+  const logContent = text ?? '';
+
+  // Ghi log PENDING trước khi gửi
+  await logEmail({
+    userId,
+    recipients: [target.intendedTo],
+    subject,
+    content: logContent,
+    status: 'PENDING',
+    provider,
+    metadata: { ...metadata, deliveryTarget: target },
+  });
 
   if (target.skipped) {
     console.warn(
       `[Mail] BỎ QUA gửi email tới "${target.intendedTo}" (${target.reason}). ` +
         'Địa chỉ mẫu không tồn tại ngoài đời -> tránh lỗi SMTP 5.1.1.',
     );
+    await logEmail({
+      userId,
+      recipients: [target.intendedTo],
+      subject,
+      content: logContent,
+      status: 'SKIPPED',
+      provider,
+      error: target.reason,
+      metadata: { ...metadata, deliveryTarget: target },
+    });
     return { sent: false, skipped: true, deliveryTo: null, intendedTo: target.intendedTo };
   }
 
@@ -206,6 +282,17 @@ const sendMail = async ({ to, subject, text, html }) => {
   } catch (error) {
     console.error(`[Mail] Gửi email tới ${target.deliveryTo} thất bại: ${error.message}`);
 
+    await logEmail({
+      userId,
+      recipients: [target.intendedTo],
+      subject,
+      content: logContent,
+      status: 'FAILED',
+      provider,
+      error: error.message,
+      metadata: { ...metadata, deliveryTarget: target },
+    });
+
     // Production: báo lỗi 503 cho client. Dev: in mail ra console để không chặn luồng test.
     if (env.isProduction) {
       throw ApiError.serviceUnavailable('Không gửi được email, vui lòng thử lại sau', 'MAIL_SEND_FAILED');
@@ -222,6 +309,16 @@ const sendMail = async ({ to, subject, text, html }) => {
 
   if (isPreviewMode) {
     logMailToConsole(target.deliveryTo, subject, finalText);
+    await logEmail({
+      userId,
+      recipients: [target.intendedTo],
+      subject,
+      content: logContent,
+      status: 'MOCKED',
+      provider,
+      messageId: info?.messageId ?? '',
+      metadata: { ...metadata, deliveryTarget: target },
+    });
     return {
       sent: false,
       skipped: false,
@@ -237,6 +334,17 @@ const sendMail = async ({ to, subject, text, html }) => {
       ` | messageId: ${info.messageId} | accepted: ${(info.accepted ?? []).join(', ')}` +
       ` | text: ${finalText.length} ký tự | html: ${finalHtml ? `${finalHtml.length} ký tự` : 'không có'}`,
   );
+
+  await logEmail({
+    userId,
+    recipients: [target.intendedTo],
+    subject,
+    content: logContent,
+    status: 'SENT',
+    provider,
+    messageId: info.messageId,
+    metadata: { ...metadata, deliveryTarget: target },
+  });
 
   return {
     sent: true,
@@ -358,7 +466,8 @@ const renderOtpEmail = (to, otp, expiresInMinutes) => {
 };
 
 /** Gửi email OTP: kèm cả bản text (client không hỗ trợ HTML) và bản HTML */
-const sendOtpEmail = (to, otp, expiresInMinutes) => sendMail(renderOtpEmail(to, otp, expiresInMinutes));
+const sendOtpEmail = (to, otp, expiresInMinutes, userId) =>
+  sendMail({ ...renderOtpEmail(to, otp, expiresInMinutes), userId });
 
 /** Dựng nội dung email thông báo đăng nhập thành công (bảo mật tài khoản) */
 const renderLoginNotificationEmail = (to, { fullName, studentId, className, loginAt = new Date(), ip, userAgent, device } = {}) => {
@@ -446,11 +555,125 @@ const renderLoginNotificationEmail = (to, { fullName, studentId, className, logi
 };
 
 /** Gửi email thông báo bảo mật khi sinh viên đăng nhập thành công */
-const sendLoginNotificationEmail = (to, studentInfo = {}) =>
-  sendMail(renderLoginNotificationEmail(to, studentInfo));
+const sendLoginNotificationEmail = (to, studentInfo = {}, userId) =>
+  sendMail({ ...renderLoginNotificationEmail(to, studentInfo), userId });
 
+/**
+ * Gửi email cảnh báo đăng nhập (Login Alert) - phiên bản nâng cấp với phương thức đăng nhập
+ * @param {Object} params
+ * @param {string} params.to - Email người nhận
+ * @param {string} params.fullName - Họ tên người dùng
+ * @param {string} params.loginMethod - Phương thức: 'GOOGLE_OAUTH' | 'PASSWORD' | 'MSSV' | 'OTP'
+ * @param {string} params.ipAddress - Địa chỉ IP
+ * @param {string} params.userAgent - User-Agent header
+ * @param {Date} params.loginAt - Thời điểm đăng nhập
+ * @param {string} [params.studentId] - Mã số sinh viên (nếu có)
+ * @param {string} [params.className] - Lớp (nếu có)
+ */
+const sendLoginAlertEmail = async ({
+  to,
+  fullName,
+  loginMethod,
+  ipAddress,
+  userAgent,
+  loginAt = new Date(),
+  studentId,
+  className,
+}) => {
+  const loginTime = formatLoginTime(loginAt);
+  const greetingName = fullName || 'bạn';
+  const studentCode = studentId || null;
+  const studentClass = className || null;
+  const deviceLabel = parseUserAgent(userAgent);
+  const ipLabel = formatClientIp(ipAddress);
 
-/** Dựng nội dung email chào mừng (tài khoản sinh viên tạo tự động qua Google) */
+  // Chuyển đổi loginMethod thành văn bản tiếng Việt
+  const methodLabel = {
+    GOOGLE_OAUTH: 'Google OAuth',
+    PASSWORD: 'Mật khẩu / MSSV',
+    MSSV: 'Mã số sinh viên (MSSV)',
+    OTP: 'Mã OTP',
+  }[loginMethod] || loginMethod;
+
+  const row = (label, value, { highlight = false } = {}) => `
+            <tr>
+              <td style="padding:10px 0;font-size:13px;color:#64748b;width:185px;vertical-align:top;border-bottom:1px solid #eef2f7;">${label}</td>
+              <td style="padding:10px 0;font-size:14px;font-weight:600;color:${highlight ? '#15803d' : '#0f172a'};border-bottom:1px solid #eef2f7;">${value || '—'}</td>
+            </tr>`;
+
+  const contentHtml = `
+    <div style="animation:sessFade .6s ease-out both;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <div style="display:inline-block;width:52px;height:52px;line-height:52px;border-radius:999px;background:#ecfdf3;color:#15803d;font-size:26px;font-weight:700;box-shadow:0 0 0 6px rgba(21,128,61,0.10);">✓</div>
+      </div>
+      <h2 style="margin:0 0 8px;font-size:20px;line-height:1.35;color:#0f172a;text-align:center;">Phát hiện đăng nhập mới</h2>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#475569;text-align:center;">
+        Xin chào <strong>${greetingName}</strong>, hệ thống <strong>${BRAND.name}</strong> ghi nhận một phiên đăng nhập mới vào tài khoản của bạn.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="padding:18px 20px 8px;">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.08em;color:${BRAND.primary};text-transform:uppercase;">Chi tiết phiên đăng nhập</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              ${row('Tài khoản', to)}
+              ${studentCode ? row('Mã số sinh viên', studentCode) : ''}
+              ${studentClass ? row('Lớp', studentClass) : ''}
+              ${row('Phương thức đăng nhập', methodLabel, { highlight: true })}
+              ${row('Thời gian', loginTime)}
+              ${row('Thiết bị truy cập', deviceLabel)}
+              ${row('Địa điểm / IP', ipLabel)}
+              ${row('Trạng thái', 'Xác thực thành công', { highlight: true })}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:13px;line-height:1.7;color:#92400e;">
+            <strong style="color:#78350f;">&#128274; Cảnh báo bảo mật:</strong> Nếu đây <strong>không phải là bạn</strong>, vui lòng liên hệ ngay với <strong>Quản trị viên</strong> hoặc tiến hành <strong>đổi mật khẩu</strong> để bảo vệ tài khoản.
+          </td>
+        </tr>
+      </table>
+    </div>`;
+
+  const text = [
+    `Xin chào ${greetingName},`,
+    '',
+    `Hệ thống ${BRAND.name} ghi nhận một phiên đăng nhập mới vào tài khoản của bạn.`,
+    '',
+    '--- Chi tiết phiên đăng nhập ---',
+    `Tài khoản            : ${to}`,
+    ...(studentCode ? [`Mã số sinh viên    : ${studentCode}`] : []),
+    ...(studentClass ? [`Lớp                : ${studentClass}`] : []),
+    `Phương thức đăng nhập: ${methodLabel}`,
+    `Thời gian            : ${loginTime}`,
+    `Thiết bị truy cập    : ${deviceLabel}`,
+    `Địa điểm/IP          : ${ipLabel}`,
+    'Trạng thái           : Xác thực thành công',
+    '',
+    '⚠ CẢNH BÁO BẢO MẬT: Nếu đây KHÔNG PHẢI LÀ BẠN, vui lòng liên hệ ngay với QUẢN TRỊ VIÊN hoặc tiến hành ĐỔI MẬT KHẨU để bảo vệ tài khoản.',
+    '',
+    'Trân trọng,',
+    `Nhóm phát triển ${BRAND.name}`,
+    BRAND.university,
+  ].join('\n');
+
+  return sendMail({
+    to,
+    subject: '[SESS - CTUT] ⚠ Cảnh báo: Phát hiện đăng nhập mới',
+    text,
+    html: renderEmailLayout({
+      heading: '⚠ Cảnh báo đăng nhập mới',
+      preheader: `Đăng nhập ${BRAND.name} - ${methodLabel} - ${loginTime} - ${deviceLabel}`,
+      contentHtml,
+      brandExtra: renderCtutLogoImg(48),
+    }),
+    metadata: { loginAlert: true, loginMethod },
+  });
+};
+
 const renderWelcomeEmail = (to, { fullName, studentId } = {}) => {
   const greetingName = fullName || 'bạn';
   const contentHtml = `
@@ -499,10 +722,11 @@ const renderWelcomeEmail = (to, { fullName, studentId } = {}) => {
 };
 
 /** Gửi email chào mừng cho tài khoản sinh viên được khởi tạo tự động qua Google */
-const sendWelcomeEmail = (to, user = {}) => sendMail(renderWelcomeEmail(to, user));
+const sendWelcomeEmail = (to, user = {}, userId) =>
+  sendMail({ ...renderWelcomeEmail(to, user), userId });
 
 /** Gửi email mời tham gia dự án (FR04) */
-const sendProjectInvitationEmail = async (to, { projectTitle, projectCode, inviterName, inviteeName } = {}) => {
+const sendProjectInvitationEmail = async (to, { projectTitle, projectCode, inviterName, inviteeName } = {}, userId) => {
   const greetingName = inviteeName || 'bạn';
   const detailRow = (label, value) => `
       <tr>
@@ -555,13 +779,14 @@ const sendProjectInvitationEmail = async (to, { projectTitle, projectCode, invit
       preheader: `${inviterName || 'Trưởng nhóm'} đã mời bạn tham gia dự án ${projectTitle || ''}`.trim(),
       contentHtml,
     }),
+    userId,
   });
 };
 
 /** Gửi email biên nhận số (Digital Receipt) khi nộp bài thành công */
 const sendDigitalReceiptEmail = async (to, {
   projectCode, projectTitle, version, receiptHash, receiptTimestamp, memberEmails = [],
-} = {}) => {
+} = {}, userId) => {
   const formattedTime = new Date(receiptTimestamp).toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     year: 'numeric',
@@ -638,6 +863,7 @@ const sendDigitalReceiptEmail = async (to, {
           preheader: `Mã hash biên nhận: ${receiptHash || ''}`,
           contentHtml,
         }),
+        userId,
       }),
     ),
   );
@@ -706,14 +932,15 @@ const renderResetPasswordEmail = (to, { fullName, resetLink, expiresInMinutes } 
 };
 
 /** Gửi email đặt lại mật khẩu */
-const sendResetPasswordEmail = (to, userInfo, resetLink, expiresInMinutes) =>
-  sendMail(renderResetPasswordEmail(to, { ...userInfo, resetLink, expiresInMinutes }));
+const sendResetPasswordEmail = (to, userInfo, resetLink, expiresInMinutes, userId) =>
+  sendMail({ ...renderResetPasswordEmail(to, { ...userInfo, resetLink, expiresInMinutes }), userId });
 
 module.exports = {
   sendMail,
   sendOtpEmail,
   sendWelcomeEmail,
   sendLoginNotificationEmail,
+  sendLoginAlertEmail,
   sendProjectInvitationEmail,
   sendDigitalReceiptEmail,
   sendResetPasswordEmail,

@@ -816,6 +816,7 @@ const submitProject = async ({ projectId, actor, req, expectedVersion, lastKnown
         submittedAt: revision.submittedAt,
         memberEmails,
       },
+userId: ownerUser?._id,
     });
   } catch (emailError) {
     console.error('[DigitalReceipt] Gửi email biên nhận thất bại:', emailError.message);

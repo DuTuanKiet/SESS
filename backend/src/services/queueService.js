@@ -46,10 +46,10 @@ const runInline = async (processor, jobName, data) => {
 };
 
 /** Đẩy email biên nhận số (1 dự án) */
-const enqueueDigitalReceiptEmail = async ({ to, payload }) => {
-  const job = await pushJob(QUEUE_NAMES.EMAIL, JOB_NAMES.DIGITAL_RECEIPT, { to, payload });
+const enqueueDigitalReceiptEmail = async ({ to, payload, userId }) => {
+  const job = await pushJob(QUEUE_NAMES.EMAIL, JOB_NAMES.DIGITAL_RECEIPT, { to, payload, userId });
   if (job) return { queued: true, jobId: job.id };
-  await runInline(processEmailJob, JOB_NAMES.DIGITAL_RECEIPT, { to, payload });
+  await runInline(processEmailJob, JOB_NAMES.DIGITAL_RECEIPT, { to, payload, userId });
   return { queued: false, inline: true };
 };
 
@@ -62,10 +62,10 @@ const enqueueBulkDigitalReceiptEmail = async ({ items }) => {
 };
 
 /** Đẩy email mời tham gia dự án */
-const enqueueProjectInvitationEmail = async ({ to, payload }) => {
-  const job = await pushJob(QUEUE_NAMES.EMAIL, JOB_NAMES.PROJECT_INVITATION, { to, payload });
+const enqueueProjectInvitationEmail = async ({ to, payload, userId }) => {
+  const job = await pushJob(QUEUE_NAMES.EMAIL, JOB_NAMES.PROJECT_INVITATION, { to, payload, userId });
   if (job) return { queued: true, jobId: job.id };
-  await runInline(processEmailJob, JOB_NAMES.PROJECT_INVITATION, { to, payload });
+  await runInline(processEmailJob, JOB_NAMES.PROJECT_INVITATION, { to, payload, userId });
   return { queued: false, inline: true };
 };
 

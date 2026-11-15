@@ -234,6 +234,7 @@ const notifyInvitation = async ({ project, inviter, invitee }) => {
         inviterName: inviter.fullName || inviter.email,
         inviteeName: invitee.fullName,
       },
+      userId: invitee._id,
     });
   } catch (error) {
     console.error(`[Project] Không gửi được email mời dự án tới ${invitee.email}: ${error.message}`);

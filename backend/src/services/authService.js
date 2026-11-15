@@ -97,7 +97,7 @@ const verifyGoogleIdToken = async (idToken) => {
  * Sinh OTP 6 số mới (ghi đè OTP cũ) và gửi về Gmail sinh viên qua mailerService.
  * Chống spam: bắt buộc chờ OTP_RESEND_COOLDOWN_SECONDS (mặc định 60s) mới được gửi lại.
  */
-const issueOtp = async (email) => {
+const issueOtp = async (email, user = null) => {
   // CHỐT AN TOÀN CUỐI: chỉ gửi OTP cho email sinh viên CÓ trong danh sách nhà trường.
   // Đảm bảo không nhánh code nào có thể gửi mail cho email không tồn tại trong whitelist.
   if (isStudentEmail(email)) {
@@ -127,7 +127,7 @@ const issueOtp = async (email) => {
     { $set: { codeHash: sha256(code), attempts: 0, expiresAt, sentAt } },
     { upsert: true, setDefaultsOnInsert: true },
   );
-  await mailerService.sendOtpEmail(email, code, env.otp.expiresInMinutes);
+  await mailerService.sendOtpEmail(email, code, env.otp.expiresInMinutes, user?._id);
 
   return { code, expiresAt };
 };
@@ -147,7 +147,7 @@ const sendLoginNotification = async (user) => {
       fullName: user.fullName,
       studentId: user.studentId,
       className: user.className,
-    });
+    }, user._id);
   } catch (error) {
     console.error(`[Auth] Không gửi được email thông báo đăng nhập tới ${user.email}: ${error.message}`);
   }
@@ -280,7 +280,7 @@ const login = async ({ email, password, portalType, sessionMeta } = {}) => {
   }
   assertPortalAccess({ user, portalType });
   if (!user.isEmailVerified) {
-    const { code } = await issueOtp(user.email);
+    const { code } = await issueOtp(user.email, user);
     // devOtp chỉ xuất hiện khi EXPOSE_OTP_IN_DEV=true (môi trường dev) để test nhanh
     const details = {
       email: user.email,
@@ -303,6 +303,22 @@ const login = async ({ email, password, portalType, sessionMeta } = {}) => {
 
   assertPortalAccess({ user, portalType });
   const tokens = await tokenService.issueTokens(user, sessionMeta);
+
+  // Gửi email cảnh báo đăng nhập (non-blocking)
+  const loginInfo = {
+    to: user.email,
+    fullName: user.fullName,
+    loginMethod: sessionMeta?.isMssvLogin ? 'MSSV' : 'PASSWORD',
+    ipAddress: sessionMeta?.ip,
+    userAgent: sessionMeta?.userAgent,
+    loginAt: user.lastLoginAt,
+    studentId: user.studentId,
+    className: user.className,
+  };
+  mailerService.sendLoginAlertEmail(loginInfo).catch((err) =>
+    console.error(`[Auth] Không gửi được email cảnh báo đăng nhập tới ${user.email}: ${err.message}`),
+  );
+
   return { user, tokens };
 };
 
@@ -399,11 +415,27 @@ const loginWithGoogle = async ({ idToken, portalType, sessionMeta } = {}) => {
 
   // Tài khoản sinh viên mới -> gửi email thông báo chào mừng qua Gmail trường
   if (isNewUser) {
-    await mailerService.sendWelcomeEmail(user.email, { fullName: user.fullName, studentId: user.studentId });
+    await mailerService.sendWelcomeEmail(user.email, { fullName: user.fullName, studentId: user.studentId }, user._id);
   }
 
   assertPortalAccess({ user, portalType });
   const tokens = await tokenService.issueTokens(user, sessionMeta);
+
+  // Gửi email cảnh báo đăng nhập (non-blocking) - cho cả 2 trường hợp new user và linked user
+  const loginInfo = {
+    to: user.email,
+    fullName: user.fullName,
+    loginMethod: 'GOOGLE_OAUTH',
+    ipAddress: sessionMeta?.ip,
+    userAgent: sessionMeta?.userAgent,
+    loginAt: user.lastLoginAt,
+    studentId: user.studentId,
+    className: user.className,
+  };
+  mailerService.sendLoginAlertEmail(loginInfo).catch((err) =>
+    console.error(`[Auth] Không gửi được email cảnh báo đăng nhập tới ${user.email}: ${err.message}`),
+  );
+
   return { user, tokens, isNewUser, isLinked };
 };
 
@@ -474,7 +506,7 @@ const requestPasswordReset = async ({ email } = {}) => {
   const resetLink = `${env.corsOrigin}/reset-password?token=${resetToken}`;
 
   // Gửi email đặt lại mật khẩu
-  await mailerService.sendResetPasswordEmail(user.email, { fullName: user.fullName }, resetLink, tokenService.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES);
+  await mailerService.sendResetPasswordEmail(user.email, { fullName: user.fullName }, resetLink, tokenService.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES, user._id);
 
   return { sent: true };
 };
