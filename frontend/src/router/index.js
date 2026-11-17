@@ -145,10 +145,44 @@ const routes = [
     meta: { roles: ['admin', 'ADMIN'], requiresAuth: true },
     children: [
       { path: '', name: 'admin-dashboard', component: () => import('@/modules/administration/pages/AdminDashboardPage.vue') },
-      { path: 'competitions', name: 'admin-competitions', component: () => import('@/modules/administration/pages/AdminCompetitionsStagesPage.vue') },
+      {
+        path: 'competitions',
+        name: 'admin-competitions',
+        component: () => import('@/modules/administration/pages/AdminCompetitionsStagesPage.vue'),
+        beforeEnter: (to) => {
+          if (to.query?.section === 'catalogs') {
+            const nextQuery = { ...to.query };
+            delete nextQuery.section;
+            return {
+              path: '/admin/catalogs',
+              query: Object.keys(nextQuery).length ? nextQuery : undefined,
+              replace: true,
+            };
+          }
+          return true;
+        },
+      },
+      { path: 'catalogs', name: 'admin-catalogs', component: () => import('@/modules/administration/pages/AdminCatalogsPage.vue') },
       { path: 'rubrics', name: 'admin-rubrics', component: () => import('@/modules/administration/pages/AdminRubricsPage.vue') },
       { path: 'judge-assignments', name: 'admin-judge-assignments', component: () => import('@/modules/administration/pages/AdminJudgeAssignmentsPage.vue') },
-      { path: 'projects', name: 'admin-projects', component: () => import('@/modules/administration/pages/AdminProjectsManagementPage.vue') },
+      {
+        path: 'projects',
+        name: 'admin-projects',
+        component: () => import('@/modules/administration/pages/AdminProjectsManagementPage.vue'),
+        beforeEnter: (to) => {
+          if (to.query?.section === 'mentors') {
+            const nextQuery = { ...to.query };
+            delete nextQuery.section;
+            return {
+              path: '/admin/mentor-assignments',
+              query: Object.keys(nextQuery).length ? nextQuery : undefined,
+              replace: true,
+            };
+          }
+          return true;
+        },
+      },
+      { path: 'mentor-assignments', name: 'admin-mentor-assignments', component: () => import('@/modules/administration/pages/AdminMentorAssignmentsPage.vue') },
       { path: 'users', name: 'admin-users', component: () => import('@/modules/administration/pages/AdminUsersPage.vue') },
       { path: 'audit-logs', name: 'admin-audit-logs', component: () => import('@/modules/administration/pages/AdminAuditLogsPage.vue') },
       { path: 'reports', name: 'admin-reports', component: () => import('@/modules/administration/pages/AdminAuditLogsPage.vue') },
@@ -221,6 +255,10 @@ router.beforeEach((to, from) => {
     'judge-notifications': 'Thông báo | SESS - CTUT',
     'judge-account': 'Tài khoản & Bảo mật | SESS - CTUT',
     'admin-dashboard': 'Tổng quan Quản trị | SESS - CTUT',
+    'admin-competitions': 'Quản lý cuộc thi | SESS - CTUT',
+    'admin-catalogs': 'Danh mục dữ liệu | SESS - CTUT',
+    'admin-mentor-assignments': 'Điều phối cố vấn | SESS - CTUT',
+    'admin-users': 'Tài khoản & Danh sách duyệt | SESS - CTUT',
     'not-found': 'Không tìm thấy trang | SESS - CTUT',
   };
   const portalTitle = to.path.startsWith('/admin') ? 'Quản trị | SESS - CTUT'

@@ -1,73 +1,607 @@
 <template>
   <div class="space-y-5">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div><h1 class="text-2xl font-bold tracking-tight text-[#0f172a]">Quản lý người dùng</h1><p class="mt-1 text-sm text-slate-500">Danh sách tài khoản toàn hệ thống, lọc theo vai trò/trạng thái, đổi vai trò và khóa/mở khóa trực tiếp.</p></div>
-      <div class="flex gap-2"><button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="loadAll">Tải lại</button><button class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white" @click="userDlg?.showModal?.()">Tạo tài khoản</button></div>
-    </div>
-    <div v-if="message" :class="['rounded-2xl border p-4 text-sm', messageType==='error'?'border-red-200 bg-red-50 text-red-700':'border-emerald-200 bg-emerald-50 text-emerald-700']">{{ message }}</div>
-
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">Bộ lọc</h2>
-      <form class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5" @submit.prevent="loadUsers(1)">
-        <input v-model="filters.search" placeholder="Tìm tên / email / MSSV" class="rounded-xl border border-slate-200 px-3 py-2 text-sm xl:col-span-2" />
-        <select v-model="filters.role" class="rounded-xl border border-slate-200 px-3 py-2 text-sm"><option value="">Tất cả vai trò</option><option>STUDENT</option><option>MENTOR</option><option>JUDGE</option><option>ADMIN</option></select>
-        <select v-model="filters.status" class="rounded-xl border border-slate-200 px-3 py-2 text-sm"><option value="">Tất cả trạng thái</option><option>ACTIVE</option><option>INACTIVE</option><option>SUSPENDED</option></select>
-        <button class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Lọc</button>
-      </form>
-
-      <div v-if="loadingUsers" class="py-10 text-center text-sm text-slate-500">Đang tải người dùng…</div>
-      <div v-else-if="!users.length" class="py-10 text-center text-sm text-slate-500">Không có người dùng phù hợp.</div>
-      <div v-else class="mt-4 overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead><tr class="border-b border-slate-100 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500"><th class="px-3 py-2">Họ tên</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Vai trò</th><th class="px-3 py-2">Trạng thái</th><th class="px-3 py-2">NDA</th><th class="px-3 py-2">Thao tác</th></tr></thead>
-          <tbody>
-            <tr v-for="u in users" :key="uid(u)" class="border-b border-slate-50 align-top">
-              <td class="px-3 py-3"><p class="font-medium text-slate-900">{{ u.fullName || u.name || '—' }}</p><p class="text-[11px] text-slate-400">{{ uid(u) }}</p></td>
-              <td class="px-3 py-3 text-slate-600">{{ u.email }}</td>
-              <td class="px-3 py-3">
-                <select :value="u.role || u.systemRole" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" @change="e => changeRole(u, e.target.value)">
-                  <option>STUDENT</option><option>MENTOR</option><option>JUDGE</option><option>ADMIN</option>
-                </select>
-              </td>
-              <td class="px-3 py-3"><span :class="['rounded-full px-2.5 py-1 text-[11px] font-semibold', (u.status||'ACTIVE')==='ACTIVE'?'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200':'bg-amber-50 text-amber-700 ring-1 ring-amber-200']">{{ u.status || 'ACTIVE' }}</span></td>
-              <td class="px-3 py-3 text-xs text-slate-600">{{ u.ndaAccepted ? 'Đã ký' : '—' }}</td>
-              <td class="px-3 py-3"><div class="flex flex-wrap gap-2"><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700" @click="changeStatus(u,'ACTIVE')">Mở khóa</button><button class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700" @click="changeStatus(u,'INACTIVE')">Khóa</button></div></td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Thanh tiêu đề & nút bật/tắt hướng dẫn quy trình -->
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">
+          Quản lý tài khoản &amp; Danh sách hợp lệ
+        </h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Cấp tài khoản đăng nhập cho thành viên và quản lý danh sách Sinh viên, Ban Giám khảo
+          được phép tham gia cuộc thi.
+        </p>
       </div>
-      <div class="mt-4 flex items-center justify-between text-sm"><p class="text-slate-500">Tổng {{ pagination.total }} · Trang {{ pagination.page }}/{{ Math.max(1,pagination.totalPages||1) }}</p><div class="flex gap-2"><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="pagination.page<=1" @click="loadUsers(pagination.page-1)">Trước</button><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="pagination.page >= (pagination.totalPages||1)" @click="loadUsers(pagination.page+1)">Sau</button></div></div>
-    </section>
 
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">Whitelist giám khảo</h2>
-      <form class="mt-3 flex flex-wrap items-end gap-2" @submit.prevent="uploadWhitelist">
-        <label class="text-sm"><span class="mb-1 block font-medium text-slate-700">File Excel/CSV</span><input ref="fileInput" type="file" accept=".xls,.xlsx,.csv" class="block text-sm" /></label>
-        <button :disabled="saving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Import</button>
-      </form>
-      <div v-if="loadingWhitelist" class="py-8 text-sm text-slate-500">Đang tải whitelist…</div>
-      <div v-else-if="whitelist.length" class="mt-3 overflow-x-auto"><table class="min-w-full text-xs"><thead><tr class="border-b text-left text-slate-500"><th class="py-2 pr-2">Email</th><th class="py-2 pr-2">Họ tên</th><th class="py-2 pr-2">Khoa</th><th class="py-2 pr-2"></th></tr></thead><tbody><tr v-for="w in whitelist" :key="uid(w)" class="border-b border-slate-50"><td class="py-2 pr-2">{{ w.email }}</td><td class="py-2 pr-2">{{ w.fullName||w.name||'—' }}</td><td class="py-2 pr-2">{{ w.faculty||w.department||'—' }}</td><td class="py-2 pr-2"><button class="text-red-600 hover:text-red-700" @click="removeWhitelist(uid(w))">Xóa</button></td></tr></tbody></table></div>
-      <p v-else class="mt-3 text-sm text-slate-500">Chưa có bản ghi whitelist.</p>
-    </section>
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#1E56D9] hover:text-[#1E56D9]"
+          :class="usersStore.showGuide ? 'border-[#1E56D9]' : 'border-slate-200'"
+          @click="usersStore.toggleQuickGuide()"
+        >
+          ? Hướng dẫn quy trình
+        </button>
+      </div>
+    </div>
 
-    <dialog ref="userDlg" class="w-full max-w-xl rounded-2xl border-0 p-0 shadow-xl backdrop:bg-slate-900/30"><form class="space-y-4 p-6" @submit.prevent="createUser"><h2 class="text-lg font-bold">Tạo tài khoản</h2><div class="grid gap-4 sm:grid-cols-2"><label class="text-sm sm:col-span-2"><span class="mb-1 block font-medium text-slate-700">Email</span><input v-model="newUser.email" type="email" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Họ tên</span><input v-model="newUser.fullName" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Vai trò</span><select v-model="newUser.role" class="w-full rounded-xl border border-slate-200 px-3 py-2"><option>STUDENT</option><option>MENTOR</option><option>JUDGE</option><option>ADMIN</option></select></label><label class="text-sm sm:col-span-2"><span class="mb-1 block font-medium text-slate-700">Mật khẩu tạm</span><input v-model="newUser.password" type="password" required minlength="6" class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label></div><div class="flex justify-end gap-2"><button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="userDlg.close()">Hủy</button><button :disabled="saving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Tạo</button></div></form></dialog>
+    <div
+      v-if="usersStore.errorMessage"
+      class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+      role="alert"
+    >
+      {{ usersStore.errorMessage }}
+    </div>
+
+    <AdminUserQuickGuide
+      :is-open="usersStore.showGuide"
+      @close="usersStore.toggleQuickGuide(false)"
+    />
+
+    <!-- 4 thẻ KPI tương tác: bấm để chuyển đúng danh sách và lọc sẵn đối tượng cần xử lý -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <AdminKpiCard
+        label="Tài khoản hoạt động"
+        :subtext="
+          kpi.suspendedUsers
+            ? `${kpi.suspendedUsers} tài khoản đang tạm khóa`
+            : 'Toàn bộ tài khoản đang mở'
+        "
+        tone="navy"
+        hover-action-text="Xem →"
+        @select="usersStore.jumpFromKpi('users-accounts', { status: 'ACTIVE' })"
+      >
+        <template #value>
+          {{ kpi.activeUsers }}
+          <span class="text-base font-semibold text-slate-400">/{{ kpi.manageableTotal }}</span>
+        </template>
+      </AdminKpiCard>
+
+      <AdminKpiCard
+        label="Chờ đổi mật khẩu / Kích hoạt"
+        :value="kpi.pendingPassCount"
+        :tone="kpi.pendingPassCount ? 'amber' : 'emerald'"
+        :subtext="
+          kpi.pendingPassCount ? 'Cần người dùng đổi mật khẩu tạm' : 'Tất cả đã hoàn tất kích hoạt'
+        "
+        hover-action-text="Xem →"
+        @select="usersStore.jumpFromKpi('users-accounts', { status: 'MUST_CHANGE' })"
+      />
+
+      <AdminKpiCard
+        label="Sinh viên hợp lệ (Whitelist)"
+        :value="kpi.studentWhitelistTotal"
+        tone="blue"
+        :subtext="`${kpi.linkedStudents} đã có tài khoản • ${kpi.unlinkedStudents} chưa cấp TK`"
+        hover-action-text="Xem →"
+        @select="
+          usersStore.jumpFromKpi(
+            'users-students',
+            kpi.unlinkedStudents ? { account: 'unlinked' } : {}
+          )
+        "
+      />
+
+      <AdminKpiCard
+        label="Ban Giám khảo được duyệt"
+        :value="kpi.judgeWhitelistTotal"
+        tone="emerald"
+        :subtext="`${kpi.linkedJudges} đã có TK • ${kpi.ndaAcceptedCount} đã ký cam kết bảo mật`"
+        hover-action-text="Xem →"
+        @select="usersStore.jumpFromKpi('users-judges')"
+      />
+    </div>
+
+    <!-- Thanh chuyển 3 tab danh sách -->
+    <AdminSubTabs
+      :tabs="subTabs"
+      :active-key="usersStore.activeTab"
+      aria-label="Phân mục quản lý tài khoản và danh sách duyệt"
+      @update:active-key="usersStore.setActiveTab"
+    />
+
+    <AdminAccountsTab
+      v-if="usersStore.activeTab === 'users-accounts'"
+      :rows="usersStore.paginatedAccounts"
+      :total-count="usersStore.manageableUsers.length"
+      :filtered-count="usersStore.filteredAccounts.length"
+      :filters="usersStore.accountFilters"
+      :has-filters="usersStore.hasAccountFilters"
+      :unit-options="usersStore.userFilterUnits"
+      :selected-ids="usersStore.selectedIds.users"
+      :page="usersStore.pagination.users.page"
+      :page-size="usersStore.pagination.users.pageSize"
+      @update-filter="(patch) => handleFilterUpdate(usersStore.accountFilters, patch)"
+      @reset-filters="usersStore.resetDirectoryFilters('users')"
+      @toggle-select-row="({ id, checked }) => usersStore.toggleSelectRow('users', id, checked)"
+      @toggle-select-all="(checked) => usersStore.toggleSelectAllOnPage('users', checked)"
+      @clear-selection="usersStore.clearSelection('users')"
+      @bulk-status="(status) => openStatusConfirm(usersStore.selectedIds.users, status)"
+      @view-detail="(id) => openUserDetail(id)"
+      @create-user="openCreateUser()"
+      @open-import="openImportModal('users')"
+      @export-template="usersStore.exportDirectory('users', 'template')"
+      @export-filtered="usersStore.exportDirectory('users', 'filtered')"
+      @update:page="(p) => usersStore.setPage('users', p)"
+      @update:page-size="(s) => usersStore.setPageSize('users', s)"
+    />
+
+    <AdminStudentWhitelistTab
+      v-else-if="usersStore.activeTab === 'users-students'"
+      :rows="usersStore.paginatedStudents"
+      :total-count="usersStore.studentWhitelist.length"
+      :filtered-count="usersStore.filteredStudents.length"
+      :filters="usersStore.studentFilters"
+      :has-filters="usersStore.hasStudentFilters"
+      :faculty-options="usersStore.studentFilterFaculties"
+      :user-by-email-map="usersStore.userByEmailMap"
+      :selected-ids="usersStore.selectedIds.students"
+      :page="usersStore.pagination.students.page"
+      :page-size="usersStore.pagination.students.pageSize"
+      @update-filter="(patch) => handleFilterUpdate(usersStore.studentFilters, patch)"
+      @reset-filters="usersStore.resetDirectoryFilters('students')"
+      @toggle-select-row="
+        ({ id, checked }) => usersStore.toggleSelectRow('students', id, checked)
+      "
+      @toggle-select-all="(checked) => usersStore.toggleSelectAllOnPage('students', checked)"
+      @clear-selection="usersStore.clearSelection('students')"
+      @bulk-provision="handleBulkProvision('students')"
+      @bulk-delete="openWhitelistDelete('students', usersStore.selectedIds.students)"
+      @quick-provision="(id) => handleQuickProvision('students', id)"
+      @view-user="(id) => openUserDetail(id)"
+      @add-student="openStudentWhitelistModal(null)"
+      @edit-student="(id) => openStudentWhitelistModal(id)"
+      @delete-student="(id) => openWhitelistDelete('students', [id])"
+      @open-import="openImportModal('students')"
+      @export-template="usersStore.exportDirectory('students', 'template')"
+      @export-filtered="usersStore.exportDirectory('students', 'filtered')"
+      @update:page="(p) => usersStore.setPage('students', p)"
+      @update:page-size="(s) => usersStore.setPageSize('students', s)"
+    />
+
+    <AdminJudgeWhitelistTab
+      v-else
+      :rows="usersStore.paginatedJudges"
+      :total-count="usersStore.judges.length"
+      :filtered-count="usersStore.filteredJudges.length"
+      :filters="usersStore.judgeFilters"
+      :has-filters="usersStore.hasJudgeFilters"
+      :unit-options="usersStore.judgeFilterUnits"
+      :user-by-email-map="usersStore.userByEmailMap"
+      :selected-ids="usersStore.selectedIds.judges"
+      :page="usersStore.pagination.judges.page"
+      :page-size="usersStore.pagination.judges.pageSize"
+      @update-filter="(patch) => handleFilterUpdate(usersStore.judgeFilters, patch)"
+      @reset-filters="usersStore.resetDirectoryFilters('judges')"
+      @toggle-select-row="({ id, checked }) => usersStore.toggleSelectRow('judges', id, checked)"
+      @toggle-select-all="(checked) => usersStore.toggleSelectAllOnPage('judges', checked)"
+      @clear-selection="usersStore.clearSelection('judges')"
+      @bulk-provision="handleBulkProvision('judges')"
+      @bulk-delete="openWhitelistDelete('judges', usersStore.selectedIds.judges)"
+      @quick-provision="(id) => handleQuickProvision('judges', id)"
+      @view-user="(id) => openUserDetail(id)"
+      @add-judge="openJudgeWhitelistModal(null)"
+      @edit-judge="(id) => openJudgeWhitelistModal(id)"
+      @delete-judge="(id) => openWhitelistDelete('judges', [id])"
+      @open-import="openImportModal('judges')"
+      @export-template="usersStore.exportDirectory('judges', 'template')"
+      @export-filtered="usersStore.exportDirectory('judges', 'filtered')"
+      @update:page="(p) => usersStore.setPage('judges', p)"
+      @update:page-size="(s) => usersStore.setPageSize('judges', s)"
+    />
+
+    <!-- Hệ thống 9 Modals quản trị tài khoản, whitelist và trình nhập Excel/CSV -->
+    <AdminUserFormModal
+      :is-open="userFormModal.isOpen"
+      :user="userFormModal.user"
+      :prefill="userFormModal.prefill"
+      :unit-options="usersStore.unitOptions"
+      :student-whitelist="usersStore.studentWhitelist"
+      :judge-whitelist="usersStore.judges"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeUserFormModal"
+      @submit="handleUserFormSubmit"
+    />
+
+    <AdminUserDetailModal
+      :is-open="Boolean(viewingUserId)"
+      :detail-data="detailModalContext"
+      @close="viewingUserId = ''"
+      @edit="handleDetailEdit"
+      @reset-password="handleDetailResetPassword"
+      @toggle-status="handleDetailToggleStatus"
+    />
+
+    <AdminUserResetPasswordModal
+      :is-open="Boolean(resetPasswordTarget)"
+      :user="resetPasswordTarget"
+      :is-submitting="usersStore.isSubmitting"
+      @close="resetPasswordTarget = null"
+      @submit="handleResetPasswordSubmit"
+    />
+
+    <AdminUserStatusConfirmModal
+      :is-open="statusConfirmModal.isOpen"
+      :targets="statusConfirmModal.targets"
+      :forced-status="statusConfirmModal.forcedStatus"
+      :skipped-protected="statusConfirmModal.skippedProtected"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeStatusConfirmModal"
+      @submit="handleStatusConfirmSubmit"
+    />
+
+    <AdminStudentWhitelistModal
+      :is-open="studentModal.isOpen"
+      :student="studentModal.student"
+      :faculty-options="usersStore.activeFaculties"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeStudentModal"
+      @submit="handleStudentModalSubmit"
+    />
+
+    <AdminJudgeWhitelistModal
+      :is-open="judgeModal.isOpen"
+      :judge="judgeModal.judge"
+      :unit-options="usersStore.unitOptions"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeJudgeModal"
+      @submit="handleJudgeModalSubmit"
+    />
+
+    <AdminWhitelistDeleteModal
+      :is-open="deleteModal.isOpen"
+      :kind="deleteModal.kind"
+      :targets="deleteModalTargets"
+      :linked-count="deleteModalLinkedCount"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeWhitelistDeleteModal"
+      @confirm="handleWhitelistDeleteConfirm"
+    />
+
+    <AdminDirectoryImportModal
+      :is-open="importModal.isOpen"
+      :kind="importModal.kind"
+      :existing-users="usersStore.users"
+      :student-whitelist="usersStore.studentWhitelist"
+      :judge-whitelist="usersStore.judges"
+      :completed-result="importModal.completedResult"
+      :is-submitting="usersStore.isSubmitting"
+      @close="closeImportModal"
+      @submit="handleImportSubmit"
+      @export-template="(fmt) => usersStore.exportDirectory(importModal.kind, 'template', fmt)"
+      @export-credentials="(fmt) => usersStore.exportDirectory('users', 'credentials', fmt)"
+      @export-errors="(ctx) => usersStore.exportDirectory(importModal.kind, 'errors', 'xlsx', ctx)"
+    />
+
+    <AdminBulkCredentialsModal
+      :is-open="bulkCredentialsModal.isOpen"
+      :issued="bulkCredentialsModal.issued"
+      @close="bulkCredentialsModal.isOpen = false"
+      @export="(fmt) => usersStore.exportDirectory('users', 'credentials', fmt)"
+    />
   </div>
 </template>
+
 <script setup>
-import { ref, onMounted } from 'vue';
-import { adminService } from '../services/adminService';
-const loadingUsers=ref(false), loadingWhitelist=ref(false), saving=ref(false), users=ref([]), whitelist=ref([]), message=ref(''), messageType=ref('success');
-const filters=ref({ search:'', role:'', status:'' }), pagination=ref({ page:1, limit:20, total:0, totalPages:1 });
-const userDlg=ref(null), fileInput=ref(null), newUser=ref({ email:'', fullName:'', role:'JUDGE', password:'' });
-function uid(o){ return o?._id || o?.id; }
-function notify(msg,type='success'){ message.value=msg; messageType.value=type; }
-async function loadUsers(page=1){ loadingUsers.value=true; try{ pagination.value.page=page; const res=await adminService.listUsers({ ...filters.value, page, limit: pagination.value.limit }); const d=res?.data||{}; users.value=d.items||d.users||[]; pagination.value={ ...pagination.value, ...(d.pagination||{}) }; }catch(e){ notify(e?.message||'Không tải được danh sách người dùng.','error'); users.value=[]; } finally{ loadingUsers.value=false; } }
-async function loadWhitelist(){ loadingWhitelist.value=true; try{ const res=await adminService.getUserWhitelist({ limit:100 }); whitelist.value=res?.data?.items||res?.data||res?.items||[]; }catch{ whitelist.value=[]; } finally{ loadingWhitelist.value=false; } }
-async function loadAll(){ message.value=''; await Promise.all([loadUsers(1), loadWhitelist()]); }
-async function createUser(){ saving.value=true; try{ await adminService.createUser(newUser.value); userDlg.value?.close(); newUser.value={ email:'', fullName:'', role:'JUDGE', password:'' }; notify('Đã tạo tài khoản.'); await loadUsers(1); }catch(e){ notify(e?.message||'Tạo tài khoản thất bại.','error'); } finally{ saving.value=false; } }
-async function changeRole(u, role){ if(!role || role=== (u.role||u.systemRole)) return; try{ await adminService.updateUserRole(uid(u),role); notify(`Đã đổi vai trò ${u.email} → ${role}.`); await loadUsers(pagination.value.page); }catch(e){ notify(e?.message||'Đổi vai trò thất bại.','error'); } }
-async function changeStatus(u,status){ try{ await adminService.updateUserStatus(uid(u),status); notify(`Đã cập nhật trạng thái ${u.email} → ${status}.`); await loadUsers(pagination.value.page); }catch(e){ notify(e?.message||'Cập nhật trạng thái thất bại.','error'); } }
-async function uploadWhitelist(){ const file=fileInput.value?.files?.[0]; if(!file) return notify('Chọn file Excel/CSV.','error'); saving.value=true; try{ const fd=new FormData(); fd.append('file', file); await adminService.importWhitelist(fd); notify('Đã import whitelist.'); if(fileInput.value) fileInput.value.value=''; await loadWhitelist(); }catch(e){ notify(e?.message||'Import whitelist thất bại.','error'); } finally{ saving.value=false; } }
-async function removeWhitelist(id){ try{ await adminService.deleteWhitelist(id); notify('Đã xóa bản ghi whitelist.'); await loadWhitelist(); }catch(e){ notify(e?.message||'Xóa whitelist thất bại.','error'); } }
-onMounted(loadAll);
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useToastStore } from '@/stores/toast';
+import { useAdminUsersStore } from '@/modules/administration/stores/useAdminUsersStore';
+import AdminKpiCard from '@/modules/administration/components/dashboard/AdminKpiCard.vue';
+import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminUserQuickGuide from '@/modules/administration/components/users/AdminUserQuickGuide.vue';
+import AdminAccountsTab from '@/modules/administration/components/users/AdminAccountsTab.vue';
+import AdminStudentWhitelistTab from '@/modules/administration/components/users/AdminStudentWhitelistTab.vue';
+import AdminJudgeWhitelistTab from '@/modules/administration/components/users/AdminJudgeWhitelistTab.vue';
+import AdminUserFormModal from '@/modules/administration/components/users/AdminUserFormModal.vue';
+import AdminUserDetailModal from '@/modules/administration/components/users/AdminUserDetailModal.vue';
+import AdminUserResetPasswordModal from '@/modules/administration/components/users/AdminUserResetPasswordModal.vue';
+import AdminUserStatusConfirmModal from '@/modules/administration/components/users/AdminUserStatusConfirmModal.vue';
+import AdminStudentWhitelistModal from '@/modules/administration/components/users/AdminStudentWhitelistModal.vue';
+import AdminJudgeWhitelistModal from '@/modules/administration/components/users/AdminJudgeWhitelistModal.vue';
+import AdminWhitelistDeleteModal from '@/modules/administration/components/users/AdminWhitelistDeleteModal.vue';
+import AdminDirectoryImportModal from '@/modules/administration/components/users/AdminDirectoryImportModal.vue';
+import AdminBulkCredentialsModal from '@/modules/administration/components/users/AdminBulkCredentialsModal.vue';
+
+// Trang Quản lý tài khoản & Danh sách duyệt chuyển đổi từ StaticFE, điều phối 3 tab & 9 modal qua Pinia store
+const route = useRoute();
+const toastStore = useToastStore();
+const usersStore = useAdminUsersStore();
+
+const subTabs = [
+  { key: 'users-accounts', label: 'Tài khoản hệ thống' },
+  { key: 'users-students', label: 'Danh sách Sinh viên hợp lệ' },
+  { key: 'users-judges', label: 'Danh sách Ban Giám khảo' },
+];
+
+const kpi = computed(() => usersStore.kpiStats);
+
+const userFormModal = reactive({
+  isOpen: false,
+  user: null,
+  prefill: null,
+});
+
+const viewingUserId = ref('');
+const resetPasswordTarget = ref(null);
+
+const statusConfirmModal = reactive({
+  isOpen: false,
+  targets: [],
+  forcedStatus: '',
+  skippedProtected: false,
+  returnToDetailId: '',
+});
+
+const studentModal = reactive({
+  isOpen: false,
+  student: null,
+});
+
+const judgeModal = reactive({
+  isOpen: false,
+  judge: null,
+});
+
+const deleteModal = reactive({
+  isOpen: false,
+  kind: 'students',
+  ids: [],
+});
+
+const importModal = reactive({
+  isOpen: false,
+  kind: 'users',
+  completedResult: null,
+});
+
+const bulkCredentialsModal = reactive({
+  isOpen: false,
+  issued: [],
+});
+
+const detailModalContext = computed(() =>
+  viewingUserId.value ? usersStore.getUserDetailContext(viewingUserId.value) : null
+);
+
+const deleteModalTargets = computed(() => {
+  const idSet = new Set(deleteModal.ids);
+  const source =
+    deleteModal.kind === 'students' ? usersStore.studentWhitelist : usersStore.judges;
+  return source.filter((item) => idSet.has(item.id));
+});
+
+const deleteModalLinkedCount = computed(
+  () =>
+    deleteModalTargets.value.filter((item) =>
+      usersStore.userByEmailMap.has(String(item.email || '').toLowerCase())
+    ).length
+);
+
+function handleFilterUpdate(targetFilters, { key, value }) {
+  if (key in targetFilters) {
+    targetFilters[key] = value;
+  }
+}
+
+function openCreateUser(prefill = null) {
+  userFormModal.user = null;
+  userFormModal.prefill = prefill;
+  userFormModal.isOpen = true;
+}
+
+function openEditUser(userId) {
+  const target = usersStore.findUserByIdOrEmail(userId);
+  if (!target || usersStore.isProtectedAdmin(target)) {
+    toastStore.add({
+      message: 'Tài khoản Quản trị viên được bảo vệ, không thể chỉnh sửa tại màn hình này.',
+      type: 'warning',
+    });
+    return;
+  }
+  userFormModal.user = target;
+  userFormModal.prefill = null;
+  userFormModal.isOpen = true;
+}
+
+function closeUserFormModal() {
+  userFormModal.isOpen = false;
+  userFormModal.user = null;
+  userFormModal.prefill = null;
+}
+
+async function handleUserFormSubmit(payload) {
+  const isSuccess = userFormModal.user
+    ? await usersStore.updateUser(userFormModal.user.id, payload)
+    : await usersStore.createUser(payload);
+  if (isSuccess) {
+    closeUserFormModal();
+  }
+}
+
+function openUserDetail(userId) {
+  viewingUserId.value = String(userId || '');
+}
+
+function handleDetailEdit(userId) {
+  viewingUserId.value = '';
+  openEditUser(userId);
+}
+
+function openResetPassword(userId) {
+  const target = usersStore.findUserByIdOrEmail(userId);
+  if (!target || usersStore.isProtectedAdmin(target)) {
+    toastStore.add({
+      message: 'Không thể cấp lại mật khẩu tài khoản Quản trị viên tại màn hình này.',
+      type: 'warning',
+    });
+    return;
+  }
+  resetPasswordTarget.value = target;
+}
+
+function handleDetailResetPassword(userId) {
+  viewingUserId.value = '';
+  openResetPassword(userId);
+}
+
+async function handleResetPasswordSubmit(payload) {
+  if (!resetPasswordTarget.value) return;
+  const isSuccess = await usersStore.resetUserPassword(resetPasswordTarget.value.id, payload);
+  if (isSuccess) {
+    resetPasswordTarget.value = null;
+  }
+}
+
+function openStatusConfirm(ids, forcedStatus = '', returnToDetailId = '') {
+  if (!ids?.length) return;
+  const idSet = new Set(ids);
+  const rawTargets = usersStore.users.filter((u) => idSet.has(u.id));
+  const safeTargets = rawTargets.filter((u) => !usersStore.isProtectedAdmin(u));
+  statusConfirmModal.targets = safeTargets;
+  statusConfirmModal.forcedStatus = forcedStatus;
+  statusConfirmModal.skippedProtected = rawTargets.some((u) => usersStore.isProtectedAdmin(u));
+  statusConfirmModal.returnToDetailId = returnToDetailId;
+  statusConfirmModal.isOpen = true;
+}
+
+function closeStatusConfirmModal() {
+  statusConfirmModal.isOpen = false;
+  statusConfirmModal.targets = [];
+  statusConfirmModal.forcedStatus = '';
+  statusConfirmModal.skippedProtected = false;
+  statusConfirmModal.returnToDetailId = '';
+}
+
+function handleDetailToggleStatus(userId) {
+  viewingUserId.value = '';
+  openStatusConfirm([userId], '', userId);
+}
+
+async function handleStatusConfirmSubmit({ forcedStatus, reason, hasEligible }) {
+  if (!hasEligible) {
+    closeStatusConfirmModal();
+    return;
+  }
+  const returnId = statusConfirmModal.returnToDetailId;
+  const ids = statusConfirmModal.targets.map((u) => u.id);
+  await usersStore.toggleUsersStatus(ids, { forcedStatus, reason });
+  closeStatusConfirmModal();
+  if (returnId) {
+    viewingUserId.value = returnId;
+  }
+}
+
+function handleQuickProvision(kind, id) {
+  const result = usersStore.getQuickProvisionPrefill(kind, id);
+  if (!result) return;
+  if (result.existingUser) {
+    openUserDetail(result.existingUser.id);
+    return;
+  }
+  openCreateUser(result.prefill);
+}
+
+async function handleBulkProvision(kind) {
+  const issued = await usersStore.bulkProvisionFromWhitelist(kind);
+  if (!issued?.length) return;
+  bulkCredentialsModal.issued = issued;
+  bulkCredentialsModal.isOpen = true;
+}
+
+function openStudentWhitelistModal(studentId) {
+  studentModal.student = studentId
+    ? usersStore.studentWhitelist.find((s) => s.id === studentId) || null
+    : null;
+  studentModal.isOpen = true;
+}
+
+function closeStudentModal() {
+  studentModal.isOpen = false;
+  studentModal.student = null;
+}
+
+async function handleStudentModalSubmit(payload) {
+  const isSuccess = await usersStore.saveStudentWhitelist(studentModal.student?.id || null, payload);
+  if (isSuccess) {
+    closeStudentModal();
+  }
+}
+
+function openJudgeWhitelistModal(judgeId) {
+  judgeModal.judge = judgeId
+    ? usersStore.judges.find((j) => j.id === judgeId) || null
+    : null;
+  judgeModal.isOpen = true;
+}
+
+function closeJudgeModal() {
+  judgeModal.isOpen = false;
+  judgeModal.judge = null;
+}
+
+async function handleJudgeModalSubmit(payload) {
+  const isSuccess = await usersStore.saveJudgeWhitelist(judgeModal.judge?.id || null, payload);
+  if (isSuccess) {
+    closeJudgeModal();
+  }
+}
+
+function openWhitelistDelete(kind, ids) {
+  if (!ids?.length) return;
+  deleteModal.kind = kind;
+  deleteModal.ids = [...ids];
+  deleteModal.isOpen = true;
+}
+
+function closeWhitelistDeleteModal() {
+  deleteModal.isOpen = false;
+  deleteModal.ids = [];
+}
+
+async function handleWhitelistDeleteConfirm() {
+  const isSuccess = await usersStore.deleteWhitelistItems(deleteModal.kind, deleteModal.ids);
+  if (isSuccess) {
+    closeWhitelistDeleteModal();
+  }
+}
+
+function openImportModal(kind) {
+  importModal.kind = kind;
+  importModal.completedResult = null;
+  importModal.isOpen = true;
+}
+
+function closeImportModal() {
+  importModal.isOpen = false;
+  importModal.completedResult = null;
+}
+
+async function handleImportSubmit(importConfig) {
+  const result = await usersStore.executeImport(importConfig);
+  if (!result) return;
+  if (importConfig.kind === 'users') {
+    importModal.completedResult = result;
+    return;
+  }
+  closeImportModal();
+}
+
+function syncTabFromQuery(tabQuery) {
+  const normalized = String(tabQuery || '').trim();
+  if (normalized) {
+    usersStore.setActiveTab(normalized);
+  }
+}
+
+watch(
+  () => route.query?.tab,
+  (nextTab) => {
+    syncTabFromQuery(nextTab);
+  }
+);
+
+onMounted(async () => {
+  await usersStore.loadDirectory({ silent: true });
+  syncTabFromQuery(route.query?.tab);
+});
 </script>

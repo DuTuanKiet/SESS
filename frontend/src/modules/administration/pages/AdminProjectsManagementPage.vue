@@ -1,81 +1,389 @@
 <template>
   <div class="space-y-5">
-    <div><h1 class="text-2xl font-bold tracking-tight text-[#0f172a]">Dự án & xử lý ngoại lệ</h1><p class="mt-1 text-sm text-slate-500">Danh sách dự án toàn hệ thống, lọc needsAdminReview, đổi trạng thái từng dòng, duyệt yêu cầu thành viên/hủy/khiếu nại.</p></div>
-    <div v-if="message" :class="['rounded-2xl border p-4 text-sm', messageType==='error'?'border-red-200 bg-red-50 text-red-700':'border-emerald-200 bg-emerald-50 text-emerald-700']">{{ message }}</div>
-
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <h2 class="text-sm font-semibold text-slate-900">Tất cả dự án (Admin)</h2>
-        <button class="text-xs font-semibold text-indigo-600" @click="loadProjects(1)">Tải lại</button>
+    <!-- Thanh tiêu đề trang quản lý dự án & thành viên -->
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Dự án &amp; Thành viên</h1>
+        <p class="mt-1 text-xs text-slate-500">
+          Theo dõi vòng đời dự án toàn trường, xét duyệt đơn xin hủy và xử lý thay đổi thành viên nhóm.
+        </p>
       </div>
-      <form class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5" @submit.prevent="loadProjects(1)">
-        <input v-model="projectFilters.search" placeholder="Tên / mã dự án" class="rounded-xl border border-slate-200 px-3 py-2 text-sm xl:col-span-2" />
-        <select v-model="projectFilters.status" class="rounded-xl border border-slate-200 px-3 py-2 text-sm"><option value="">Mọi trạng thái</option><option>DRAFT</option><option>SUBMITTED</option><option>IN_REVIEW</option><option>UNDER_MENTORSHIP</option><option>EVALUATED</option><option>APPROVED</option><option>COMPLETED</option><option>REJECTED</option><option>CANCELLED</option></select>
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm"><input v-model="projectFilters.needsAdminReview" type="checkbox" class="rounded" /><span>Cần Admin phân xử</span></label>
-        <button class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Lọc</button>
-      </form>
-      <div v-if="loadingProjects" class="py-10 text-center text-sm text-slate-500">Đang tải dự án…</div>
-      <div v-else-if="!projects.length" class="py-10 text-center text-sm text-slate-500">Không có dự án phù hợp.</div>
-      <div v-else class="mt-4 overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead><tr class="border-b border-slate-100 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500"><th class="px-3 py-2">Dự án</th><th class="px-3 py-2">Nhóm trưởng</th><th class="px-3 py-2">Mentor</th><th class="px-3 py-2">Điểm TB</th><th class="px-3 py-2">Trạng thái</th><th class="px-3 py-2">Thao tác</th></tr></thead>
-          <tbody>
-            <tr v-for="p in projects" :key="pid(p)" class="border-b border-slate-50 align-top">
-              <td class="px-3 py-3"><p class="font-medium text-slate-900">{{ p.title || p.name }} <span v-if="p.needsAdminReview" class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">Cần phân xử</span></p><p class="text-[11px] text-slate-400">{{ p.code || pid(p) }}</p><p v-if="p.adminReviewReason" class="mt-1 text-[11px] text-amber-700">{{ p.adminReviewReason }}</p></td>
-              <td class="px-3 py-3 text-xs text-slate-600">{{ p.leader?.fullName || p.leader?.email || p.ownerId?.fullName || p.ownerId?.email || '—' }}</td>
-              <td class="px-3 py-3 text-xs text-slate-600">{{ p.currentMentor?.fullName || p.currentMentor?.email || '—' }}</td>
-              <td class="px-3 py-3 text-xs text-slate-700">{{ p.averageScore != null ? `${p.averageScore} (${p.submittedEvaluationCount||0})` : '—' }}</td>
-              <td class="px-3 py-3">
-                <select :value="p.status" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" @change="e => changeStatus(p, e.target.value)">
-                  <option>DRAFT</option><option>SUBMITTED</option><option>IN_REVIEW</option><option>UNDER_MENTORSHIP</option><option>EVALUATED</option><option>APPROVED</option><option>COMPLETED</option><option>REJECTED</option><option>CANCELLED</option>
-                </select>
-              </td>
-              <td class="px-3 py-3"><button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold" @click="selectProject(p)">Chọn</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="mt-4 flex items-center justify-between text-sm"><p class="text-slate-500">Tổng {{ projectPagination.total }} · Trang {{ projectPagination.page }}/{{ Math.max(1,projectPagination.totalPages||1) }}</p><div class="flex gap-2"><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="projectPagination.page<=1" @click="loadProjects(projectPagination.page-1)">Trước</button><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="projectPagination.page >= (projectPagination.totalPages||1)" @click="loadProjects(projectPagination.page+1)">Sau</button></div></div>
-    </section>
-
-    <div class="grid gap-5 xl:grid-cols-3">
-      <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-slate-900">Yêu cầu đổi thành viên (toàn trường)</h2><button class="text-xs font-semibold text-indigo-600" @click="loadMemberChanges">Tải</button></div>
-        <div v-if="memberChanges.length" class="mt-3 space-y-2"><article v-for="m in memberChanges" :key="pid(m)" class="rounded-xl border border-slate-100 p-3 text-sm"><p class="font-medium">{{ m.projectId?.code || m.projectId?.title || pid(m.projectId) }}</p><p class="text-xs text-slate-500">{{ m.type || m.action }} · {{ m.targetUserId?.fullName || m.targetUserId?.email || '—' }}</p><p class="mt-1 text-xs text-slate-500">{{ m.reason || '—' }}</p><div class="mt-2 flex gap-2"><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700" @click="reviewMemberChange(m,'APPROVED')">Duyệt</button><button class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700" @click="reviewMemberChange(m,'REJECTED')">Từ chối</button></div></article></div>
-        <p v-else class="mt-3 text-sm text-slate-500">Chưa có yêu cầu PENDING.</p>
-      </section>
-
-      <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-slate-900">Yêu cầu hủy dự án</h2><button class="text-xs font-semibold text-indigo-600" @click="loadCancellations">Tải</button></div>
-        <div v-if="cancellations.length" class="mt-3 space-y-2"><article v-for="c in cancellations" :key="pid(c)" class="rounded-xl border border-slate-100 p-3 text-sm"><p class="font-medium text-slate-900">{{ c.projectId?.name || c.projectId?.title || pid(c.projectId) }}</p><p class="mt-1 text-xs text-slate-500">{{ c.reason || c.note || '—' }}</p><div class="mt-2 flex gap-2"><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700" @click="reviewCancellation(c,'APPROVED')">Duyệt</button><button class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700" @click="reviewCancellation(c,'REJECTED')">Từ chối</button></div></article></div>
-        <p v-else class="mt-3 text-sm text-slate-500">Chưa có dữ liệu.</p>
-      </section>
-
-      <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-slate-900">Khiếu nại / phúc khảo</h2><button class="text-xs font-semibold text-indigo-600" @click="loadAppeals">Tải</button></div>
-        <div v-if="appeals.length" class="mt-3 space-y-2"><article v-for="a in appeals" :key="pid(a)" class="rounded-xl border border-slate-100 p-3 text-sm"><p class="font-medium text-slate-900">{{ a.projectId?.name || a.projectId?.title || pid(a.projectId) }}</p><p class="mt-1 text-xs text-slate-500">{{ a.reason }}</p><p class="mt-1 text-[11px]">Status: {{ a.status }}</p><div class="mt-2 flex gap-2"><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700" @click="reviewAppeal(a,'APPROVED')">Chấp nhận</button><button class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700" @click="reviewAppeal(a,'REJECTED')">Từ chối</button></div></article></div>
-        <p v-else class="mt-3 text-sm text-slate-500">Chưa có dữ liệu.</p>
-      </section>
     </div>
+
+    <div
+      v-if="projectsStore.errorMessage"
+      class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+      role="alert"
+    >
+      {{ projectsStore.errorMessage }}
+    </div>
+
+    <!-- Thanh chuyển 3 phân mục kèm badge số lượng yêu cầu đang chờ duyệt -->
+    <AdminSubTabs
+      :tabs="subTabs"
+      :active-key="projectsStore.activeTab"
+      aria-label="Phân mục quản lý dự án và thành viên"
+      @update:active-key="projectsStore.setActiveTab"
+    />
+
+    <AdminProjectsLifecycleTab
+      v-if="projectsStore.activeTab === 'projects-list'"
+      :rows="projectsStore.paginatedProjects"
+      :total-count="projectsStore.projects.length"
+      :filtered-count="projectsStore.filteredProjects.length"
+      :filters="projectsStore.projectFilters"
+      :has-filters="projectsStore.hasProjectFilters"
+      :competition-options="projectsStore.competitionOptions"
+      :category-options="projectsStore.categoryOptions"
+      :competition-code-map="projectsStore.competitionCodeMap"
+      :page="projectsStore.pagination.projects.page"
+      :page-size="projectsStore.pagination.projects.pageSize"
+      @update-filter="handleProjectFilterUpdate"
+      @reset-filters="projectsStore.resetProjectFilters()"
+      @view-detail="handleOpenProjectDetail"
+      @update:page="(p) => projectsStore.setPage('projects', p)"
+      @update:page-size="(s) => projectsStore.setPageSize('projects', s)"
+    />
+
+    <AdminProjectCancellationsTab
+      v-else-if="projectsStore.activeTab === 'projects-cancel'"
+      :rows="projectsStore.paginatedCancellations"
+      :filtered-count="projectsStore.filteredCancellations.length"
+      :status-filter="projectsStore.cancelStatusFilter"
+      :project-title-map="projectsStore.projectTitleByCodeMap"
+      :page="projectsStore.pagination.cancels.page"
+      :page-size="projectsStore.pagination.cancels.pageSize"
+      @update:status-filter="projectsStore.setCancelStatusFilter"
+      @preview-file="handlePreviewCancellationFile"
+      @review="openCancellationReviewModal"
+      @update:page="(p) => projectsStore.setPage('cancels', p)"
+      @update:page-size="(s) => projectsStore.setPageSize('cancels', s)"
+    />
+
+    <AdminMemberChangesTab
+      v-else
+      :rows="projectsStore.paginatedChangeRequests"
+      :filtered-count="projectsStore.filteredChangeRequests.length"
+      :status-filter="projectsStore.changeStatusFilter"
+      :page="projectsStore.pagination.changes.page"
+      :page-size="projectsStore.pagination.changes.pageSize"
+      @update:status-filter="projectsStore.setChangeStatusFilter"
+      @respond="openMemberChangeModal"
+      @update:page="(p) => projectsStore.setPage('changes', p)"
+      @update:page-size="(s) => projectsStore.setPageSize('changes', s)"
+    />
+
+    <!-- Tái sử dụng modal xem chi tiết hồ sơ dự án và các modal thao tác vòng đời -->
+    <AdminProjectDetailModal
+      :is-open="Boolean(viewingProject)"
+      :project="viewingProject"
+      :competition-code="projectsStore.getCompetitionCode(viewingProject?.competitionId)"
+      @close="viewingProjectId = ''"
+      @open-attachment="handleOpenProjectAttachment"
+      @download-deliverable="handleDownloadDeliverable"
+      @trigger-action="handleProjectOperationalAction"
+    />
+
+    <AdminProjectStatusModal
+      :is-open="Boolean(statusModalProject)"
+      :project="statusModalProject"
+      :is-submitting="projectsStore.isSubmitting"
+      @close="statusModalProjectId = ''"
+      @submit="handleStatusModalSubmit"
+    />
+
+    <AdminProjectPromoteModal
+      :is-open="Boolean(promoteModalProject)"
+      :project="promoteModalProject"
+      :is-submitting="projectsStore.isSubmitting"
+      @close="promoteModalProjectId = ''"
+      @submit="handlePromoteModalSubmit"
+    />
+
+    <AdminProjectTransferOwnerModal
+      :is-open="Boolean(transferModalProject)"
+      :project="transferModalProject"
+      :is-submitting="projectsStore.isSubmitting"
+      @close="transferModalProjectId = ''"
+      @submit="handleTransferModalSubmit"
+    />
+
+    <AdminReassignMentorModal
+      :is-open="Boolean(reassignModalProject)"
+      :project="reassignTargetAdapter"
+      :current-mentor="reassignCurrentMentor"
+      :available-mentors="reassignAvailableMentors"
+      :is-submitting="projectsStore.isSubmitting"
+      @close="reassignModalProjectId = ''"
+      @submit="handleReassignMentorSubmit"
+    />
+
+    <AdminProjectRequestReviewModal
+      :is-open="requestReviewModal.isOpen"
+      :mode="requestReviewModal.mode"
+      :item="requestReviewModal.item"
+      :is-submitting="projectsStore.isSubmitting"
+      @close="closeRequestReviewModal"
+      @submit="handleRequestReviewSubmit"
+    />
   </div>
 </template>
+
 <script setup>
-import { ref, onMounted } from 'vue';
-import { adminService } from '../services/adminService';
-const loadingProjects=ref(false), message=ref(''), messageType=ref('success');
-const projects=ref([]), memberChanges=ref([]), cancellations=ref([]), appeals=ref([]);
-const projectFilters=ref({ search:'', status:'', needsAdminReview:false });
-const projectPagination=ref({ page:1, limit:20, total:0, totalPages:1 });
-function pid(o){ return o?._id || o?.id; }
-function notify(msg,type='success'){ message.value=msg; messageType.value=type; }
-function selectProject(p){ projectFilters.value.search=p.code||p.title||''; notify(`Đã chọn dự án ${p.code||pid(p)}.`); }
-async function loadProjects(page=1){ loadingProjects.value=true; try{ projectPagination.value.page=page; const params={ ...projectFilters.value, page, limit:projectPagination.value.limit, needsAdminReview: projectFilters.value.needsAdminReview ? 'true' : undefined }; const res=await adminService.listAdminProjects(params); const d=res?.data||{}; projects.value=d.items||[]; projectPagination.value={ ...projectPagination.value, ...(d.pagination||{}) }; }catch(e){ notify(e?.message||'Không tải được danh sách dự án.','error'); } finally{ loadingProjects.value=false; } }
-async function changeStatus(p,status){ try{ await adminService.updateProjectStatus(pid(p), status); notify(`Đã cập nhật trạng thái ${p.code||pid(p)} → ${status}.`); await loadProjects(projectPagination.value.page); }catch(e){ notify(e?.message||'Cập nhật trạng thái thất bại (state machine).','error'); await loadProjects(projectPagination.value.page); } }
-async function loadMemberChanges(){ try{ const res=await adminService.listAdminMemberChangeRequests({ status:'PENDING', limit:20 }); memberChanges.value=res?.data?.items||[]; }catch(e){ notify(e?.message||'Không tải được yêu cầu thành viên.','error'); } }
-async function reviewMemberChange(m,status){ try{ await adminService.reviewMemberChangeRequest(pid(m),{ status, adminResponse:`Admin ${status.toLowerCase()}` }); notify('Đã xử lý yêu cầu thành viên.'); await loadMemberChanges(); }catch(e){ notify(e?.message||'Xử lý thất bại.','error'); } }
-async function loadCancellations(){ try{ const res=await adminService.listCancellationRequests({ limit:20 }); cancellations.value=res?.data?.items||res?.data||[]; }catch{} }
-async function reviewCancellation(c,status){ try{ await adminService.reviewCancellationRequest(pid(c),{ status, adminResponse:`Admin ${status.toLowerCase()}` }); notify('Đã xử lý yêu cầu hủy.'); await loadCancellations(); }catch(e){ notify(e?.message||'Xử lý thất bại.','error'); } }
-async function loadAppeals(){ try{ const res=await adminService.listAppeals({ limit:20 }); appeals.value=res?.data?.items||res?.data||[]; }catch{} }
-async function reviewAppeal(a,status){ try{ await adminService.reviewAppeal(pid(a),{ status, adminResponse:`Admin ${status.toLowerCase()}` }); notify('Đã xử lý khiếu nại.'); await loadAppeals(); }catch(e){ notify(e?.message||'Xử lý thất bại.','error'); } }
-onMounted(()=>{ loadProjects(1); loadMemberChanges(); loadCancellations(); loadAppeals(); });
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useToastStore } from '@/stores/toast';
+import { useAdminProjectsStore } from '@/modules/administration/stores/useAdminProjectsStore';
+import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminProjectDetailModal from '@/modules/administration/common/components/projects/AdminProjectDetailModal.vue';
+import AdminReassignMentorModal from '@/modules/administration/components/mentors/AdminReassignMentorModal.vue';
+import AdminProjectsLifecycleTab from '@/modules/administration/components/projects/AdminProjectsLifecycleTab.vue';
+import AdminProjectCancellationsTab from '@/modules/administration/components/projects/AdminProjectCancellationsTab.vue';
+import AdminMemberChangesTab from '@/modules/administration/components/projects/AdminMemberChangesTab.vue';
+import AdminProjectStatusModal from '@/modules/administration/components/projects/AdminProjectStatusModal.vue';
+import AdminProjectPromoteModal from '@/modules/administration/components/projects/AdminProjectPromoteModal.vue';
+import AdminProjectTransferOwnerModal from '@/modules/administration/components/projects/AdminProjectTransferOwnerModal.vue';
+import AdminProjectRequestReviewModal from '@/modules/administration/components/projects/AdminProjectRequestReviewModal.vue';
+
+// Trang Dự án & Thành viên chuyển đổi từ StaticFE, điều phối 3 subtabs và modal qua Pinia store
+const route = useRoute();
+const router = useRouter();
+const toastStore = useToastStore();
+const projectsStore = useAdminProjectsStore();
+
+const viewingProjectId = ref('');
+const statusModalProjectId = ref('');
+const promoteModalProjectId = ref('');
+const transferModalProjectId = ref('');
+const reassignModalProjectId = ref('');
+
+const requestReviewModal = reactive({
+  isOpen: false,
+  mode: 'cancel',
+  item: null,
+});
+
+const subTabs = computed(() => [
+  { key: 'projects-list', label: 'Vòng đời dự án' },
+  {
+    key: 'projects-cancel',
+    label: 'Đơn xin hủy',
+    count: projectsStore.pendingCancelsCount,
+  },
+  {
+    key: 'projects-change',
+    label: 'Thay đổi thành viên',
+    count: projectsStore.pendingChangesCount,
+  },
+]);
+
+const viewingProject = computed(() =>
+  projectsStore.findProjectByIdOrCode(viewingProjectId.value)
+);
+const statusModalProject = computed(() =>
+  projectsStore.findProjectByIdOrCode(statusModalProjectId.value)
+);
+const promoteModalProject = computed(() =>
+  projectsStore.findProjectByIdOrCode(promoteModalProjectId.value)
+);
+const transferModalProject = computed(() =>
+  projectsStore.findProjectByIdOrCode(transferModalProjectId.value)
+);
+const reassignModalProject = computed(() =>
+  projectsStore.findProjectByIdOrCode(reassignModalProjectId.value)
+);
+
+const reassignTargetAdapter = computed(() => {
+  const proj = reassignModalProject.value;
+  if (!proj) return null;
+  return {
+    projectId: proj.id,
+    code: proj.code,
+    displayLabel: proj.code,
+  };
+});
+
+const reassignCurrentMentor = computed(() =>
+  projectsStore.resolveCurrentMentorForProject(reassignModalProject.value)
+);
+
+const reassignAvailableMentors = computed(() =>
+  projectsStore.getAvailableReassignMentors(reassignModalProject.value)
+);
+
+function handleProjectFilterUpdate({ key, value }) {
+  projectsStore.setProjectFilter(key, value);
+}
+
+function handleOpenProjectDetail(project) {
+  if (!project) return;
+  viewingProjectId.value = project.id;
+}
+
+function handlePreviewCancellationFile(fileName) {
+  if (!fileName) return;
+  toastStore.add({
+    type: 'info',
+    message: `Mô phỏng mở tệp ${fileName}`,
+  });
+}
+
+function handleOpenProjectAttachment(attachment) {
+  if (!attachment) return;
+  toastStore.add({
+    type: 'info',
+    message: `Mô phỏng mở file thuyết minh: ${attachment.name}`,
+  });
+}
+
+function handleDownloadDeliverable(item) {
+  if (!item) return;
+  toastStore.add({
+    type: 'info',
+    message: `Mô phỏng tải về: ${item.name}`,
+  });
+}
+
+function openActionModalByKey(action, project) {
+  if (!project) return;
+  if (action === 'assignMentor') {
+    router.push({
+      path: '/admin/mentor-assignments',
+      query: { projectId: project.id },
+    });
+    return;
+  }
+  if (action === 'projectStatus') {
+    statusModalProjectId.value = project.id;
+    return;
+  }
+  if (action === 'promote') {
+    promoteModalProjectId.value = project.id;
+    return;
+  }
+  if (action === 'transferOwner') {
+    transferModalProjectId.value = project.id;
+    return;
+  }
+  if (action === 'reassignMentor') {
+    reassignModalProjectId.value = project.id;
+    return;
+  }
+  viewingProjectId.value = project.id;
+}
+
+function handleProjectOperationalAction({ action, project }) {
+  if (!project) return;
+  viewingProjectId.value = '';
+  openActionModalByKey(action, project);
+}
+
+async function handleStatusModalSubmit(payload) {
+  if (!statusModalProject.value) return;
+  const isSuccess = await projectsStore.changeProjectStatus(statusModalProject.value.id, payload);
+  if (isSuccess) {
+    statusModalProjectId.value = '';
+  }
+}
+
+async function handlePromoteModalSubmit(payload) {
+  if (!promoteModalProject.value) return;
+  const isSuccess = await projectsStore.promoteProject(promoteModalProject.value.id, payload);
+  if (isSuccess) {
+    promoteModalProjectId.value = '';
+  }
+}
+
+async function handleTransferModalSubmit(payload) {
+  if (!transferModalProject.value) return;
+  const isSuccess = await projectsStore.transferProjectOwner(
+    transferModalProject.value.id,
+    payload
+  );
+  if (isSuccess) {
+    transferModalProjectId.value = '';
+  }
+}
+
+async function handleReassignMentorSubmit(payload) {
+  const isSuccess = await projectsStore.reassignProjectMentor(payload);
+  if (isSuccess) {
+    reassignModalProjectId.value = '';
+  }
+}
+
+function openCancellationReviewModal(item) {
+  if (!item) return;
+  requestReviewModal.mode = 'cancel';
+  requestReviewModal.item = item;
+  requestReviewModal.isOpen = true;
+}
+
+function openMemberChangeModal(item) {
+  if (!item) return;
+  requestReviewModal.mode = 'change';
+  requestReviewModal.item = item;
+  requestReviewModal.isOpen = true;
+}
+
+function closeRequestReviewModal() {
+  requestReviewModal.isOpen = false;
+  requestReviewModal.item = null;
+}
+
+async function handleRequestReviewSubmit(payload) {
+  if (!requestReviewModal.item) return;
+  const isSuccess =
+    requestReviewModal.mode === 'cancel'
+      ? await projectsStore.reviewCancellation(requestReviewModal.item.id, payload)
+      : await projectsStore.respondMemberChange(requestReviewModal.item.id, payload);
+  if (isSuccess) {
+    closeRequestReviewModal();
+  }
+}
+
+// Đồng bộ deep-link từ Dashboard (?tab=...) và Quản lý cuộc thi (?competitionId=... / ?projectId=...&action=...)
+function syncRouteQuery(query = {}) {
+  const tab = String(query?.tab || '').trim();
+  if (tab) {
+    projectsStore.setActiveTab(tab);
+  }
+
+  const competitionId = String(query?.competitionId || '').trim();
+  if (competitionId) {
+    projectsStore.setActiveTab('projects-list');
+    projectsStore.setProjectFilter('competitionId', competitionId);
+  }
+
+  const projectId = String(query?.projectId || '').trim();
+  const action = String(query?.action || '').trim();
+  if (projectId) {
+    const matched = projectsStore.findProjectByIdOrCode(projectId);
+    if (matched) {
+      projectsStore.setActiveTab('projects-list');
+      openActionModalByKey(action || 'detail', matched);
+    }
+    const nextQuery = { ...query };
+    delete nextQuery.projectId;
+    delete nextQuery.action;
+    router.replace({ query: Object.keys(nextQuery).length ? nextQuery : undefined });
+  }
+}
+
+watch(
+  () => [
+    route.query?.tab,
+    route.query?.competitionId,
+    route.query?.projectId,
+    route.query?.action,
+  ],
+  () => {
+    syncRouteQuery(route.query);
+  }
+);
+
+onMounted(async () => {
+  await projectsStore.loadProjectsData({ silent: true });
+  syncRouteQuery(route.query);
+});
 </script>
