@@ -10,13 +10,9 @@
           >
             Danh sách Ban Giám khảo được duyệt
           </h2>
-          <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-            Whitelist Giám khảo
-          </span>
         </div>
         <p class="mt-0.5 text-xs text-slate-400">
-          Chỉ giảng viên hoặc chuyên gia doanh nghiệp có tên trong danh sách này mới đủ điều kiện
-          nhận phân công chấm điểm.
+          Chỉ giảng viên hoặc chuyên gia doanh nghiệp
         </p>
       </div>
 

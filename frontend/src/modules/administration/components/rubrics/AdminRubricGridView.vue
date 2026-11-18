@@ -155,10 +155,10 @@
             v-model="rubricsStore.filters.status"
             class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm outline-none transition focus:border-[#1E56D9] focus:ring-2 focus:ring-[#1E56D9]/15"
           >
-            <option value="ALL">Tất cả trạng thái ({{ rubricsStore.kpiStats.total }})</option>
-            <option value="Active">Đang áp dụng ({{ rubricsStore.kpiStats.active }})</option>
-            <option value="Draft">Bản nháp ({{ rubricsStore.kpiStats.draft }})</option>
-            <option value="Deprecated">Ngừng dùng ({{ rubricsStore.kpiStats.deprecated }})</option>
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="Active">Đang áp dụng</option>
+            <option value="Draft">Bản nháp</option>
+            <option value="Deprecated">Ngừng dùng</option>
           </select>
         </div>
       </div>

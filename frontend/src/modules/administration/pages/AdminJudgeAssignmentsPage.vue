@@ -1,70 +1,229 @@
 <template>
   <div class="space-y-5">
-    <div><h1 class="text-2xl font-bold tracking-tight text-[#0f172a]">Phân công giám khảo / cố vấn</h1><p class="mt-1 text-sm text-slate-500">Chọn vòng thi, dự án, giám khảo từ dữ liệu thật; xử lý dự án lệch điểm/cần Admin phân xử (override, GK thứ 3, hoàn tất phân xử).</p></div>
-    <div v-if="message" :class="['rounded-2xl border p-4 text-sm', messageType==='error'?'border-red-200 bg-red-50 text-red-700':'border-emerald-200 bg-emerald-50 text-emerald-700']">{{ message }}</div>
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-[#0F172A]">Chấm điểm &amp; Phúc khảo</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        Quản lý hội đồng, phân công phiếu chấm, điều chuyển giám khảo và lưu lịch sử điều chỉnh điểm.
+      </p>
+    </div>
 
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-slate-900">Gán giám khảo (COI + rubric check)</h2><button class="text-xs font-semibold text-indigo-600" @click="loadLookups">Tải dữ liệu chọn</button></div>
-      <form class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" @submit.prevent="assign">
-        <label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Vòng thi</span><select v-model="assignForm.evaluationRoundId" required class="w-full rounded-xl border border-slate-200 px-3 py-2"><option value="">-- Chọn vòng --</option><option v-for="r in rounds" :key="id(r)" :value="id(r)">{{ r.name || r.roundName }} ({{ r.stageType || 'OTHER' }})</option></select></label>
-        <label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Dự án</span><select v-model="assignForm.projectId" required class="w-full rounded-xl border border-slate-200 px-3 py-2"><option value="">-- Chọn dự án --</option><option v-for="p in projects" :key="id(p)" :value="id(p)">{{ p.code ? `${p.code} · ` : '' }}{{ p.title || p.name }}{{ p.needsAdminReview ? ' [Cần phân xử]' : '' }}</option></select></label>
-        <label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Giám khảo</span><select v-model="assignForm.evaluatorId" required class="w-full rounded-xl border border-slate-200 px-3 py-2"><option value="">-- Chọn giám khảo --</option><option v-for="j in judges" :key="id(j)" :value="id(j)">{{ j.fullName || j.name }} — {{ j.email }}</option></select></label>
-        <label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Rubric Version ID (tuỳ chọn)</span><input v-model="assignForm.rubricVersionId" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Để trống dùng rubric của vòng" /></label>
-        <div class="md:col-span-2 xl:col-span-4 flex justify-end"><button :disabled="saving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{{ saving ? 'Đang gán…' : 'Gán giám khảo' }}</button></div>
-      </form>
-    </section>
+    <AdminSubTabs
+      :tabs="tabs"
+      :active-key="activeTab"
+      aria-label="Phân hệ Chấm điểm và Phúc khảo"
+      @update:active-key="handleTabChange"
+    />
 
-    <section class="rounded-2xl border border-amber-200/70 bg-amber-50/30 p-5 shadow-sm">
-      <div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-slate-900">Dự án bị lệch điểm / cần Admin phân xử</h2><button class="text-xs font-semibold text-indigo-600" @click="loadNeedsReview">Tải lại</button></div>
-      <div v-if="needsReview.length" class="mt-3 overflow-x-auto">
-        <table class="min-w-full text-sm"><thead><tr class="border-b border-amber-100 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500"><th class="px-3 py-2">Dự án</th><th class="px-3 py-2">Lý do</th><th class="px-3 py-2">Điểm TB</th><th class="px-3 py-2">Thao tác</th></tr></thead><tbody>
-          <tr v-for="p in needsReview" :key="id(p)" class="border-b border-amber-50/60 align-top"><td class="px-3 py-3"><p class="font-medium text-slate-900">{{ p.code ? `${p.code} · ` : '' }}{{ p.title || p.name }}</p></td><td class="px-3 py-3 text-xs text-amber-800">{{ p.adminReviewReason || 'Cần rà soát' }}</td><td class="px-3 py-3 text-xs">{{ p.averageScore != null ? p.averageScore : '—' }}</td><td class="px-3 py-3"><div class="flex flex-wrap gap-2"><button class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold" @click="openOverride(p)">Score Override</button><button class="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700" @click="assignThirdJudge(p)">Gán GK thứ 3</button><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700" @click="resolveToEvaluated(p)">Hoàn tất → EVALUATED</button></div></td></tr>
-        </tbody></table>
-      </div>
-      <p v-else class="mt-3 text-sm text-slate-500">Không có dự án needsAdminReview.</p>
-    </section>
+    <Transition name="judging-tab" mode="out-in">
+      <component
+        :is="activeTabComponent"
+        :key="activeTab"
+        @create-council="openModal('council-form')"
+        @view-council="openModal('council-detail', { councilId: $event })"
+        @edit-council="handleEditCouncil"
+        @assign-round="handleAssignRound"
+        @create-emergency="openModal('emergency')"
+        @create-override="openModal('override')"
+        @revoke="handleRevokeRequest"
+        @view-project="openProject"
+      />
+    </Transition>
 
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-end gap-3"><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Xem phân công theo vòng</span><select v-model="roundId" class="w-80 max-w-full rounded-xl border border-slate-200 px-3 py-2"><option value="">-- Chọn vòng --</option><option v-for="r in rounds" :key="id(r)" :value="id(r)">{{ r.name || r.roundName }}</option></select></label><button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="loadAssignments">Tải phân công</button></div>
-      <div v-if="loadingAssignments" class="py-8 text-sm text-slate-500">Đang tải…</div>
-      <div v-else-if="assignments.length" class="mt-4 overflow-x-auto"><table class="min-w-full text-xs"><thead><tr class="border-b text-left text-slate-500"><th class="py-2 pr-3">Project</th><th class="py-2 pr-3">Judge</th><th class="py-2 pr-3">Trạng thái</th><th class="py-2 pr-3">Điểm</th></tr></thead><tbody><tr v-for="a in assignments" :key="id(a)" class="border-b border-slate-50"><td class="py-2 pr-3">{{ a.projectId?.name || a.projectId?.title || a.projectId }}</td><td class="py-2 pr-3">{{ a.judgeId?.fullName || a.judgeId?.email || a.judgeId }}</td><td class="py-2 pr-3">{{ a.status }}</td><td class="py-2 pr-3">{{ a.totalScore ?? '—' }}</td></tr></tbody></table></div>
-      <p v-else class="mt-4 text-sm text-slate-500">Chọn vòng để xem danh sách phiếu chấm/phân công.</p>
-    </section>
-
-    <dialog ref="overrideDlg" class="w-full max-w-xl rounded-2xl border-0 p-0 shadow-xl backdrop:bg-slate-900/30">
-      <form class="space-y-4 p-6" @submit.prevent="submitOverride(false)">
-        <h2 class="text-lg font-bold">Tạo Score Override</h2>
-        <p class="text-xs text-slate-500">Dự án: {{ overrideForm.projectLabel }}</p>
-        <label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Bộ tiêu chí (Rubric)</span><select v-model="overrideForm.rubricId" required class="w-full rounded-xl border border-slate-200 px-3 py-2" @change="onRubricChange"><option value="">-- Chọn rubric --</option><option v-for="r in rubrics" :key="id(r)" :value="id(r)">{{ r.name }}{{ r.version ? ` (v${r.version})` : '' }}{{ r.status ? ` · ${r.status}` : '' }}</option></select><p v-if="loadingRubricDetail" class="mt-1 text-[11px] text-slate-400">Đang tải tiêu chí…</p></label>
-        <label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Tiêu chí con (Criterion)</span><select v-model="overrideForm.criterionId" required :disabled="!criteria.length" class="w-full rounded-xl border border-slate-200 px-3 py-2 disabled:bg-slate-50"><option value="">-- {{ criteria.length ? 'Chọn tiêu chí' : 'Chọn rubric trước' }} --</option><option v-for="c in criteria" :key="id(c)" :value="id(c)">{{ c.name }} ({{ c.weight }}%, {{ c.minScore ?? 0 }}–{{ c.maxScore ?? 10 }})</option></select></label>
-        <div class="grid grid-cols-2 gap-3"><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Điểm gốc</span><input v-model.number="overrideForm.originalScore" type="number" step="0.01" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Điểm điều chỉnh</span><input v-model.number="overrideForm.overriddenScore" type="number" step="0.01" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label></div>
-        <label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Lý do (bắt buộc, >= 10 ký tự)</span><textarea v-model="overrideForm.reason" required minlength="10" rows="3" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Mô tả rõ căn cứ điều chỉnh điểm..."></textarea></label>
-        <label class="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-sm text-emerald-900"><input v-model="overrideForm.resolveToEvaluated" type="checkbox" class="rounded" /><span><strong>Hoàn tất phân xử & chuyển sang EVALUATED</strong> sau khi override (đặt needsAdminReview=false, cập nhật trạng thái dự án).</span></label>
-        <div class="flex justify-end gap-2"><button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="overrideDlg.close()">Hủy</button><button :disabled="!canSubmitOverride" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ saving ? 'Đang xử lý…' : 'Tạo override' }}</button></div>
-      </form>
-    </dialog>
+    <AdminJudgingCouncilFormModal
+      v-if="modal.key === 'council-form'"
+      :is-open="true"
+      :council-id="modal.payload.councilId || ''"
+      @close="closeModal"
+      @saved="closeModal"
+    />
+    <AdminJudgingCouncilDetailModal
+      v-if="modal.key === 'council-detail'"
+      :is-open="true"
+      :council-id="modal.payload.councilId"
+      @close="closeModal"
+      @edit-council="handleEditCouncil"
+      @assign-round="handleAssignRound"
+      @view-project="openProject"
+    />
+    <AdminJudgingAssignRoundModal
+      v-if="modal.key === 'assign-round'"
+      :is-open="true"
+      :council-id="modal.payload.councilId || ''"
+      @close="closeModal"
+      @saved="closeModal"
+    />
+    <AdminJudgingEmergencyModal
+      v-if="modal.key === 'emergency'"
+      :is-open="true"
+      @close="closeModal"
+      @saved="closeModal"
+    />
+    <AdminJudgingOverrideModal
+      v-if="modal.key === 'override'"
+      :is-open="true"
+      @close="closeModal"
+      @saved="closeModal"
+    />
+    <AdminJudgingRevokeModal
+      v-if="modal.key === 'revoke'"
+      :is-open="true"
+      :kind="modal.payload.kind"
+      :record-id="modal.payload.recordId"
+      @close="closeModal"
+      @saved="closeModal"
+    />
+    <AdminProjectDetailModal
+      v-if="modal.key === 'project'"
+      :is-open="true"
+      :project="selectedProject"
+      :competition-code="selectedCompetition?.code || ''"
+      @close="closeModal"
+      @open-attachment="handleOpenAttachment"
+      @download-deliverable="handleDownloadDeliverable"
+      @trigger-action="handleProjectAction"
+    />
   </div>
 </template>
+
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { adminService } from '../services/adminService';
-const saving=ref(false), loadingAssignments=ref(false), loadingRubricDetail=ref(false), message=ref(''), messageType=ref('success');
-const rounds=ref([]), projects=ref([]), judges=ref([]), needsReview=ref([]), assignments=ref([]), rubrics=ref([]), criteria=ref([]);
-const assignForm=ref({ evaluationRoundId:'', projectId:'', evaluatorId:'', rubricVersionId:'' });
-const roundId=ref(''), overrideDlg=ref(null), overrideForm=ref({ projectId:'', projectLabel:'', rubricId:'', criterionId:'', originalScore:0, overriddenScore:0, reason:'', resolveToEvaluated:true });
-const canSubmitOverride = computed(() => !saving.value && !!overrideForm.value.rubricId && !!overrideForm.value.criterionId && overrideForm.value.reason.trim().length >= 10 && overrideForm.value.overriddenScore !== '' && overrideForm.value.overriddenScore != null);
-function id(o){ return o?._id || o?.id; }
-function notify(msg,type='success'){ message.value=msg; messageType.value=type; }
-function arr(res){ const d=res?.data; return d?.items||d?.users||d?.projects||d?.rounds||d?.rubrics||d||[]; }
-function resolveRoundRubric(roundIdVal){ const r = rounds.value.find(x => id(x)===roundIdVal); return r?.rubricId?._id || r?.rubricId || ''; }
-async function loadLookups(){ try{ const [r,p,j,rb]=await Promise.all([adminService.listRounds({ limit:100 }), adminService.listAdminProjects({ limit:100 }), adminService.listJudges({ limit:100 }), adminService.listRubrics({ limit:100 })]); rounds.value=arr(r); projects.value=arr(p); judges.value=arr(j); rubrics.value=arr(rb); }catch(e){ notify(e?.message||'Không tải được dữ liệu chọn.','error'); } }
-async function loadNeedsReview(){ try{ const res=await adminService.listAdminProjects({ needsAdminReview:'true', limit:50 }); needsReview.value=arr(res); }catch(e){ notify(e?.message||'Không tải được dự án cần phân xử.','error'); } }
-async function assign(){ saving.value=true; try{ const payload={ ...assignForm.value }; if(!payload.rubricVersionId) delete payload.rubricVersionId; const res=await adminService.assignJudge(payload); notify(res?.message||'Đã xử lý phân công giám khảo.'); if(roundId.value===payload.evaluationRoundId) await loadAssignments(); await loadNeedsReview(); }catch(e){ notify(e?.message||'Gán giám khảo thất bại (COI/NDA/rubric/vòng).','error'); } finally{ saving.value=false; } }
-function assignThirdJudge(p){ assignForm.value.projectId=id(p); if(!assignForm.value.evaluationRoundId && roundId.value) assignForm.value.evaluationRoundId=roundId.value; notify(`Đã chọn dự án ${p.code||id(p)}. Chọn vòng và giám khảo thứ 3 rồi bấm "Gán giám khảo".`); window.scrollTo({ top:0, behavior:'smooth' }); }
-async function onRubricChange(){ criteria.value=[]; overrideForm.value.criterionId=''; if(!overrideForm.value.rubricId) return; loadingRubricDetail.value=true; try{ const res=await adminService.getRubric(overrideForm.value.rubricId); const r=res?.data||res; criteria.value=r?.criteria||[]; }catch(e){ notify(e?.message||'Không tải được tiêu chí rubric.','error'); } finally{ loadingRubricDetail.value=false; } }
-async function openOverride(p){ const suggestedRubric = resolveRoundRubric(assignForm.value.evaluationRoundId || roundId.value) || ''; overrideForm.value={ projectId:id(p), projectLabel:p.code ? `${p.code} · ${p.title||p.name}` : (p.title||p.name||id(p)), rubricId:suggestedRubric, criterionId:'', originalScore:0, overriddenScore:0, reason:'', resolveToEvaluated:true }; criteria.value=[]; overrideDlg.value?.showModal?.(); if(suggestedRubric) await onRubricChange(); }
-async function resolveToEvaluated(p){ if(!confirm(`Hoàn tất phân xử dự án ${p.code||id(p)} và chuyển sang EVALUATED?`)) return; saving.value=true; try{ await adminService.updateProjectStatus(id(p), 'EVALUATED', { needsAdminReview: false }); notify('Đã chuyển dự án sang EVALUATED. (vđ g? c? needsAdminReview.)'); await loadNeedsReview(); await loadLookups(); }catch(e){ notify(e?.message||'Chuyển trạng thái thất bại. Kiểm tra state machine/transition.','error'); } finally{ saving.value=false; } }
-async function submitOverride(){ if(!canSubmitOverride.value) return notify('Chọn rubric/tiêu chí và nhập lý do >= 10 ký tự.','error'); saving.value=true; try{ await adminService.createScoreOverride({ projectId: overrideForm.value.projectId, rubricId: overrideForm.value.rubricId, criterionId: overrideForm.value.criterionId, originalScore: Number(overrideForm.value.originalScore||0), overriddenScore: Number(overrideForm.value.overriddenScore), reason: overrideForm.value.reason.trim() }); let extra=''; if(overrideForm.value.resolveToEvaluated){ try{ await adminService.updateProjectStatus(overrideForm.value.projectId, 'EVALUATED', { needsAdminReview: false }); extra=' Đã chuyển dự án sang EVALUATED.'; }catch(e){ extra=` (Override đã tạo; chuyển EVALUATED thất bại: ${e?.message||'transition'}.)`; } } overrideDlg.value?.close(); notify(`Đã tạo score override.${extra}`); await loadNeedsReview(); }catch(e){ notify(e?.message||'Tạo override thất bại.','error'); } finally{ saving.value=false; } }
-async function loadAssignments(){ if(!roundId.value) return; loadingAssignments.value=true; try{ const res=await adminService.listRoundAssignments(roundId.value); assignments.value=arr(res); }catch(e){ notify(e?.message||'Không tải được phân công.','error'); assignments.value=[]; } finally{ loadingAssignments.value=false; } }
-onMounted(()=>{ loadLookups(); loadNeedsReview(); });
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useToastStore } from '@/stores/toast';
+import AdminProjectDetailModal from '@/modules/administration/common/components/projects/AdminProjectDetailModal.vue';
+import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminJudgingAssignRoundModal from '@/modules/administration/components/judging/AdminJudgingAssignRoundModal.vue';
+import AdminJudgingAssignmentsTab from '@/modules/administration/components/judging/AdminJudgingAssignmentsTab.vue';
+import AdminJudgingCouncilDetailModal from '@/modules/administration/components/judging/AdminJudgingCouncilDetailModal.vue';
+import AdminJudgingCouncilFormModal from '@/modules/administration/components/judging/AdminJudgingCouncilFormModal.vue';
+import AdminJudgingCouncilsTab from '@/modules/administration/components/judging/AdminJudgingCouncilsTab.vue';
+import AdminJudgingEmergenciesTab from '@/modules/administration/components/judging/AdminJudgingEmergenciesTab.vue';
+import AdminJudgingEmergencyModal from '@/modules/administration/components/judging/AdminJudgingEmergencyModal.vue';
+import AdminJudgingOverrideModal from '@/modules/administration/components/judging/AdminJudgingOverrideModal.vue';
+import AdminJudgingOverridesTab from '@/modules/administration/components/judging/AdminJudgingOverridesTab.vue';
+import AdminJudgingRevokeModal from '@/modules/administration/components/judging/AdminJudgingRevokeModal.vue';
+import { useAdminJudgingStore } from '@/modules/administration/stores/useAdminJudgingStore';
+
+const route = useRoute();
+const router = useRouter();
+const toastStore = useToastStore();
+const judgingStore = useAdminJudgingStore();
+
+const tabs = [
+  { key: 'judging-councils', label: 'Hội đồng giám khảo' },
+  { key: 'judging-assign', label: 'Phân công chấm vòng thi' },
+  { key: 'judging-emergency', label: 'Điều chuyển khẩn cấp' },
+  { key: 'judging-override', label: 'Điều chỉnh điểm' },
+];
+const defaultTab = 'judging-councils';
+const activeTab = ref(defaultTab);
+const modal = ref({ key: '', payload: {} });
+
+const activeTabComponent = computed(() => {
+  const components = {
+    'judging-councils': AdminJudgingCouncilsTab,
+    'judging-assign': AdminJudgingAssignmentsTab,
+    'judging-emergency': AdminJudgingEmergenciesTab,
+    'judging-override': AdminJudgingOverridesTab,
+  };
+  return components[activeTab.value] || AdminJudgingCouncilsTab;
+});
+const selectedProject = computed(() =>
+  judgingStore.getProjectByIdOrCode(modal.value.payload.projectId)
+);
+const selectedCompetition = computed(() =>
+  judgingStore.competitions.find((item) => item.id === selectedProject.value?.competitionId)
+);
+
+// Query giữ tab đang chọn khi mở trực tiếp từ Tổng quan và khi dùng Back/Forward.
+watch(
+  () => route.query.tab,
+  (queryTab) => {
+    activeTab.value = tabs.some((tab) => tab.key === queryTab) ? queryTab : defaultTab;
+  },
+  { immediate: true }
+);
+
+function openModal(key, payload = {}) {
+  modal.value = { key, payload };
+}
+
+function closeModal() {
+  modal.value = { key: '', payload: {} };
+}
+
+async function handleTabChange(tabKey) {
+  if (!tabs.some((tab) => tab.key === tabKey) || tabKey === activeTab.value) return;
+  const query = { ...route.query };
+  if (tabKey === defaultTab) delete query.tab;
+  else query.tab = tabKey;
+  await router.push({ query: Object.keys(query).length ? query : undefined });
+}
+
+function handleEditCouncil(councilId) {
+  closeModal();
+  openModal('council-form', { councilId });
+}
+
+async function handleAssignRound(councilId = '') {
+  closeModal();
+  const council = judgingStore.councils.find((item) => item.id === councilId);
+  if (council) {
+    judgingStore.setFilter(
+      'assignmentsRoundKey',
+      `${council.competitionId}:${council.roundNumber}`
+    );
+  }
+  if (activeTab.value !== 'judging-assign') await handleTabChange('judging-assign');
+  openModal('assign-round', { councilId });
+}
+
+function handleRevokeRequest(payload) {
+  if (!payload?.kind || !payload?.recordId) return;
+  openModal('revoke', payload);
+}
+
+function openProject(projectId) {
+  if (!judgingStore.getProjectByIdOrCode(projectId)) return;
+  openModal('project', { projectId });
+}
+
+function handleOpenAttachment(attachment) {
+  if (!attachment) return;
+  toastStore.add({ type: 'info', message: `Mô phỏng mở file thuyết minh: ${attachment.name}` });
+}
+
+function handleDownloadDeliverable(item) {
+  if (!item) return;
+  toastStore.add({ type: 'info', message: `Mô phỏng tải về: ${item.name}` });
+}
+
+function handleProjectAction({ action, project }) {
+  if (!project || !action) return;
+  closeModal();
+  router.push({ path: '/admin/projects', query: { projectId: project.id, action } });
+}
 </script>
+
+<style scoped>
+.judging-tab-enter-active,
+.judging-tab-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.judging-tab-enter-from {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+.judging-tab-leave-to {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judging-tab-enter-active,
+  .judging-tab-leave-active {
+    transition-duration: 1ms;
+  }
+}
+</style>

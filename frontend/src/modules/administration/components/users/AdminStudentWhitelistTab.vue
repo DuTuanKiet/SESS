@@ -10,13 +10,9 @@
           >
             Danh sách Sinh viên hợp lệ
           </h2>
-          <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-            Whitelist Sinh viên
-          </span>
         </div>
         <p class="mt-0.5 text-xs text-slate-400">
-          Nguồn danh sách chính thức của nhà trường — sinh viên phải có tên ở đây mới được đăng ký
-          hoặc kích hoạt tài khoản.
+          Nguồn danh sách chính thức của nhà trường
         </p>
       </div>
 

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import { adminService } from '@/modules/administration/services/adminService';
 import { notificationService } from '@/services/notificationService';
 import { useToastStore } from '@/stores/toast';
+import { useAdminJudgingStore } from '@/modules/administration/stores/useAdminJudgingStore';
 import {
   CHART_PALETTE,
   FACULTY_SHORT_MAP,
@@ -351,6 +352,7 @@ function computeDashboardMetrics(rawState, backendSummary = null) {
 
 export const useAdminDashboardStore = defineStore('adminDashboard', () => {
   const toastStore = useToastStore();
+  const judgingStore = useAdminJudgingStore();
 
   // Mặc định chạy dữ liệu mẫu tĩnh; khi kết nối BE chỉ cần bật useLiveApi = true
   const isLiveApiEnabled = ref(false);
@@ -373,7 +375,18 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     queueName: 'bullmq',
   });
 
-  const metrics = computed(() => computeDashboardMetrics(rawState.value, backendSummary.value));
+  const dashboardMetricsState = computed(() => {
+    if (isLiveApiEnabled.value) return rawState.value;
+    return {
+      ...rawState.value,
+      evaluations: judgingStore.evaluations,
+      emergencies: judgingStore.emergencies,
+      auditLogs: [...judgingStore.auditLogs, ...rawState.value.auditLogs],
+    };
+  });
+  const metrics = computed(() =>
+    computeDashboardMetrics(dashboardMetricsState.value, backendSummary.value)
+  );
   const currentChartGroups = computed(
     () => metrics.value.chartGroupsByMode[chartMode.value] || []
   );

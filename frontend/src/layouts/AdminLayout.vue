@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-[#F8FAFC] font-[Inter,system-ui,sans-serif] text-[#0F172A] antialiased">
     <AdminSidebar
-      :groups="ADMIN_SIDEBAR_GROUPS"
+      :groups="sidebarGroups"
       :active-key="activeNavKey"
       :is-open-mobile="isMobileSidebarOpen"
       @select-item="handleSelectNav"
@@ -22,7 +22,10 @@
       <main class="mx-auto max-w-[1400px] px-6 py-7 lg:px-8">
         <router-view v-slot="{ Component, route: currentRoute }">
           <Transition name="admin-page-fade" mode="out-in">
-            <component :is="Component" :key="currentRoute.fullPath" />
+            <component
+              :is="Component"
+              :key="currentRoute.path === '/admin/judge-assignments' ? currentRoute.path : currentRoute.fullPath"
+            />
           </Transition>
         </router-view>
       </main>
@@ -43,6 +46,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useAdminDashboardStore } from '@/modules/administration/stores/useAdminDashboardStore';
 import { useAdminCompetitionsStore } from '@/modules/administration/stores/useAdminCompetitionsStore';
+import { useAdminJudgingStore } from '@/modules/administration/stores/useAdminJudgingStore';
 import {
   ADMIN_NAV_CRUMBS,
   ADMIN_SIDEBAR_GROUPS,
@@ -56,7 +60,17 @@ const router = useRouter();
 const authStore = useAuthStore();
 const dashboardStore = useAdminDashboardStore();
 const competitionsStore = useAdminCompetitionsStore();
+const judgingStore = useAdminJudgingStore();
 const isMobileSidebarOpen = ref(false);
+
+const sidebarGroups = computed(() =>
+  ADMIN_SIDEBAR_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.map((item) =>
+      item.key === 'judging' ? { ...item, count: judgingStore.judgingBadgeCount } : item
+    ),
+  }))
+);
 
 const displayName = computed(
   () => authStore.user?.fullName || authStore.user?.name || authStore.user?.username || 'Nguyễn Văn Quản'

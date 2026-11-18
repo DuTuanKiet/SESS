@@ -257,6 +257,7 @@ router.beforeEach((to, from) => {
     'admin-dashboard': 'Tổng quan Quản trị | SESS - CTUT',
     'admin-competitions': 'Quản lý cuộc thi | SESS - CTUT',
     'admin-catalogs': 'Danh mục dữ liệu | SESS - CTUT',
+    'admin-judge-assignments': 'Chấm điểm & Phúc khảo | SESS - CTUT',
     'admin-mentor-assignments': 'Điều phối cố vấn | SESS - CTUT',
     'admin-users': 'Tài khoản & Danh sách duyệt | SESS - CTUT',
     'not-found': 'Không tìm thấy trang | SESS - CTUT',
