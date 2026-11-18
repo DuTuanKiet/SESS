@@ -157,3 +157,10 @@ export const LEVEL_HIERARCHY_META = {
   },
 };
 
+export const RUBRIC_STATUS = {
+  Active: { label: 'Đang áp dụng', tone: 'green' },
+  Draft: { label: 'Bản nháp', tone: 'amber' },
+  Deprecated: { label: 'Ngừng dùng', tone: 'slate' },
+};
+
+

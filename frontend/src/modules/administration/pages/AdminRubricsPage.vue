@@ -1,40 +1,153 @@
 <template>
   <div class="space-y-5">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div><h1 class="text-2xl font-bold tracking-tight text-[#0f172a]">Quản lý Rubric</h1><p class="mt-1 text-sm text-slate-500">Tạo rubric, tiêu chí, version và kích hoạt bộ tiêu chí dùng cho chấm điểm.</p></div>
-      <div class="flex gap-2"><button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700" @click="load">Tải lại</button><button class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white" @click="openCreate">Tạo rubric</button></div>
+    <!-- Thông báo lỗi hệ thống (nếu có) -->
+    <div
+      v-if="rubricsStore.errorMessage"
+      class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+      role="alert"
+    >
+      {{ rubricsStore.errorMessage }}
     </div>
-    <div v-if="message" :class="['rounded-2xl border p-4 text-sm', messageType==='error'?'border-red-200 bg-red-50 text-red-700':'border-emerald-200 bg-emerald-50 text-emerald-700']">{{ message }}</div>
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <div v-if="loading" class="py-10 text-center text-sm text-slate-500">Đang tải rubric…</div>
-      <div v-else-if="!rubrics.length" class="py-10 text-center text-sm text-slate-500">Chưa có rubric.</div>
-      <div v-else class="space-y-3">
-        <article v-for="r in rubrics" :key="r._id||r.id" class="rounded-2xl border border-slate-200/60 p-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div><p class="font-semibold text-slate-900">{{ r.name }} <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">v{{ r.version ?? 1 }}</span> <span v-if="r.status==='ACTIVE'" class="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">ACTIVE</span></p><p class="mt-1 text-xs text-slate-500">ID: {{ r._id||r.id }} · Criteria: {{ (r.criteria||[]).length }}</p></div>
-            <div class="flex flex-wrap gap-2"><button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold" @click="openEdit(r)">Sửa</button><button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold" @click="openCriteria(r)">Tiêu chí</button><button class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700" :disabled="activating===String(r._id||r.id)" @click="activate(r)">Activate</button></div>
-          </div>
-          <div v-if="(r.criteria||[]).length" class="mt-3 overflow-x-auto"><table class="min-w-full text-xs"><thead><tr class="text-left text-slate-500"><th class="py-1 pr-3">Tên</th><th class="py-1 pr-3">Trọng số %</th><th class="py-1 pr-3">Min–Max</th></tr></thead><tbody><tr v-for="c in r.criteria" :key="c._id||c.id" class="border-t border-slate-100"><td class="py-1.5 pr-3 text-slate-700">{{ c.name }}</td><td class="py-1.5 pr-3">{{ c.weight }}</td><td class="py-1.5 pr-3">{{ c.minScore ?? 0 }}–{{ c.maxScore ?? 10 }}</td></tr></tbody></table></div>
-        </article>
-      </div>
-    </section>
 
-    <dialog ref="rubricDlg" class="w-full max-w-xl rounded-2xl border-0 p-0 shadow-xl backdrop:bg-slate-900/30"><form class="space-y-4 p-6" @submit.prevent="saveRubric"><h2 class="text-lg font-bold">{{ rubricForm.id ? 'Cập nhật rubric' : 'Tạo rubric' }}</h2><label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Tên</span><input v-model="rubricForm.name" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Mô tả</span><textarea v-model="rubricForm.description" rows="2" class="w-full rounded-xl border border-slate-200 px-3 py-2"></textarea></label><div class="flex justify-end gap-2"><button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="rubricDlg.close()">Hủy</button><button :disabled="saving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Lưu</button></div></form></dialog>
-    <dialog ref="criteriaDlg" class="w-full max-w-xl rounded-2xl border-0 p-0 shadow-xl backdrop:bg-slate-900/30"><form class="space-y-4 p-6" @submit.prevent="addCriteria"><h2 class="text-lg font-bold">Thêm tiêu chí</h2><p class="text-xs text-slate-500">Rubric: {{ selectedRubric?.name }}</p><label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Tên tiêu chí</span><input v-model="criteriaForm.name" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><div class="grid grid-cols-3 gap-3"><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Weight %</span><input v-model.number="criteriaForm.weight" type="number" min="0" max="100" required class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Min</span><input v-model.number="criteriaForm.minScore" type="number" class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label><label class="text-sm"><span class="mb-1 block font-medium text-slate-700">Max</span><input v-model.number="criteriaForm.maxScore" type="number" class="w-full rounded-xl border border-slate-200 px-3 py-2" /></label></div><label class="block text-sm"><span class="mb-1 block font-medium text-slate-700">Mô tả</span><textarea v-model="criteriaForm.description" rows="2" class="w-full rounded-xl border border-slate-200 px-3 py-2"></textarea></label><div class="flex justify-end gap-2"><button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold" @click="criteriaDlg.close()">Hủy</button><button :disabled="saving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Thêm</button></div></form></dialog>
+    <!-- Chuyển đổi mượt mà giữa Grid View và Detail View (tránh giật lag giao diện) -->
+    <Transition name="fade-slide" mode="out-in">
+      <AdminRubricGridView
+        v-if="rubricsStore.viewMode === 'grid'"
+        key="grid-view"
+        @create-rubric="handleOpenCreateRubric"
+        @edit-rubric="handleOpenEditRubric"
+        @import-excel="handleOpenImport"
+      />
+
+      <AdminRubricDetailView
+        v-else
+        key="detail-view"
+        @edit-rubric="handleOpenEditRubric"
+        @view-versions="handleOpenVersions"
+        @import-excel="handleOpenImport"
+        @add-criterion="handleOpenAddCriterion"
+        @edit-criterion="handleOpenEditCriterion"
+      />
+    </Transition>
+
+    <!-- Modal Tạo / Sửa Bộ tiêu chí -->
+    <AdminRubricFormModal
+      :is-open="rubricModalState.isOpen"
+      :item="rubricModalState.item"
+      @close="rubricModalState.isOpen = false"
+    />
+
+    <!-- Modal Thêm / Sửa Tiêu chí -->
+    <AdminRubricCriterionModal
+      :is-open="criterionModalState.isOpen"
+      :rubric-id="criterionModalState.rubricId"
+      :item="criterionModalState.item"
+      @close="criterionModalState.isOpen = false"
+    />
+
+    <!-- Modal Nhập Excel / CSV (UI xem trước) -->
+    <AdminRubricImportModal
+      :is-open="importModalState.isOpen"
+      :target-rubric-id="importModalState.targetId"
+      @close="importModalState.isOpen = false"
+    />
+
+    <!-- Modal Lịch sử các phiên bản -->
+    <AdminRubricVersionsModal
+      :is-open="versionsModalState.isOpen"
+      :rubric-name="versionsModalState.rubricName"
+      @close="versionsModalState.isOpen = false"
+    />
   </div>
 </template>
+
 <script setup>
-import { ref, onMounted } from 'vue';
-import { adminService } from '../services/adminService';
-const loading=ref(false), saving=ref(false), activating=ref(''), rubrics=ref([]), message=ref(''), messageType=ref('success');
-const rubricDlg=ref(null), criteriaDlg=ref(null), selectedRubric=ref(null);
-const rubricForm=ref({}), criteriaForm=ref({ name:'', weight:0, minScore:0, maxScore:10, description:'' });
-function openCreate(){ rubricForm.value={ name:'', description:'' }; rubricDlg.value?.showModal?.(); }
-function openEdit(r){ rubricForm.value={ id:r._id||r.id, name:r.name||'', description:r.description||'' }; rubricDlg.value?.showModal?.(); }
-function openCriteria(r){ selectedRubric.value=r; criteriaForm.value={ name:'', weight:0, minScore:0, maxScore:10, description:'' }; criteriaDlg.value?.showModal?.(); }
-async function load(){ loading.value=true; message.value=''; try{ const res=await adminService.listRubrics(); rubrics.value=res?.data?.items||res?.data||res?.items||[]; }catch(e){ message.value=e?.message||'Không tải được rubric.'; messageType.value='error'; } finally{ loading.value=false; } }
-async function saveRubric(){ saving.value=true; message.value=''; try{ if(rubricForm.value.id) await adminService.updateRubric(rubricForm.value.id,{ name:rubricForm.value.name, description:rubricForm.value.description }); else await adminService.createRubric({ name:rubricForm.value.name, description:rubricForm.value.description }); rubricDlg.value?.close(); message.value='Đã lưu rubric.'; messageType.value='success'; await load(); }catch(e){ message.value=e?.message||'Lưu rubric thất bại.'; messageType.value='error'; } finally{ saving.value=false; } }
-async function addCriteria(){ if(!selectedRubric.value) return; saving.value=true; message.value=''; try{ await adminService.addCriterion(selectedRubric.value._id||selectedRubric.value.id, criteriaForm.value); criteriaDlg.value?.close(); message.value='Đã thêm tiêu chí.'; messageType.value='success'; await load(); }catch(e){ message.value=e?.message||'Thêm tiêu chí thất bại.'; messageType.value='error'; } finally{ saving.value=false; } }
-async function activate(r){ const id=String(r._id||r.id); activating.value=id; message.value=''; try{ await adminService.activateRubric(id); message.value='Đã kích hoạt rubric.'; messageType.value='success'; await load(); }catch(e){ message.value=e?.message||'Kích hoạt thất bại. Kiểm tra tổng trọng số = 100%.'; messageType.value='error'; } finally{ activating.value=''; } }
-onMounted(load);
+import { onMounted, reactive } from 'vue';
+import { useAdminRubricsStore } from '@/modules/administration/stores/useAdminRubricsStore';
+
+import AdminRubricGridView from '../components/rubrics/AdminRubricGridView.vue';
+import AdminRubricDetailView from '../components/rubrics/AdminRubricDetailView.vue';
+import AdminRubricFormModal from '../components/rubrics/AdminRubricFormModal.vue';
+import AdminRubricCriterionModal from '../components/rubrics/AdminRubricCriterionModal.vue';
+import AdminRubricImportModal from '../components/rubrics/AdminRubricImportModal.vue';
+import AdminRubricVersionsModal from '../components/rubrics/AdminRubricVersionsModal.vue';
+
+const rubricsStore = useAdminRubricsStore();
+
+// Quản lý trạng thái các Modal
+const rubricModalState = reactive({
+  isOpen: false,
+  item: null,
+});
+
+const criterionModalState = reactive({
+  isOpen: false,
+  rubricId: '',
+  item: null,
+});
+
+const importModalState = reactive({
+  isOpen: false,
+  targetId: null,
+});
+
+const versionsModalState = reactive({
+  isOpen: false,
+  rubricName: '',
+});
+
+// Các hàm mở Modal
+function handleOpenCreateRubric() {
+  rubricModalState.item = null;
+  rubricModalState.isOpen = true;
+}
+
+function handleOpenEditRubric(rubric) {
+  rubricModalState.item = rubric;
+  rubricModalState.isOpen = true;
+}
+
+function handleOpenAddCriterion() {
+  criterionModalState.rubricId = rubricsStore.selectedRubricId;
+  criterionModalState.item = null;
+  criterionModalState.isOpen = true;
+}
+
+function handleOpenEditCriterion(criterion) {
+  criterionModalState.rubricId = rubricsStore.selectedRubricId;
+  criterionModalState.item = criterion;
+  criterionModalState.isOpen = true;
+}
+
+function handleOpenImport(targetId) {
+  importModalState.targetId = targetId;
+  importModalState.isOpen = true;
+}
+
+function handleOpenVersions(rubricName) {
+  versionsModalState.rubricName = rubricName;
+  versionsModalState.isOpen = true;
+}
+
+onMounted(() => {
+  rubricsStore.initialize();
+});
 </script>
+
+<style scoped>
+/* Hiệu ứng chuyển động mượt mà giữa Grid View và Detail View */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+</style>
