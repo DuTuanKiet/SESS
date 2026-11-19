@@ -1,36 +1,218 @@
 <template>
   <div class="space-y-5">
-    <div><h1 class="text-2xl font-bold tracking-tight text-[#0f172a]">Audit logs & báo cáo</h1><p class="mt-1 text-sm text-slate-500">Theo dõi hành động quản trị, khiếu nại, override điểm và sự kiện vận hành.</p></div>
-    <div v-if="message" class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ message }}</div>
-    <form class="grid gap-3 rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-6" @submit.prevent="load">
-      <input v-model="filters.action" placeholder="Action (ví dụ: SCORE_OUTLIER_DETECTED)" class="rounded-xl border border-slate-200 px-3 py-2 text-sm xl:col-span-2" />
-      <input v-model="filters.targetEntity" placeholder="Target entity" class="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-      <input v-model="filters.actorId" placeholder="Actor ID" class="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-      <input v-model="filters.from" type="date" class="rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-      <button class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Lọc</button>
-    </form>
-    <div class="grid gap-4 md:grid-cols-3">
-      <div class="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm"><p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Khiếu nại</p><p class="mt-1 text-2xl font-bold text-slate-900">{{ appealsTotal }}</p><p class="text-xs text-slate-500">Bản ghi từ /admin/appeals</p></div>
-      <div class="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm"><p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Audit logs</p><p class="mt-1 text-2xl font-bold text-slate-900">{{ pagination.total }}</p><p class="text-xs text-slate-500">Theo bộ lọc hiện tại</p></div>
-      <div class="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm"><p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Score overrides</p><p class="mt-1 text-2xl font-bold text-slate-900">{{ overridesTotal }}</p><p class="text-xs text-slate-500">Điều chỉnh điểm thủ công</p></div>
+    <!-- Tiêu đề trang Nhật ký kiểm toán & thao tác xuất CSV -->
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Nhật ký kiểm toán</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Theo dõi lịch sử thay đổi dữ liệu trọng yếu trước và sau chỉnh sửa, người thực hiện và
+          địa chỉ IP
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#1E56D9] hover:text-[#1E56D9]"
+          @click="auditStore.exportCsv()"
+        >
+          Xuất CSV nhật ký
+        </button>
+      </div>
     </div>
-    <section class="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm">
-      <div v-if="loading" class="py-10 text-center text-sm text-slate-500">Đang tải nhật ký…</div>
-      <div v-else-if="!items.length" class="py-10 text-center text-sm text-slate-500">Không có bản ghi phù hợp.</div>
-      <div v-else class="overflow-x-auto"><table class="min-w-full text-xs"><thead><tr class="border-b text-left text-slate-500"><th class="py-2 pr-3">Thời gian</th><th class="py-2 pr-3">Action</th><th class="py-2 pr-3">Actor</th><th class="py-2 pr-3">Target</th><th class="py-2 pr-3">Metadata</th></tr></thead><tbody><tr v-for="it in items" :key="it._id||it.id" class="border-b border-slate-50 align-top"><td class="py-2 pr-3 whitespace-nowrap text-slate-600">{{ fmt(it.timestamp||it.createdAt) }}</td><td class="py-2 pr-3 font-semibold text-slate-900">{{ it.action }}</td><td class="py-2 pr-3 text-slate-600">{{ it.actorId?.email || it.actorId?.fullName || it.actorId || '—' }}</td><td class="py-2 pr-3 text-slate-600">{{ it.targetEntity }}<div class="text-[11px] text-slate-400">{{ it.targetId || '' }}</div></td><td class="py-2 pr-3 max-w-[320px] truncate text-slate-500" :title="json(it.metadata)">{{ json(it.metadata) }}</td></tr></tbody></table></div>
-      <div class="mt-4 flex items-center justify-between text-sm"><p class="text-slate-500">Trang {{ pagination.page }} / {{ Math.max(1, pagination.totalPages||1) }}</p><div class="flex gap-2"><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="pagination.page<=1" @click="pagination.page--; load()">Trước</button><button class="rounded-lg border border-slate-200 px-3 py-1.5" :disabled="pagination.page >= (pagination.totalPages||1)" @click="pagination.page++; load()">Sau</button></div></div>
+
+    <!-- 3 thẻ KPI tổng hợp trạng thái nhật ký -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          Tổng bản ghi nhật ký
+        </p>
+        <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+          {{ auditStore.kpiStats.total }}
+        </p>
+      </div>
+
+      <div
+        class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          Thao tác trong ngày
+        </p>
+        <p class="mt-1 text-2xl font-bold tabular-nums text-[#1E56D9]">
+          {{ auditStore.kpiStats.todayCount }}
+        </p>
+      </div>
+
+      <div
+        class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white px-5 py-4 shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          Thao tác nhạy cảm / khẩn cấp
+        </p>
+        <p class="mt-1 text-2xl font-bold tabular-nums text-rose-600">
+          {{ auditStore.kpiStats.sensitiveCount }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Bảng lịch sử thao tác hệ thống -->
+    <section
+      class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+        <h2
+          class="relative whitespace-nowrap pl-3 text-[14px] font-semibold tracking-tight text-slate-900 before:absolute before:bottom-0.5 before:left-0 before:top-0.5 before:w-1 before:rounded-full before:bg-[#1E56D9]"
+        >
+          Lịch sử thao tác hệ thống
+        </h2>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            :value="auditStore.filters.keyword"
+            type="text"
+            placeholder="Tìm email, đối tượng, mô tả..."
+            aria-label="Tìm email, đối tượng, mô tả nhật ký"
+            class="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-[#1E56D9] focus:ring-2 focus:ring-[#1E56D9]/15"
+            @input="auditStore.setFilter('keyword', $event.target.value)"
+          />
+
+          <select
+            :value="auditStore.filters.action"
+            aria-label="Lọc theo hành động"
+            class="w-48 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-[#1E56D9] focus:ring-2 focus:ring-[#1E56D9]/15"
+            @change="auditStore.setFilter('action', $event.target.value)"
+          >
+            <option value="">Tất cả hành động</option>
+            <option v-for="actionKey in AUDIT_FILTER_ACTION_KEYS" :key="actionKey" :value="actionKey">
+              {{ getActionMeta(actionKey).label }}
+            </option>
+          </select>
+
+          <select
+            :value="auditStore.filters.targetEntity"
+            aria-label="Lọc theo đối tượng"
+            class="w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-[#1E56D9] focus:ring-2 focus:ring-[#1E56D9]/15"
+            @change="auditStore.setFilter('targetEntity', $event.target.value)"
+          >
+            <option value="">Tất cả đối tượng</option>
+            <option v-for="entity in AUDIT_ENTITY_OPTIONS" :key="entity" :value="entity">
+              {{ entity }}
+            </option>
+          </select>
+
+          <button
+            v-if="auditStore.hasFilters"
+            type="button"
+            class="inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#1E56D9] hover:text-[#1E56D9]"
+            @click="auditStore.resetFilters()"
+          >
+            Đặt lại
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr
+              class="border-b border-slate-100 bg-[#F8FAFC] text-left text-[11px] uppercase tracking-wider text-slate-500"
+            >
+              <th class="whitespace-nowrap px-4 py-2.5">Thời gian</th>
+              <th class="whitespace-nowrap px-4 py-2.5">Người thực hiện &amp; IP</th>
+              <th class="whitespace-nowrap px-4 py-2.5">Hành động</th>
+              <th class="whitespace-nowrap px-4 py-2.5">Đối tượng &amp; Tóm tắt thay đổi</th>
+              <th class="whitespace-nowrap px-4 py-2.5 text-right">Thao tác</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr
+              v-for="log in auditStore.paginatedLogs"
+              :key="log.id"
+              class="border-b border-slate-100 last:border-0 hover:bg-[#F8FAFC]"
+            >
+              <td class="whitespace-nowrap px-4 py-3 align-middle font-mono text-xs text-slate-500">
+                {{ log.timestamp }}
+              </td>
+
+              <td class="px-4 py-3 align-middle">
+                <p class="whitespace-nowrap text-xs font-medium text-slate-800">
+                  {{ log.actorEmail }}
+                </p>
+                <p class="mt-0.5 whitespace-nowrap font-mono text-[11px] text-slate-400">
+                  {{ log.actorRole }} - IP {{ log.ipAddress || '—' }}
+                </p>
+              </td>
+
+              <td class="px-4 py-3 align-middle">
+                <AdminStatusBadge
+                  :label="getActionMeta(log.action).label"
+                  :tone="getActionMeta(log.action).tone"
+                />
+              </td>
+
+              <td class="min-w-[260px] px-4 py-3 align-middle">
+                <p class="font-mono text-xs font-semibold text-[#1E56D9]">{{ log.targetId }}</p>
+                <p class="mt-1 text-xs leading-relaxed text-slate-600">{{ log.summary }}</p>
+              </td>
+
+              <td class="px-4 py-3 text-right align-middle">
+                <button
+                  type="button"
+                  class="inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-[#1E56D9] hover:text-[#1E56D9]"
+                  @click="selectedLog = log"
+                >
+                  Xem chi tiết
+                </button>
+              </td>
+            </tr>
+
+            <tr v-if="!auditStore.paginatedLogs.length">
+              <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-400">
+                Không có bản ghi nhật ký phù hợp
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <AdminPagination
+        :page="auditStore.pagination.page"
+        :page-size="auditStore.pagination.pageSize"
+        :total="auditStore.filteredLogs.length"
+        unit="bản ghi"
+        @update:page="auditStore.setPage"
+        @update:page-size="auditStore.setPageSize"
+      />
     </section>
+
+    <AdminAuditLogDetailModal
+      :is-open="Boolean(selectedLog)"
+      :log="selectedLog"
+      @close="selectedLog = null"
+    />
   </div>
 </template>
+
 <script setup>
-import { ref, onMounted } from 'vue';
-import { adminService } from '../services/adminService';
-const loading=ref(false), items=ref([]), message=ref(''), appealsTotal=ref(0), overridesTotal=ref(0);
-const filters=ref({ action:'', targetEntity:'', actorId:'', from:'' });
-const pagination=ref({ page:1, limit:20, total:0, totalPages:1 });
-function fmt(v){ if(!v) return '—'; try{ return new Date(v).toLocaleString('vi-VN'); }catch{ return String(v);} }
-function json(v){ try{ return v?JSON.stringify(v):'—'; }catch{ return '—'; } }
-async function load(){ loading.value=true; message.value=''; try{ const params={ page:pagination.value.page, limit:pagination.value.limit, ...Object.fromEntries(Object.entries(filters.value).filter(([,v])=>v)) }; const res=await adminService.getAuditLogs(params); const data=res?.data||{}; items.value=data.items||[]; pagination.value={ ...pagination.value, ...(data.pagination||{}) }; }catch(e){ message.value=e?.message||'Không tải được audit logs.'; } finally{ loading.value=false; } }
-async function loadSide(){ try{ const a=await adminService.listAppeals({ limit:1 }); appealsTotal.value=a?.data?.pagination?.total ?? (a?.data?.items||a?.data||[]).length ?? 0; }catch{} try{ const o=await adminService.listScoreOverrides({ limit:1 }); overridesTotal.value=o?.data?.pagination?.total ?? (o?.data?.items||o?.data||[]).length ?? 0; }catch{} }
-onMounted(()=>{ load(); loadSide(); });
+import { ref } from 'vue';
+import {
+  AUDIT_ACTION_META,
+  AUDIT_ENTITY_OPTIONS,
+  AUDIT_FILTER_ACTION_KEYS,
+} from '@/modules/administration/constants/adminConstants';
+import { useAdminAuditLogsStore } from '@/modules/administration/stores/useAdminAuditLogsStore';
+import AdminPagination from '@/modules/administration/common/components/ui/AdminPagination.vue';
+import AdminStatusBadge from '@/modules/administration/common/components/ui/AdminStatusBadge.vue';
+import AdminAuditLogDetailModal from '@/modules/administration/components/audit/AdminAuditLogDetailModal.vue';
+
+// Trang Nhật ký kiểm toán vận hành với mock state và gộp read-only các thao tác phát sinh trong phiên
+const auditStore = useAdminAuditLogsStore();
+const selectedLog = ref(null);
+
+function getActionMeta(actionKey) {
+  return AUDIT_ACTION_META[actionKey] || { label: actionKey || '—', tone: 'slate' };
+}
 </script>

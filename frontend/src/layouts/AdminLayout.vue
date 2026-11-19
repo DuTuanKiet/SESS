@@ -21,12 +21,9 @@
 
       <main class="mx-auto max-w-[1400px] px-6 py-7 lg:px-8">
         <router-view v-slot="{ Component, route: currentRoute }">
-          <Transition name="admin-page-fade" mode="out-in">
-            <component
-              :is="Component"
-              :key="currentRoute.path === '/admin/judge-assignments' ? currentRoute.path : currentRoute.fullPath"
-            />
-          </Transition>
+          <AdminSmoothTabTransition>
+            <component :is="Component" :key="currentRoute.path" />
+          </AdminSmoothTabTransition>
         </router-view>
       </main>
     </div>
@@ -41,18 +38,19 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useAdminDashboardStore } from '@/modules/administration/stores/useAdminDashboardStore';
 import { useAdminCompetitionsStore } from '@/modules/administration/stores/useAdminCompetitionsStore';
-import { useAdminJudgingStore } from '@/modules/administration/stores/useAdminJudgingStore';
+import { useAdminAwardsNewsStore } from '@/modules/administration/stores/useAdminAwardsNewsStore';
 import {
   ADMIN_NAV_CRUMBS,
   ADMIN_SIDEBAR_GROUPS,
 } from '@/modules/administration/mocks/adminDashboardMockData';
 import AdminSidebar from '@/modules/administration/common/components/layout/AdminSidebar.vue';
 import AdminHeader from '@/modules/administration/common/components/layout/AdminHeader.vue';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 import AdminBroadcastNotificationModal from '@/modules/administration/components/dashboard/AdminBroadcastNotificationModal.vue';
 
 const route = useRoute();
@@ -60,17 +58,9 @@ const router = useRouter();
 const authStore = useAuthStore();
 const dashboardStore = useAdminDashboardStore();
 const competitionsStore = useAdminCompetitionsStore();
-const judgingStore = useAdminJudgingStore();
 const isMobileSidebarOpen = ref(false);
 
-const sidebarGroups = computed(() =>
-  ADMIN_SIDEBAR_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.map((item) =>
-      item.key === 'judging' ? { ...item, count: judgingStore.judgingBadgeCount } : item
-    ),
-  }))
-);
+const sidebarGroups = computed(() => ADMIN_SIDEBAR_GROUPS);
 
 const displayName = computed(
   () => authStore.user?.fullName || authStore.user?.name || authStore.user?.username || 'Nguyễn Văn Quản'
@@ -84,6 +74,7 @@ const activeNavKey = computed(() => {
   if (path === '/admin' || path === '/admin/') return 'overview';
   if (path.startsWith('/admin/users')) return 'users';
   if (path.startsWith('/admin/catalogs')) return 'catalogs';
+  if (path.startsWith('/admin/awards-news')) return 'awards';
   if (path.startsWith('/admin/competitions')) {
     if (section === 'catalogs') return 'catalogs';
     if (section === 'awards') return 'awards';
@@ -116,6 +107,9 @@ function handleSelectNav(item) {
   if (item.key === 'competitions') {
     competitionsStore.backToList();
   }
+  if (item.key === 'awards') {
+    useAdminAwardsNewsStore().closeVotingDetail();
+  }
   router.push(item.to);
 }
 
@@ -127,16 +121,15 @@ function handleLogout() {
   authStore.logout();
   router.replace('/');
 }
-</script>
 
-<style scoped>
-.admin-page-fade-enter-active,
-.admin-page-fade-leave-active {
-  transition: opacity 160ms ease-out, transform 160ms ease-out;
-}
-.admin-page-fade-enter-from,
-.admin-page-fade-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-</style>
+// Giữ cố định không gian thanh cuộn khi đang ở cổng Quản trị để chuyển tab cao/thấp không bị giật ngang
+let previousScrollbarGutter = '';
+onMounted(() => {
+  previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
+  document.documentElement.style.scrollbarGutter = 'stable';
+});
+
+onBeforeUnmount(() => {
+  document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
+});
+</script>

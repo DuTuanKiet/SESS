@@ -9,8 +9,8 @@
       {{ rubricsStore.errorMessage }}
     </div>
 
-    <!-- Chuyển đổi mượt mà giữa Grid View và Detail View (tránh giật lag giao diện) -->
-    <Transition name="fade-slide" mode="out-in">
+    <!-- Chuyển đổi mượt mà giữa Grid View và Detail View -->
+    <AdminSmoothTabTransition>
       <AdminRubricGridView
         v-if="rubricsStore.viewMode === 'grid'"
         key="grid-view"
@@ -28,7 +28,7 @@
         @add-criterion="handleOpenAddCriterion"
         @edit-criterion="handleOpenEditCriterion"
       />
-    </Transition>
+    </AdminSmoothTabTransition>
 
     <!-- Modal Tạo / Sửa Bộ tiêu chí -->
     <AdminRubricFormModal
@@ -64,6 +64,7 @@
 <script setup>
 import { onMounted, reactive } from 'vue';
 import { useAdminRubricsStore } from '@/modules/administration/stores/useAdminRubricsStore';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 
 import AdminRubricGridView from '../components/rubrics/AdminRubricGridView.vue';
 import AdminRubricDetailView from '../components/rubrics/AdminRubricDetailView.vue';
@@ -133,21 +134,3 @@ onMounted(() => {
   rubricsStore.initialize();
 });
 </script>
-
-<style scoped>
-/* Hiệu ứng chuyển động mượt mà giữa Grid View và Detail View */
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: opacity 0.22s ease-out, transform 0.22s ease-out;
-}
-
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-</style>

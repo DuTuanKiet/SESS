@@ -59,65 +59,70 @@
       @update:active-key="catalogsStore.setActiveTab"
     />
 
-    <AdminCatalogCategoriesTab
-      v-if="catalogsStore.activeTab === 'catalog-categories'"
-      :rows="catalogsStore.paginatedCategories"
-      :total-count="catalogsStore.projectCategories.length"
-      :filtered-count="catalogsStore.filteredCategories.length"
-      :filters="catalogsStore.categoryFilters"
-      :has-filters="catalogsStore.hasCategoryFilters"
-      :competition-options="catalogsStore.competitionOptions"
-      :competition-by-id-map="catalogsStore.competitionByIdMap"
-      :project-counts-map="catalogsStore.categoryProjectCountsMap"
-      :page="catalogsStore.pagination.categories.page"
-      :page-size="catalogsStore.pagination.categories.pageSize"
-      @update-filter="({ key, value }) => catalogsStore.setCategoryFilter(key, value)"
-      @reset-filters="catalogsStore.resetCategoryFilters()"
-      @add="openCategoryModal(null)"
-      @edit="openCategoryModal"
-      @toggle-status="(id) => catalogsStore.toggleCatalogStatus('category', id)"
-      @update:page="(p) => catalogsStore.setPage('categories', p)"
-      @update:page-size="(s) => catalogsStore.setPageSize('categories', s)"
-    />
+    <AdminSmoothTabTransition>
+      <AdminCatalogCategoriesTab
+        v-if="catalogsStore.activeTab === 'catalog-categories'"
+        key="catalog-categories"
+        :rows="catalogsStore.paginatedCategories"
+        :total-count="catalogsStore.projectCategories.length"
+        :filtered-count="catalogsStore.filteredCategories.length"
+        :filters="catalogsStore.categoryFilters"
+        :has-filters="catalogsStore.hasCategoryFilters"
+        :competition-options="catalogsStore.competitionOptions"
+        :competition-by-id-map="catalogsStore.competitionByIdMap"
+        :project-counts-map="catalogsStore.categoryProjectCountsMap"
+        :page="catalogsStore.pagination.categories.page"
+        :page-size="catalogsStore.pagination.categories.pageSize"
+        @update-filter="({ key, value }) => catalogsStore.setCategoryFilter(key, value)"
+        @reset-filters="catalogsStore.resetCategoryFilters()"
+        @add="openCategoryModal(null)"
+        @edit="openCategoryModal"
+        @toggle-status="(id) => catalogsStore.toggleCatalogStatus('category', id)"
+        @update:page="(p) => catalogsStore.setPage('categories', p)"
+        @update:page-size="(s) => catalogsStore.setPageSize('categories', s)"
+      />
 
-    <AdminCatalogEvidenceTypesTab
-      v-else-if="catalogsStore.activeTab === 'catalog-evidences'"
-      :rows="catalogsStore.paginatedEvidenceTypes"
-      :total-count="catalogsStore.evidenceTypes.length"
-      :filtered-count="catalogsStore.filteredEvidenceTypes.length"
-      :filters="catalogsStore.evidenceFilters"
-      :has-filters="catalogsStore.hasEvidenceFilters"
-      :competition-options="catalogsStore.competitionOptions"
-      :competition-by-id-map="catalogsStore.competitionByIdMap"
-      :page="catalogsStore.pagination.evidences.page"
-      :page-size="catalogsStore.pagination.evidences.pageSize"
-      @update-filter="({ key, value }) => catalogsStore.setEvidenceFilter(key, value)"
-      @reset-filters="catalogsStore.resetEvidenceFilters()"
-      @add="openEvidenceModal(null)"
-      @edit="openEvidenceModal"
-      @toggle-status="(id) => catalogsStore.toggleCatalogStatus('evidence', id)"
-      @update:page="(p) => catalogsStore.setPage('evidences', p)"
-      @update:page-size="(s) => catalogsStore.setPageSize('evidences', s)"
-    />
+      <AdminCatalogEvidenceTypesTab
+        v-else-if="catalogsStore.activeTab === 'catalog-evidences'"
+        key="catalog-evidences"
+        :rows="catalogsStore.paginatedEvidenceTypes"
+        :total-count="catalogsStore.evidenceTypes.length"
+        :filtered-count="catalogsStore.filteredEvidenceTypes.length"
+        :filters="catalogsStore.evidenceFilters"
+        :has-filters="catalogsStore.hasEvidenceFilters"
+        :competition-options="catalogsStore.competitionOptions"
+        :competition-by-id-map="catalogsStore.competitionByIdMap"
+        :page="catalogsStore.pagination.evidences.page"
+        :page-size="catalogsStore.pagination.evidences.pageSize"
+        @update-filter="({ key, value }) => catalogsStore.setEvidenceFilter(key, value)"
+        @reset-filters="catalogsStore.resetEvidenceFilters()"
+        @add="openEvidenceModal(null)"
+        @edit="openEvidenceModal"
+        @toggle-status="(id) => catalogsStore.toggleCatalogStatus('evidence', id)"
+        @update:page="(p) => catalogsStore.setPage('evidences', p)"
+        @update:page-size="(s) => catalogsStore.setPageSize('evidences', s)"
+      />
 
-    <AdminCatalogFacultiesTab
-      v-else
-      :rows="catalogsStore.paginatedFaculties"
-      :total-count="catalogsStore.faculties.length"
-      :filtered-count="catalogsStore.filteredFaculties.length"
-      :keyword="catalogsStore.facultyFilters.keyword"
-      :has-filters="catalogsStore.hasFacultyFilters"
-      :faculty-stats-map="catalogsStore.facultyStatsMap"
-      :page="catalogsStore.pagination.faculties.page"
-      :page-size="catalogsStore.pagination.faculties.pageSize"
-      @update:keyword="catalogsStore.setFacultyFilter"
-      @reset-filters="catalogsStore.resetFacultyFilters()"
-      @add="openFacultyModal(null)"
-      @edit="openFacultyModal"
-      @toggle-status="(id) => catalogsStore.toggleCatalogStatus('faculty', id)"
-      @update:page="(p) => catalogsStore.setPage('faculties', p)"
-      @update:page-size="(s) => catalogsStore.setPageSize('faculties', s)"
-    />
+      <AdminCatalogFacultiesTab
+        v-else
+        key="catalog-faculties"
+        :rows="catalogsStore.paginatedFaculties"
+        :total-count="catalogsStore.faculties.length"
+        :filtered-count="catalogsStore.filteredFaculties.length"
+        :keyword="catalogsStore.facultyFilters.keyword"
+        :has-filters="catalogsStore.hasFacultyFilters"
+        :faculty-stats-map="catalogsStore.facultyStatsMap"
+        :page="catalogsStore.pagination.faculties.page"
+        :page-size="catalogsStore.pagination.faculties.pageSize"
+        @update:keyword="catalogsStore.setFacultyFilter"
+        @reset-filters="catalogsStore.resetFacultyFilters()"
+        @add="openFacultyModal(null)"
+        @edit="openFacultyModal"
+        @toggle-status="(id) => catalogsStore.toggleCatalogStatus('faculty', id)"
+        @update:page="(p) => catalogsStore.setPage('faculties', p)"
+        @update:page-size="(s) => catalogsStore.setPageSize('faculties', s)"
+      />
+    </AdminSmoothTabTransition>
 
     <!-- Các modal thêm/sửa Thể loại, Loại minh chứng và Khoa chuyên môn -->
     <AdminCatalogCategoryModal
@@ -154,6 +159,7 @@ import { useRoute } from 'vue-router';
 import { useAdminCatalogsStore } from '@/modules/administration/stores/useAdminCatalogsStore';
 import AdminKpiCard from '@/modules/administration/components/dashboard/AdminKpiCard.vue';
 import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 import AdminCatalogCategoriesTab from '@/modules/administration/components/catalogs/AdminCatalogCategoriesTab.vue';
 import AdminCatalogEvidenceTypesTab from '@/modules/administration/components/catalogs/AdminCatalogEvidenceTypesTab.vue';
 import AdminCatalogFacultiesTab from '@/modules/administration/components/catalogs/AdminCatalogFacultiesTab.vue';

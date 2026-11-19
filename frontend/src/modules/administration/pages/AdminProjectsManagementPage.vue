@@ -26,52 +26,57 @@
       @update:active-key="projectsStore.setActiveTab"
     />
 
-    <AdminProjectsLifecycleTab
-      v-if="projectsStore.activeTab === 'projects-list'"
-      :rows="projectsStore.paginatedProjects"
-      :total-count="projectsStore.projects.length"
-      :filtered-count="projectsStore.filteredProjects.length"
-      :filters="projectsStore.projectFilters"
-      :has-filters="projectsStore.hasProjectFilters"
-      :competition-options="projectsStore.competitionOptions"
-      :category-options="projectsStore.categoryOptions"
-      :competition-code-map="projectsStore.competitionCodeMap"
-      :page="projectsStore.pagination.projects.page"
-      :page-size="projectsStore.pagination.projects.pageSize"
-      @update-filter="handleProjectFilterUpdate"
-      @reset-filters="projectsStore.resetProjectFilters()"
-      @view-detail="handleOpenProjectDetail"
-      @update:page="(p) => projectsStore.setPage('projects', p)"
-      @update:page-size="(s) => projectsStore.setPageSize('projects', s)"
-    />
+    <AdminSmoothTabTransition>
+      <AdminProjectsLifecycleTab
+        v-if="projectsStore.activeTab === 'projects-list'"
+        key="projects-list"
+        :rows="projectsStore.paginatedProjects"
+        :total-count="projectsStore.projects.length"
+        :filtered-count="projectsStore.filteredProjects.length"
+        :filters="projectsStore.projectFilters"
+        :has-filters="projectsStore.hasProjectFilters"
+        :competition-options="projectsStore.competitionOptions"
+        :category-options="projectsStore.categoryOptions"
+        :competition-code-map="projectsStore.competitionCodeMap"
+        :page="projectsStore.pagination.projects.page"
+        :page-size="projectsStore.pagination.projects.pageSize"
+        @update-filter="handleProjectFilterUpdate"
+        @reset-filters="projectsStore.resetProjectFilters()"
+        @view-detail="handleOpenProjectDetail"
+        @update:page="(p) => projectsStore.setPage('projects', p)"
+        @update:page-size="(s) => projectsStore.setPageSize('projects', s)"
+      />
 
-    <AdminProjectCancellationsTab
-      v-else-if="projectsStore.activeTab === 'projects-cancel'"
-      :rows="projectsStore.paginatedCancellations"
-      :filtered-count="projectsStore.filteredCancellations.length"
-      :status-filter="projectsStore.cancelStatusFilter"
-      :project-title-map="projectsStore.projectTitleByCodeMap"
-      :page="projectsStore.pagination.cancels.page"
-      :page-size="projectsStore.pagination.cancels.pageSize"
-      @update:status-filter="projectsStore.setCancelStatusFilter"
-      @preview-file="handlePreviewCancellationFile"
-      @review="openCancellationReviewModal"
-      @update:page="(p) => projectsStore.setPage('cancels', p)"
-      @update:page-size="(s) => projectsStore.setPageSize('cancels', s)"
-    />
+      <AdminProjectCancellationsTab
+        v-else-if="projectsStore.activeTab === 'projects-cancel'"
+        key="projects-cancel"
+        :rows="projectsStore.paginatedCancellations"
+        :filtered-count="projectsStore.filteredCancellations.length"
+        :status-filter="projectsStore.cancelStatusFilter"
+        :project-title-map="projectsStore.projectTitleByCodeMap"
+        :page="projectsStore.pagination.cancels.page"
+        :page-size="projectsStore.pagination.cancels.pageSize"
+        @update:status-filter="projectsStore.setCancelStatusFilter"
+        @preview-file="handlePreviewCancellationFile"
+        @review="openCancellationReviewModal"
+        @update:page="(p) => projectsStore.setPage('cancels', p)"
+        @update:page-size="(s) => projectsStore.setPageSize('cancels', s)"
+      />
 
-    <AdminMemberChangesTab
-      v-else
-      :rows="projectsStore.paginatedChangeRequests"
-      :filtered-count="projectsStore.filteredChangeRequests.length"
-      :status-filter="projectsStore.changeStatusFilter"
-      :page="projectsStore.pagination.changes.page"
-      :page-size="projectsStore.pagination.changes.pageSize"
-      @update:status-filter="projectsStore.setChangeStatusFilter"
-      @respond="openMemberChangeModal"
-      @update:page="(p) => projectsStore.setPage('changes', p)"
-      @update:page-size="(s) => projectsStore.setPageSize('changes', s)"
-    />
+      <AdminMemberChangesTab
+        v-else
+        key="projects-change"
+        :rows="projectsStore.paginatedChangeRequests"
+        :filtered-count="projectsStore.filteredChangeRequests.length"
+        :status-filter="projectsStore.changeStatusFilter"
+        :page="projectsStore.pagination.changes.page"
+        :page-size="projectsStore.pagination.changes.pageSize"
+        @update:status-filter="projectsStore.setChangeStatusFilter"
+        @respond="openMemberChangeModal"
+        @update:page="(p) => projectsStore.setPage('changes', p)"
+        @update:page-size="(s) => projectsStore.setPageSize('changes', s)"
+      />
+    </AdminSmoothTabTransition>
 
     <!-- Tái sử dụng modal xem chi tiết hồ sơ dự án và các modal thao tác vòng đời -->
     <AdminProjectDetailModal
@@ -135,6 +140,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
 import { useAdminProjectsStore } from '@/modules/administration/stores/useAdminProjectsStore';
 import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 import AdminProjectDetailModal from '@/modules/administration/common/components/projects/AdminProjectDetailModal.vue';
 import AdminReassignMentorModal from '@/modules/administration/components/mentors/AdminReassignMentorModal.vue';
 import AdminProjectsLifecycleTab from '@/modules/administration/components/projects/AdminProjectsLifecycleTab.vue';
@@ -167,13 +173,11 @@ const subTabs = computed(() => [
   { key: 'projects-list', label: 'Vòng đời dự án' },
   {
     key: 'projects-cancel',
-    label: 'Đơn xin hủy',
-    count: projectsStore.pendingCancelsCount,
+    label: 'Đơn xin hủy'
   },
   {
     key: 'projects-change',
-    label: 'Thay đổi thành viên',
-    count: projectsStore.pendingChangesCount,
+    label: 'Thay đổi thành viên'
   },
 ]);
 

@@ -128,7 +128,7 @@ const transitionInfo = computed(() => getAllowedProjectTransitions(props.project
 const modalSubtitle = computed(() => {
   if (!props.project) return '';
   const currentLabel = PROJECT_STATUS[props.project.status]?.label || props.project.status;
-  return `${props.project.code} • Hiện tại: ${currentLabel}`;
+  return `${props.project.code} - Hiện tại: ${currentLabel}`;
 });
 
 watch(

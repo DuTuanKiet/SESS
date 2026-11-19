@@ -32,7 +32,7 @@
         </div>
       </div>
 
-      <div class="max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white">
+      <div class="no-scrollbar max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white">
         <table class="w-full text-xs">
           <thead class="sticky top-0">
             <tr class="border-b border-slate-100 bg-[#F8FAFC] text-left text-[11px] uppercase tracking-wider text-slate-500">

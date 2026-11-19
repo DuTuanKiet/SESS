@@ -113,9 +113,9 @@
                   <span class="font-mono text-[#1E56D9]">
                     {{ getCompCode(project.competitionId) }}
                   </span>
-                  •
+                  -
                 </template>
-                {{ project.category || 'Chưa phân loại' }} • {{ project.faculty }}
+                {{ project.category || 'Chưa phân loại' }} - {{ project.faculty }}
               </p>
             </td>
 

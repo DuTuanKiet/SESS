@@ -75,7 +75,7 @@
             <td class="px-4 py-3 align-middle">
               <p class="font-medium text-slate-800">{{ mentor.name }}</p>
               <p class="mt-0.5 text-xs text-slate-400">
-                {{ mentor.fields.join(' • ') }}
+                {{ mentor.fields.join(' - ') }}
               </p>
             </td>
 

@@ -1,7 +1,8 @@
 <template>
   <div class="space-y-5">
-    <!-- View 1: Danh sách thẻ cuộc thi gọn (mặc định khi vào trang) -->
-    <div v-if="!isDetailMode" class="space-y-5">
+    <AdminSmoothTabTransition>
+      <!-- View 1: Danh sách thẻ cuộc thi gọn (mặc định khi vào trang) -->
+      <div v-if="!isDetailMode" key="comp-list" class="space-y-5">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 class="text-2xl font-bold tracking-tight text-slate-900">Quản lý cuộc thi</h1>
@@ -106,68 +107,75 @@
       </section>
     </div>
 
-    <!-- View 2: Trang chi tiết cuộc thi (hiển thị khi admin chọn một cuộc thi) -->
-    <div v-else-if="selectedComp" class="space-y-5">
-      <AdminCompetitionDetailHeader
-        :competition="selectedComp"
-        :projects-count="competitionsStore.selectedCompetitionProjects.length"
-        :prize-formatted="competitionsStore.selectedCompetitionPrizeSummary.formatted"
-        @back="handleBackToList"
-        @edit="openEditCompetitionModal"
-        @change-status="isStatusModalOpen = true"
-      />
-
-      <section class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]">
-        <div class="px-5 pt-3.5">
-          <AdminSubTabs
-            :tabs="detailTabs"
-            :active-key="competitionsStore.detailTab"
-            aria-label="Phân mục chi tiết cuộc thi"
-            @update:active-key="competitionsStore.setDetailTab"
-          />
-        </div>
-
-        <AdminCompetitionOverviewTab
-          v-if="competitionsStore.detailTab === 'overview'"
+      <!-- View 2: Trang chi tiết cuộc thi (hiển thị khi admin chọn một cuộc thi) -->
+      <div v-else-if="selectedComp" key="comp-detail" class="space-y-5">
+        <AdminCompetitionDetailHeader
           :competition="selectedComp"
-          :linked-categories="competitionsStore.selectedCompetitionCategories"
-          :active-faculties-count="competitionsStore.activeFaculties.length"
+          :projects-count="competitionsStore.selectedCompetitionProjects.length"
           :prize-formatted="competitionsStore.selectedCompetitionPrizeSummary.formatted"
+          @back="handleBackToList"
           @edit="openEditCompetitionModal"
-          @open-guideline="handleOpenGuideline"
+          @change-status="isStatusModalOpen = true"
         />
 
-        <AdminCompetitionRoundsTab
-          v-else-if="competitionsStore.detailTab === 'rounds'"
-          :competition="selectedComp"
-          @add-round="openRoundModal(null)"
-          @edit-round="openRoundModal"
-          @delete-round="handleDeleteRound"
-        />
+        <section class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_20px_-6px_rgba(15,23,42,0.06)]">
+          <div class="px-5 pt-3.5">
+            <AdminSubTabs
+              :tabs="detailTabs"
+              :active-key="competitionsStore.detailTab"
+              aria-label="Phân mục chi tiết cuộc thi"
+              @update:active-key="competitionsStore.setDetailTab"
+            />
+          </div>
 
-        <AdminCompetitionAwardsTab
-          v-else-if="competitionsStore.detailTab === 'awards'"
-          :competition="selectedComp"
-          :prize-summary="competitionsStore.selectedCompetitionPrizeSummary"
-          @add-award="openAwardModal(null)"
-          @edit-award="openAwardModal"
-          @delete-award="handleDeleteAward"
-        />
+          <AdminSmoothTabTransition>
+            <AdminCompetitionOverviewTab
+              v-if="competitionsStore.detailTab === 'overview'"
+              key="comp-tab-overview"
+              :competition="selectedComp"
+              :linked-categories="competitionsStore.selectedCompetitionCategories"
+              :active-faculties-count="competitionsStore.activeFaculties.length"
+              :prize-formatted="competitionsStore.selectedCompetitionPrizeSummary.formatted"
+              @edit="openEditCompetitionModal"
+              @open-guideline="handleOpenGuideline"
+            />
 
-        <AdminCompetitionProjectsTab
-          v-else
-          :competition-id="selectedComp.id"
-          :projects="competitionsStore.paginatedCompetitionProjects"
-          :total-projects="competitionsStore.selectedCompetitionProjects.length"
-          :page="competitionsStore.projectsPagination.page"
-          :page-size="competitionsStore.projectsPagination.pageSize"
-          @view-project="handleOpenProjectDetail"
-          @open-projects-page="handleOpenProjectsPage"
-          @update:page="competitionsStore.setProjectsPage"
-          @update:page-size="competitionsStore.setProjectsPageSize"
-        />
-      </section>
-    </div>
+            <AdminCompetitionRoundsTab
+              v-else-if="competitionsStore.detailTab === 'rounds'"
+              key="comp-tab-rounds"
+              :competition="selectedComp"
+              @add-round="openRoundModal(null)"
+              @edit-round="openRoundModal"
+              @delete-round="handleDeleteRound"
+            />
+
+            <AdminCompetitionAwardsTab
+              v-else-if="competitionsStore.detailTab === 'awards'"
+              key="comp-tab-awards"
+              :competition="selectedComp"
+              :prize-summary="competitionsStore.selectedCompetitionPrizeSummary"
+              @add-award="openAwardModal(null)"
+              @edit-award="openAwardModal"
+              @delete-award="handleDeleteAward"
+            />
+
+            <AdminCompetitionProjectsTab
+              v-else
+              key="comp-tab-projects"
+              :competition-id="selectedComp.id"
+              :projects="competitionsStore.paginatedCompetitionProjects"
+              :total-projects="competitionsStore.selectedCompetitionProjects.length"
+              :page="competitionsStore.projectsPagination.page"
+              :page-size="competitionsStore.projectsPagination.pageSize"
+              @view-project="handleOpenProjectDetail"
+              @open-projects-page="handleOpenProjectsPage"
+              @update:page="competitionsStore.setProjectsPage"
+              @update:page-size="competitionsStore.setProjectsPageSize"
+            />
+          </AdminSmoothTabTransition>
+        </section>
+      </div>
+    </AdminSmoothTabTransition>
 
     <!-- Các modal quản trị cuộc thi, vòng thi, giải thưởng và chi tiết dự án -->
     <AdminCompetitionFormModal
@@ -230,6 +238,7 @@ import {
   useAdminCompetitionsStore,
 } from '@/modules/administration/stores/useAdminCompetitionsStore';
 import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 import AdminProjectDetailModal from '@/modules/administration/common/components/projects/AdminProjectDetailModal.vue';
 import AdminCompetitionCard from '@/modules/administration/components/competitions/AdminCompetitionCard.vue';
 import AdminCompetitionDetailHeader from '@/modules/administration/components/competitions/AdminCompetitionDetailHeader.vue';

@@ -56,7 +56,7 @@
             {{ project.title }}
           </p>
           <p class="mt-0.5 text-xs text-slate-400">
-            {{ project.code }} • {{ project.category || project.faculty }}
+            {{ project.code }} - {{ project.category || project.faculty }}
           </p>
         </div>
         <button

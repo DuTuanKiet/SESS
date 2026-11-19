@@ -872,7 +872,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
       appendAuditLog({
         action: 'RESET_USER_PASSWORD',
         targetId: target.email,
-        summary: `Cấp lại mật khẩu tạm cho ${target.name} (${target.code || target.email})${mustChange ? ' • bắt buộc đổi lần sau' : ''}`,
+        summary: `Cấp lại mật khẩu tạm cho ${target.name} (${target.code || target.email})${mustChange ? ' - bắt buộc đổi lần sau' : ''}`,
       });
       notify(
         `Đã cấp lại mật khẩu tạm cho ${target.name}${notifyEmail ? ' và gửi email thông báo' : ''}.`,
@@ -914,7 +914,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
         appendAuditLog({
           action: 'LOCK_USER',
           targetId: user.email,
-          summary: `${nextStatus === 'SUSPENDED' ? 'Tạm khóa' : 'Mở khóa'} tài khoản ${user.name} (${user.code || user.email})${cleanReason ? ` • ${cleanReason}` : ''}`,
+          summary: `${nextStatus === 'SUSPENDED' ? 'Tạm khóa' : 'Mở khóa'} tài khoản ${user.name} (${user.code || user.email})${cleanReason ? ` - ${cleanReason}` : ''}`,
         });
       });
 

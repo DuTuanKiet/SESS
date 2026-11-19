@@ -36,7 +36,7 @@
             </button>
           </div>
 
-          <form class="max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5" @submit.prevent="handleSubmit">
+          <form class="no-scrollbar max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5" @submit.prevent="handleSubmit">
             <div>
               <label for="broadcastRole" class="mb-1.5 block text-xs font-semibold text-slate-700">
                 Gửi tới nhóm

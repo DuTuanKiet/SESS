@@ -56,7 +56,7 @@
 
       <fieldset class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
         <legend class="px-1 font-semibold text-slate-700">Ủy viên Hội đồng</legend>
-        <div class="max-h-40 space-y-1 overflow-y-auto">
+        <div class="no-scrollbar max-h-40 space-y-1 overflow-y-auto">
           <label v-for="judge in store.judges" :key="judge.email" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-white">
             <input v-model="draft.memberEmails" type="checkbox" :value="judge.email" class="h-4 w-4 accent-[#1E56D9]" />
             <span class="font-medium text-slate-800">{{ judge.name }}</span>

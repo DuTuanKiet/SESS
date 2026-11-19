@@ -19,7 +19,7 @@
         hoặc chấm điểm lại.
       </p>
 
-      <div class="max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-3">
+      <div class="no-scrollbar max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-3">
         <ul class="space-y-1.5">
           <li
             v-for="item in targets"

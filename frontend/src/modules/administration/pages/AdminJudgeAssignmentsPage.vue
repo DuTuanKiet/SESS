@@ -14,7 +14,7 @@
       @update:active-key="handleTabChange"
     />
 
-    <Transition name="judging-tab" mode="out-in">
+    <AdminSmoothTabTransition>
       <component
         :is="activeTabComponent"
         :key="activeTab"
@@ -27,7 +27,7 @@
         @revoke="handleRevokeRequest"
         @view-project="openProject"
       />
-    </Transition>
+    </AdminSmoothTabTransition>
 
     <AdminJudgingCouncilFormModal
       v-if="modal.key === 'council-form'"
@@ -91,6 +91,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
 import AdminProjectDetailModal from '@/modules/administration/common/components/projects/AdminProjectDetailModal.vue';
 import AdminSubTabs from '@/modules/administration/common/components/ui/AdminSubTabs.vue';
+import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
 import AdminJudgingAssignRoundModal from '@/modules/administration/components/judging/AdminJudgingAssignRoundModal.vue';
 import AdminJudgingAssignmentsTab from '@/modules/administration/components/judging/AdminJudgingAssignmentsTab.vue';
 import AdminJudgingCouncilDetailModal from '@/modules/administration/components/judging/AdminJudgingCouncilDetailModal.vue';
@@ -203,27 +204,3 @@ function handleProjectAction({ action, project }) {
   router.push({ path: '/admin/projects', query: { projectId: project.id, action } });
 }
 </script>
-
-<style scoped>
-.judging-tab-enter-active,
-.judging-tab-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.judging-tab-enter-from {
-  opacity: 0;
-  transform: translateY(5px);
-}
-
-.judging-tab-leave-to {
-  opacity: 0;
-  transform: translateY(-3px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .judging-tab-enter-active,
-  .judging-tab-leave-active {
-    transition-duration: 1ms;
-  }
-}
-</style>

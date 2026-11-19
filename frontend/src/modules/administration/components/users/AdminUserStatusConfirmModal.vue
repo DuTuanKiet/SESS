@@ -20,7 +20,7 @@
 
       <div
         v-if="eligible.length"
-        class="max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-3"
+        class="no-scrollbar max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-3"
       >
         <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           Danh sách áp dụng ({{ eligible.length }}):

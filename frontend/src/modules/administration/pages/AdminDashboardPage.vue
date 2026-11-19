@@ -141,7 +141,7 @@ const NAV_ROUTE_MAP = {
   catalogs: '/admin/catalogs',
   rubrics: '/admin/rubrics',
   judging: '/admin/judge-assignments',
-  awards: '/admin/competitions',
+  awards: '/admin/awards-news',
   audit: '/admin/audit-logs',
 };
 
@@ -170,7 +170,6 @@ function handleOverviewJump(targetNav, targetSub = '', extraQuery = {}) {
   if (!path) return;
 
   const query = { ...extraQuery };
-  if (targetNav === 'awards') query.section = 'awards';
   if (targetSub) query.tab = targetSub;
 
   router.push({

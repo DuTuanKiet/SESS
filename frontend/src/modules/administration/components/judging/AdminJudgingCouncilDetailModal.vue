@@ -56,7 +56,7 @@
           <h4 class="text-xs font-semibold text-slate-800">Dự án đang phân công cho Hội đồng ({{ summary.projects.length }})</h4>
           <span class="text-[11px] text-slate-500">{{ summary.submittedCount }}/{{ summary.totalCount }} phiếu đã nộp</span>
         </div>
-        <div class="overflow-x-auto">
+        <div class="no-scrollbar overflow-x-auto">
           <table class="w-full min-w-[620px] text-xs">
             <thead><tr class="border-b border-slate-100 text-left text-slate-500"><th class="px-2.5 py-2">Dự án</th><th class="px-2.5 py-2">Khoa</th><th class="px-2.5 py-2 text-center">Tiến độ nộp điểm</th><th class="px-2.5 py-2 text-right">Điểm TB</th><th class="px-2.5 py-2 text-right">Thao tác</th></tr></thead>
             <tbody>

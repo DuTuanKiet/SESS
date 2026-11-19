@@ -92,7 +92,7 @@ export const ADMIN_SIDEBAR_GROUPS = [
       {
         key: 'awards',
         label: 'Trao giải & Tin tức',
-        to: { path: '/admin/competitions', query: { section: 'awards' } },
+        to: '/admin/awards-news',
       },
     ],
   },

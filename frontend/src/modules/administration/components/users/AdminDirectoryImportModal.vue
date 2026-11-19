@@ -55,7 +55,7 @@
 
       <div
         v-if="completedResult.issuedCredentials?.length"
-        class="overflow-x-auto rounded-xl border border-slate-200 bg-white"
+        class="no-scrollbar overflow-x-auto rounded-xl border border-slate-200 bg-white"
       >
         <table class="w-full text-xs">
           <thead>
@@ -404,7 +404,7 @@
           </button>
         </div>
 
-        <div class="max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white">
+        <div class="no-scrollbar max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white">
           <table class="w-full text-xs">
             <thead class="sticky top-0 z-10">
               <tr

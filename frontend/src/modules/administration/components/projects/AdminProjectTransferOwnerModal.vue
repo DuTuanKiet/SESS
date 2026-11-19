@@ -103,7 +103,7 @@ const validationError = ref('');
 const candidates = computed(() => getTransferLeaderCandidates(props.project));
 
 const modalSubtitle = computed(() =>
-  props.project ? `${props.project.code} • Thao tác khẩn cấp, ghi nhật ký kiểm toán` : ''
+  props.project ? `${props.project.code} - Thao tác khẩn cấp, ghi nhật ký kiểm toán` : ''
 );
 
 watch(

@@ -132,9 +132,9 @@ const modeConfig = computed(() => MODE_CONFIG[props.mode] || MODE_CONFIG.cancel)
 const modalSubtitle = computed(() => {
   if (!props.item) return '';
   if (props.mode === 'change') {
-    return `${props.item.project} • ${props.item.student}`;
+    return `${props.item.project} - ${props.item.student}`;
   }
-  return `${props.item.project} • ${props.item.by}`;
+  return `${props.item.project} - ${props.item.by}`;
 });
 
 const noticeText = computed(() => {

@@ -44,7 +44,7 @@
             :is="isForm ? 'form' : 'div'"
             @submit.prevent="emit('submit')"
           >
-            <div class="max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5">
+            <div class="no-scrollbar max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5">
               <slot />
             </div>
 

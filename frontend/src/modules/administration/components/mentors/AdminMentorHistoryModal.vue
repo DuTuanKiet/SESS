@@ -26,7 +26,7 @@
           />
         </div>
         <p class="mt-0.5 text-xs text-slate-400">
-          {{ entry.timestamp }}{{ entry.reason ? ` • Lý do: ${entry.reason}` : '' }}
+          {{ entry.timestamp }}{{ entry.reason ? ` - Lý do: ${entry.reason}` : '' }}
         </p>
       </li>
 

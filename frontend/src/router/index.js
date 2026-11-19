@@ -159,10 +159,20 @@ const routes = [
               replace: true,
             };
           }
+          if (to.query?.section === 'awards') {
+            const nextQuery = { ...to.query };
+            delete nextQuery.section;
+            return {
+              path: '/admin/awards-news',
+              query: Object.keys(nextQuery).length ? nextQuery : undefined,
+              replace: true,
+            };
+          }
           return true;
         },
       },
       { path: 'catalogs', name: 'admin-catalogs', component: () => import('@/modules/administration/pages/AdminCatalogsPage.vue') },
+      { path: 'awards-news', name: 'admin-awards-news', component: () => import('@/modules/administration/pages/AdminAwardsNewsPage.vue') },
       { path: 'rubrics', name: 'admin-rubrics', component: () => import('@/modules/administration/pages/AdminRubricsPage.vue') },
       { path: 'judge-assignments', name: 'admin-judge-assignments', component: () => import('@/modules/administration/pages/AdminJudgeAssignmentsPage.vue') },
       {
@@ -257,9 +267,12 @@ router.beforeEach((to, from) => {
     'admin-dashboard': 'Tổng quan Quản trị | SESS - CTUT',
     'admin-competitions': 'Quản lý cuộc thi | SESS - CTUT',
     'admin-catalogs': 'Danh mục dữ liệu | SESS - CTUT',
+    'admin-awards-news': 'Trao giải, Bình chọn & Tin tức | SESS - CTUT',
     'admin-judge-assignments': 'Chấm điểm & Phúc khảo | SESS - CTUT',
     'admin-mentor-assignments': 'Điều phối cố vấn | SESS - CTUT',
     'admin-users': 'Tài khoản & Danh sách duyệt | SESS - CTUT',
+    'admin-audit-logs': 'Nhật ký kiểm toán | SESS - CTUT',
+    'admin-reports': 'Nhật ký kiểm toán | SESS - CTUT',
     'not-found': 'Không tìm thấy trang | SESS - CTUT',
   };
   const portalTitle = to.path.startsWith('/admin') ? 'Quản trị | SESS - CTUT'

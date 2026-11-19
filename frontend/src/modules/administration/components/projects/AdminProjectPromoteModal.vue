@@ -110,7 +110,7 @@ const nextLevels = computed(() => getNextPromoteLevels(props.project?.level));
 
 const modalSubtitle = computed(() => {
   if (!props.project) return '';
-  return `${props.project.code} • ${LEVELS[props.project.level] || props.project.level}`;
+  return `${props.project.code} - ${LEVELS[props.project.level] || props.project.level}`;
 });
 
 watch(

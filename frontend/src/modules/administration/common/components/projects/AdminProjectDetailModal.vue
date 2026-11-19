@@ -58,7 +58,7 @@
             <span class="font-mono text-slate-500">({{ leader.studentId }})</span>
           </p>
           <p class="mt-0.5 text-[11px] text-slate-500">
-            {{ leader.className || '—' }} • {{ leader.email }} • {{ leader.phone || '—' }}
+            {{ leader.className || '—' }} - {{ leader.email }} - {{ leader.phone || '—' }}
           </p>
           <p class="mt-2 text-[11px] leading-relaxed text-slate-600">
             <strong class="font-semibold">Thành viên:</strong>
@@ -75,7 +75,7 @@
               {{ project.advisorInfo.name }}
             </p>
             <p class="mt-0.5 text-[11px] text-slate-500">
-              {{ project.advisorInfo.unit || '—' }} • {{ project.advisorInfo.email }}
+              {{ project.advisorInfo.unit || '—' }} - {{ project.advisorInfo.email }}
             </p>
             <p class="mt-0.5 text-[11px] text-slate-500">
               SĐT: {{ project.advisorInfo.phone || '—' }}
@@ -305,7 +305,7 @@ const modalTitle = computed(() =>
 );
 
 const modalSubtitle = computed(() =>
-  props.project ? `${props.project.title} • Trạng thái: ${statusMeta.value.label}` : ''
+  props.project ? `${props.project.title} - Trạng thái: ${statusMeta.value.label}` : ''
 );
 
 const members = computed(() => props.project?.members || []);

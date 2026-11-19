@@ -109,7 +109,7 @@ const validationError = ref('');
 const modalSubtitle = computed(() => {
   if (!props.project) return '';
   const codeText = props.project.displayLabel || props.project.code || props.project.projectId;
-  return props.currentMentor ? `${codeText} • Hiện tại: ${props.currentMentor.name}` : codeText;
+  return props.currentMentor ? `${codeText} - Hiện tại: ${props.currentMentor.name}` : codeText;
 });
 
 watch(

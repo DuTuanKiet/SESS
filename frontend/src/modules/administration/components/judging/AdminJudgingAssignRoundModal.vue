@@ -62,7 +62,7 @@
           </label>
           <span class="text-[11px] text-slate-400">Đã chọn cả giám khảo và dự án để xem quy mô phân công.</span>
         </div>
-        <div v-if="availableProjects.length" class="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+        <div v-if="availableProjects.length" class="no-scrollbar max-h-56 space-y-1.5 overflow-y-auto pr-1">
           <label v-for="project in availableProjects" :key="project.id" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-slate-50">
             <input v-model="draft.projectIds" type="checkbox" :value="project.id" class="h-4 w-4 accent-[#1E56D9]" />
             <span class="font-mono font-semibold text-[#1E56D9]">{{ project.code }}</span>
