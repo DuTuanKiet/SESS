@@ -32,8 +32,8 @@ const assertPortalAccess = ({ user, portalType } = {}) => {
   if (hasAccess) return;
 
   const message = portalType === 'admin'
-    ? 'Tài khoản này không có quyền truy cập cổng quản trị.'
-    : 'Tài khoản quản trị viên không thể đăng nhập qua cổng người dùng.';
+    ? 'Email hoặc mật khẩu không chính xác'
+    : 'Email hoặc mật khẩu không chính xác';
   throw ApiError.forbidden(message, 'PORTAL_ACCESS_DENIED');
 };
 
