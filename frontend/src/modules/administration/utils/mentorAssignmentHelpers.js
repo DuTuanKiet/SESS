@@ -1,4 +1,4 @@
-import { MAX_PROJECTS_PER_MENTOR } from '@/modules/administration/mocks/adminMentorAssignmentsMockData';
+import { MAX_PROJECTS_PER_MENTOR } from '@/modules/administration/constants/adminConstants';
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -118,7 +118,7 @@ const ASSIGNMENT_STATUS_LABELS = {
   CANCELLED: 'Đã hủy',
 };
 
-// Chuẩn hóa dòng lịch sử phân công cố vấn cho cả Audit Log mock và MentorAssignment API
+// Chuẩn hóa dòng lịch sử phân công cố vấn cho cả Audit Log và MentorAssignment API
 export function normalizeAssignmentHistoryEntry(raw = {}, index = 0) {
   // Nhánh bản ghi từ API GET /mentor-assignments/project/:projectId
   if (raw.mentorId || raw.assignedAt) {
@@ -144,7 +144,7 @@ export function normalizeAssignmentHistoryEntry(raw = {}, index = 0) {
     };
   }
 
-  // Nhánh bản ghi Audit Log trong Mock
+  // Nhánh bản ghi Audit Log 
   const isLatest = index === 0;
   return {
     id: String(raw.id || `hist-${index}`),

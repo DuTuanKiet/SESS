@@ -59,11 +59,11 @@ defineProps({
   },
   userName: {
     type: String,
-    default: 'Nguyễn Văn Quản',
+    default: 'Quản trị viên',
   },
   userEmail: {
     type: String,
-    default: 'admin@ctut.edu.vn',
+    default: '',
   },
   systemHealth: {
     type: Object,

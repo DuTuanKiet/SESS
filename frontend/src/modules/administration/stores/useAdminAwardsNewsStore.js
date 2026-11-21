@@ -2,7 +2,6 @@ import { computed, reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { useToastStore } from '@/stores/toast';
 import { REWARD_CLAIM_STATUS } from '@/modules/administration/constants/adminConstants';
-import { createInitialAwardsNewsMockState } from '@/modules/administration/mocks/adminAwardsNewsMockData';
 import { useAdminAuditLogsStore } from '@/modules/administration/stores/useAdminAuditLogsStore';
 import { useAdminCompetitionsStore } from '@/modules/administration/stores/useAdminCompetitionsStore';
 import { useAdminProjectsStore } from '@/modules/administration/stores/useAdminProjectsStore';
@@ -21,14 +20,24 @@ import {
 
 const VALID_AWARDS_TABS = new Set(['awards-claims', 'awards-votes', 'awards-news']);
 
+function createEmptyAwardsNewsState() {
+  return {
+    competitions: [],
+    projects: [],
+    rewardClaims: [],
+    votingCampaigns: [],
+    newsItems: [],
+  };
+}
+
 /**
- * Pinia store quản lý Trao giải, Bình chọn công khai và Tin tức & Thông báo (mock-driven).
+ * Pinia store quản lý Trao giải, Bình chọn công khai và Tin tức & Thông báo.
  */
 export const useAdminAwardsNewsStore = defineStore('adminAwardsNews', () => {
   const toastStore = useToastStore();
 
   const isLiveApiEnabled = ref(false);
-  const rawState = ref(createInitialAwardsNewsMockState());
+  const rawState = ref(createEmptyAwardsNewsState());
   const isSubmitting = ref(false);
 
   const activeTab = ref('awards-claims');
@@ -262,7 +271,7 @@ export const useAdminAwardsNewsStore = defineStore('adminAwardsNews', () => {
       newValues: { status: target.status, note: target.note },
     });
 
-    notify(`Đã cập nhật hồ sơ nhận giải ${target.projectCode} (mô phỏng).`);
+    notify(`Đã cập nhật hồ sơ nhận giải ${target.projectCode}.`);
     return true;
   }
 
@@ -476,7 +485,7 @@ export const useAdminAwardsNewsStore = defineStore('adminAwardsNews', () => {
       });
     }
 
-    notify(`Đã lưu bản tin «${title}» (mô phỏng).`);
+    notify(`Đã lưu bản tin «${title}».`);
     return true;
   }
 

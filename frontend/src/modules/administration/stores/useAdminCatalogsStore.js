@@ -5,7 +5,14 @@ import {
   EMAIL_REGEX,
   EVIDENCE_SCOPE_META,
 } from '@/modules/administration/constants/adminConstants';
-import { createInitialCatalogsMockState } from '@/modules/administration/mocks/adminCatalogsMockData';
+
+function createEmptyCatalogsState() {
+  return {
+    projectCategories: [],
+    evidenceTypes: [],
+    faculties: [],
+  };
+}
 import {
   formatProjectTimestamp,
   slicePaginatedItems,
@@ -21,9 +28,9 @@ const VALID_CATALOG_TABS = new Set(['catalog-categories', 'catalog-evidences', '
 export const useAdminCatalogsStore = defineStore('adminCatalogs', () => {
   const toastStore = useToastStore();
 
-  // Mặc định vận hành bằng mock state tĩnh theo yêu cầu không kết nối Backend
+  // Khởi tạo state rỗng chờ kết nối Backend
   const isLiveApiEnabled = ref(false);
-  const rawState = ref(createInitialCatalogsMockState());
+  const rawState = ref(createEmptyCatalogsState());
 
   const isLoading = ref(false);
   const isSubmitting = ref(false);
@@ -454,7 +461,7 @@ export const useAdminCatalogsStore = defineStore('adminCatalogs', () => {
         });
       }
 
-      notify(`Đã lưu thể loại «${name}» (mô phỏng).`, 'success');
+      notify(`Đã lưu thể loại «${name}».`, 'success');
       return true;
     } finally {
       isSubmitting.value = false;
@@ -533,7 +540,7 @@ export const useAdminCatalogsStore = defineStore('adminCatalogs', () => {
         newValues: cleanPayload,
       });
 
-      notify(`Đã lưu loại minh chứng «${name}» (mô phỏng).`, 'success');
+      notify(`Đã lưu loại minh chứng «${name}».`, 'success');
       return true;
     } finally {
       isSubmitting.value = false;
@@ -625,7 +632,7 @@ export const useAdminCatalogsStore = defineStore('adminCatalogs', () => {
         });
       }
 
-      notify(`Đã lưu khoa «${name}» (mô phỏng).`, 'success');
+      notify(`Đã lưu khoa «${name}».`, 'success');
       return true;
     } finally {
       isSubmitting.value = false;

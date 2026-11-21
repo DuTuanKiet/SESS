@@ -331,8 +331,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import { useToastStore } from '@/stores/toast';
-import { LEVELS } from '@/modules/administration/constants/adminConstants';
-import { BANNER_PRESETS } from '@/modules/administration/mocks/adminCompetitionsMockData';
+import { BANNER_PRESETS, LEVELS } from '@/modules/administration/constants/adminConstants';
 import { ddmmyyyyToIso } from '@/modules/administration/stores/useAdminCompetitionsStore';
 import AdminModal from '@/modules/administration/common/components/ui/AdminModal.vue';
 import AdminCompetitionBannerPicker from './AdminCompetitionBannerPicker.vue';

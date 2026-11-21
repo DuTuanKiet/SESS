@@ -105,7 +105,7 @@
 
 <script setup>
 import { onBeforeUnmount, onMounted, reactive, watch } from 'vue';
-import { ROLES } from '@/modules/administration/mocks/adminDashboardMockData';
+import { ROLES } from '@/modules/administration/constants/adminConstants';
 
 const props = defineProps({
   isOpen: {

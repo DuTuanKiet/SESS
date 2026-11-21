@@ -3,15 +3,20 @@ import { defineStore } from 'pinia';
 import { adminService } from '@/modules/administration/services/adminService';
 import { useToastStore } from '@/stores/toast';
 import {
+  BANNER_PRESETS,
   COMPETITION_STATUS,
   ROUND_STATUS,
   STAGE_TYPES,
 } from '@/modules/administration/constants/adminConstants';
-import {
-  BANNER_PRESETS,
-  createInitialCompetitionsMockState,
-} from '@/modules/administration/mocks/adminCompetitionsMockData';
 import { useAdminCatalogsStore } from '@/modules/administration/stores/useAdminCatalogsStore';
+
+function createEmptyCompetitionsState() {
+  return {
+    competitions: [],
+    projects: [],
+    rubrics: [],
+  };
+}
 
 const VALID_DETAIL_TABS = new Set(['overview', 'rounds', 'awards', 'projects']);
 
@@ -204,9 +209,9 @@ export const useAdminCompetitionsStore = defineStore('adminCompetitions', () => 
   const toastStore = useToastStore();
   const catalogsStore = useAdminCatalogsStore();
 
-  // Mặc định chạy dữ liệu mẫu tĩnh; bật isLiveApiEnabled = true khi BE hoàn thiện API /admin/competitions
+  // Khởi tạo state rỗng; bật isLiveApiEnabled = true khi BE hoàn thiện API /admin/competitions
   const isLiveApiEnabled = ref(false);
-  const rawState = ref(createInitialCompetitionsMockState());
+  const rawState = ref(createEmptyCompetitionsState());
 
   const isLoading = ref(false);
   const isSubmitting = ref(false);
@@ -356,7 +361,7 @@ export const useAdminCompetitionsStore = defineStore('adminCompetitions', () => 
       throw compsRes.reason;
     }
 
-    const baseState = createInitialCompetitionsMockState();
+    const baseState = createEmptyCompetitionsState();
     const apiComps = extractItems(compsRes.value);
     if (apiComps.length > 0) {
       baseState.competitions = apiComps.map(normalizeCompetitionFromApi);

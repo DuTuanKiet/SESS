@@ -117,8 +117,11 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { COMPETITION_STATUS, LEVELS } from '@/modules/administration/constants/adminConstants';
-import { BANNER_PRESETS } from '@/modules/administration/mocks/adminCompetitionsMockData';
+import {
+  BANNER_PRESETS,
+  COMPETITION_STATUS,
+  LEVELS,
+} from '@/modules/administration/constants/adminConstants';
 import { getCompetitionBannerUrl } from '@/modules/administration/stores/useAdminCompetitionsStore';
 import AdminStatusBadge from '@/modules/administration/common/components/ui/AdminStatusBadge.vue';
 

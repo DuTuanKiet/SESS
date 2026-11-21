@@ -11,9 +11,6 @@
           >
             Danh mục Khoa &amp; Đơn vị chuyên môn
           </h2>
-          <span class="whitespace-nowrap text-xs text-slate-400">
-            {{ countLabel }}
-          </span>
         </div>
 
         <button
@@ -174,9 +171,6 @@
           >
             Phân cấp thi đấu chuẩn hệ thống
           </h2>
-          <span class="rounded-md bg-[#F1F7FF] px-2 py-0.5 font-mono text-[10.5px] font-semibold text-[#1E56D9]">
-            LEVEL_ORDER
-          </span>
         </div>
       </div>
 

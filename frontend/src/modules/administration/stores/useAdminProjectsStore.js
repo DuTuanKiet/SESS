@@ -5,7 +5,6 @@ import {
   LEVELS,
   PROJECT_STATUS,
 } from '@/modules/administration/constants/adminConstants';
-import { createInitialProjectsMockState } from '@/modules/administration/mocks/adminProjectsMockData';
 import { useAdminCompetitionsStore } from '@/modules/administration/stores/useAdminCompetitionsStore';
 import { useAdminMentorAssignmentsStore } from '@/modules/administration/stores/useAdminMentorAssignmentsStore';
 import { useAdminUsersStore } from '@/modules/administration/stores/useAdminUsersStore';
@@ -21,7 +20,15 @@ import {
 const VALID_PROJECT_TABS = new Set(['projects-list', 'projects-cancel', 'projects-change']);
 const VALID_REQUEST_STATUS = new Set(['', 'PENDING', 'APPROVED', 'REJECTED']);
 
-// Pinia store quản lý vòng đời dự án, đơn xin hủy và yêu cầu thay đổi thành viên (mặc định dữ liệu mẫu tĩnh)
+function createEmptyProjectsState() {
+  return {
+    projects: [],
+    cancellations: [],
+    changeRequests: [],
+  };
+}
+
+// Pinia store quản lý vòng đời dự án, đơn xin hủy và yêu cầu thay đổi thành viên (sẵn sàng chuyển Live API)
 export const useAdminProjectsStore = defineStore('adminProjects', () => {
   const toastStore = useToastStore();
   const competitionsStore = useAdminCompetitionsStore();
@@ -29,7 +36,7 @@ export const useAdminProjectsStore = defineStore('adminProjects', () => {
   const usersStore = useAdminUsersStore();
 
   const isLiveApiEnabled = ref(false);
-  const rawState = ref(createInitialProjectsMockState());
+  const rawState = ref(createEmptyProjectsState());
 
   const isLoading = ref(false);
   const isSubmitting = ref(false);

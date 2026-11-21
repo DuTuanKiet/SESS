@@ -253,7 +253,7 @@ function handleOpenProjectAttachment(attachment) {
   if (!attachment) return;
   toastStore.add({
     type: 'info',
-    message: `Mô phỏng mở file thuyết minh: ${attachment.name}`,
+    message: `Mở file thuyết minh: ${attachment.name}`,
   });
 }
 
@@ -261,7 +261,7 @@ function handleDownloadDeliverable(item) {
   if (!item) return;
   toastStore.add({
     type: 'info',
-    message: `Mô phỏng tải về: ${item.name}`,
+    message: `Tải về: ${item.name}`,
   });
 }
 

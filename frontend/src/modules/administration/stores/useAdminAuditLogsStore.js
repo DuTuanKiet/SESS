@@ -3,14 +3,12 @@ import { defineStore } from 'pinia';
 import { useAuthStore } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toast';
 import { AUDIT_ACTION_META } from '@/modules/administration/constants/adminConstants';
-import { createInitialAuditLogsMockState } from '@/modules/administration/mocks/adminAuditLogsMockData';
 import { useAdminCatalogsStore } from '@/modules/administration/stores/useAdminCatalogsStore';
 import { useAdminJudgingStore } from '@/modules/administration/stores/useAdminJudgingStore';
 import { useAdminProjectsStore } from '@/modules/administration/stores/useAdminProjectsStore';
 import { useAdminUsersStore } from '@/modules/administration/stores/useAdminUsersStore';
 import {
   DEFAULT_AUDIT_ACTOR,
-  SEEDED_USER_AUDIT_IDS,
   buildAuditCsvContent,
   computeAuditStats,
   filterAuditLogs,
@@ -22,7 +20,7 @@ import {
 } from '@/modules/administration/utils/projectManagementHelpers';
 
 /**
- * Pinia store quản lý Nhật ký kiểm toán (mock-driven, không kết nối BE).
+ * Pinia store quản lý Nhật ký kiểm toán (khởi tạo rỗng, sẵn sàng kết nối BE).
  * Gộp read-only các log mới phát sinh trong phiên từ các store admin khác.
  */
 export const useAdminAuditLogsStore = defineStore('adminAuditLogs', () => {
@@ -30,7 +28,7 @@ export const useAdminAuditLogsStore = defineStore('adminAuditLogs', () => {
   const toastStore = useToastStore();
 
   const isLiveApiEnabled = ref(false);
-  const localLogs = ref(createInitialAuditLogsMockState());
+  const localLogs = ref([]);
   let localSequence = 0;
 
   const filters = reactive({
@@ -59,7 +57,7 @@ export const useAdminAuditLogsStore = defineStore('adminAuditLogs', () => {
       { logs: projectsStore.localAuditLogs || [] },
       { logs: catalogsStore.localAuditLogs || [] },
       { logs: judgingStore.auditLogs || [] },
-      { logs: usersStore.auditLogs || [], excludeIds: SEEDED_USER_AUDIT_IDS },
+      { logs: usersStore.auditLogs || [] },
     ];
   }
 
@@ -149,7 +147,7 @@ export const useAdminAuditLogsStore = defineStore('adminAuditLogs', () => {
 
     toastStore.add({
       type: 'success',
-      message: 'Đã tải xuống tệp nhật ký kiểm toán CSV (mô phỏng).',
+      message: 'Đã tải xuống tệp nhật ký kiểm toán CSV.',
     });
   }
 

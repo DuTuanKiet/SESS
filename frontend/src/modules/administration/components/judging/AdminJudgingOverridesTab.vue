@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
       <div>
         <h2 class="text-sm font-semibold text-slate-900">Lịch sử điều chỉnh điểm</h2>
-        <p class="mt-1 text-xs text-slate-500">Bản ghi mock chỉ lưu lịch sử, không thay đổi phiếu chấm gốc.</p>
+        <p class="mt-1 text-xs text-slate-500">Bản ghi chỉ lưu lịch sử, không thay đổi phiếu chấm gốc.</p>
       </div>
       <button
         type="button"

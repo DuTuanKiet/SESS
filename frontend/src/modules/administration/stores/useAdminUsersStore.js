@@ -1,5 +1,6 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
+import { useAuthStore } from '@/stores/authStore';
 import { adminService } from '@/modules/administration/services/adminService';
 import { useToastStore } from '@/stores/toast';
 import { useAdminCatalogsStore } from '@/modules/administration/stores/useAdminCatalogsStore';
@@ -9,108 +10,53 @@ import {
   ROLES,
 } from '@/modules/administration/constants/adminConstants';
 import {
-  BASE_DIRECTORY_UNITS,
-  CURRENT_ADMIN_USER_ID,
-  createInitialUsersMockState,
-} from '@/modules/administration/mocks/adminUsersMockData';
-import {
   buildTemplateSpreadsheetConfig,
   exportSpreadsheet,
   extractStudentCodeFromEmail,
   generateTempPassword,
   normalizeVnPhone,
 } from '@/modules/administration/utils/directorySpreadsheet';
+import {
+  buildDirectoryUnitOptions,
+  buildUserByEmailMap,
+  collectSortedUnique,
+  computeDirectoryKpis,
+  createEmptyUsersState,
+  createIssuedCredentialEntry,
+  createLocalUserRecord,
+  extractItems,
+  filterAccounts,
+  filterJudges,
+  filterStudents,
+  findDirectoryUser,
+  formatNowTimestamp,
+  formatTodayDate,
+  isProtectedAdminUser,
+  makeLocalId,
+  normalizeJudgeFromApi,
+  normalizeStudentWhitelistFromApi,
+  normalizeUserFromApi,
+  resolveUserDetailContext,
+} from '@/modules/administration/utils/userDirectoryHelpers';
+import {
+  buildCredentialsExportConfig,
+  buildErrorRowsExportConfig,
+  buildJudgesExportConfig,
+  buildStudentsExportConfig,
+  buildUsersExportConfig,
+} from '@/modules/administration/utils/userDirectoryExportConfigs';
 
 const VALID_USER_TABS = new Set(['users-accounts', 'users-students', 'users-judges']);
 
-function pad2(n) {
-  return String(n).padStart(2, '0');
-}
-
-function formatTodayDate() {
-  const now = new Date();
-  return `${pad2(now.getDate())}/${pad2(now.getMonth() + 1)}/${now.getFullYear()}`;
-}
-
-function formatNowTimestamp() {
-  const now = new Date();
-  return `${formatTodayDate()} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-}
-
-function formatApiDate(raw, includeTime = false) {
-  if (!raw) return '';
-  if (/^\d{2}\/\d{2}\/\d{4}/.test(String(raw))) return String(raw);
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return String(raw);
-  const datePart = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
-  return includeTime ? `${datePart} ${pad2(d.getHours())}:${pad2(d.getMinutes())}` : datePart;
-}
-
-function extractItems(response) {
-  const payload = response?.data;
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.users)) return payload.users;
-  if (Array.isArray(response?.items)) return response.items;
-  return [];
-}
-
-function normalizeUserFromApi(raw = {}) {
-  const rawRole = String(raw.role || raw.systemRole || 'student').toLowerCase();
-  const role = ROLES[rawRole] ? rawRole : 'student';
-  return {
-    id: String(raw._id || raw.id || `u-${Date.now()}`),
-    code: String(raw.code || raw.studentId || raw.staffCode || '').toUpperCase(),
-    name: raw.fullName || raw.name || 'Chưa cập nhật',
-    email: String(raw.email || '').toLowerCase(),
-    unit: raw.unit || raw.faculty || 'Chưa cập nhật',
-    role,
-    status: raw.status === 'SUSPENDED' || raw.status === 'INACTIVE' ? 'SUSPENDED' : 'ACTIVE',
-    phone: raw.phoneNumber || raw.phone || '',
-    createdAt: formatApiDate(raw.createdAt) || formatTodayDate(),
-    lastLoginAt: formatApiDate(raw.lastLoginAt, true) || 'Chưa đăng nhập',
-    mustChangePassword: Boolean(raw.mustChangePassword),
-    passwordUpdatedAt: formatApiDate(raw.passwordUpdatedAt, true) || '—',
-    ndaAccepted: Boolean(raw.ndaAccepted),
-  };
-}
-
-function normalizeStudentWhitelistFromApi(raw = {}) {
-  return {
-    id: String(raw._id || raw.id || `sw-${Date.now()}`),
-    studentId: String(raw.studentId || raw.code || ''),
-    fullName: raw.fullName || raw.name || 'Chưa cập nhật',
-    email: String(raw.email || '').toLowerCase(),
-    className: raw.className || '',
-    faculty: raw.faculty || raw.unit || '',
-    phone: raw.phoneNumber || raw.phone || '',
-    advisorEmail: String(raw.advisorEmail || '').toLowerCase(),
-    isImported: Boolean(raw.isImported),
-  };
-}
-
-function normalizeJudgeFromApi(raw = {}) {
-  return {
-    id: String(raw._id || raw.id || `jw-${Date.now()}`),
-    staffCode: String(raw.staffCode || raw.code || '').toUpperCase(),
-    email: String(raw.email || '').toLowerCase(),
-    name: raw.fullName || raw.name || 'Chưa cập nhật',
-    unit: raw.faculty || raw.unit || raw.department || 'Chuyên gia độc lập',
-    phone: raw.phoneNumber || raw.phone || '',
-    date: formatApiDate(raw.createdAt || raw.date) || formatTodayDate(),
-    isImported: Boolean(raw.isImported ?? true),
-  };
-}
-
-function makeLocalId(prefix) {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-}
-
-// Pinia store quản lý Tài khoản & Danh sách duyệt (chạy mock mặc định và sẵn sàng chuyển Live API)
+// Pinia store quản lý Tài khoản & Danh sách duyệt (khởi tạo rỗng và sẵn sàng chuyển Live API)
 export const useAdminUsersStore = defineStore('admin-users', () => {
+  const authStore = useAuthStore();
   const toastStore = useToastStore();
   const catalogsStore = useAdminCatalogsStore();
-  const initialState = createInitialUsersMockState();
+  const initialState = createEmptyUsersState();
+  const currentAdminUserId = computed(() =>
+    String(authStore.user?.id || authStore.user?._id || '')
+  );
 
   const isLiveApiEnabled = ref(false);
   const isLoading = ref(false);
@@ -175,49 +121,33 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
   });
 
   const manageableUsers = computed(() =>
-    users.value.filter((u) => u.role !== 'admin' && u.id !== CURRENT_ADMIN_USER_ID)
+    users.value.filter(
+      (u) =>
+        u.role !== 'admin' && (!currentAdminUserId.value || u.id !== currentAdminUserId.value)
+    )
   );
 
-  const userByEmailMap = computed(() => {
-    const map = new Map();
-    users.value.forEach((u) => {
-      if (u.email) map.set(u.email.toLowerCase(), u);
-    });
-    return map;
-  });
+  const userByEmailMap = computed(() => buildUserByEmailMap(users.value));
 
   const activeFaculties = computed(() =>
     faculties.value.filter((f) => f.isActive).map((f) => f.name)
   );
 
   const unitOptions = computed(() =>
-    Array.from(
-      new Set([
-        ...activeFaculties.value,
-        ...BASE_DIRECTORY_UNITS,
-        ...manageableUsers.value.map((u) => u.unit).filter(Boolean),
-        ...judges.value.map((j) => j.unit).filter(Boolean),
-      ])
-    )
+    buildDirectoryUnitOptions({
+      activeFaculties: activeFaculties.value,
+      manageableUsers: manageableUsers.value,
+      judges: judges.value,
+    })
   );
 
-  const userFilterUnits = computed(() =>
-    Array.from(new Set(manageableUsers.value.map((u) => u.unit).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b, 'vi')
-    )
-  );
+  const userFilterUnits = computed(() => collectSortedUnique(manageableUsers.value, 'unit'));
 
   const studentFilterFaculties = computed(() =>
-    Array.from(new Set(studentWhitelist.value.map((s) => s.faculty).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b, 'vi')
-    )
+    collectSortedUnique(studentWhitelist.value, 'faculty')
   );
 
-  const judgeFilterUnits = computed(() =>
-    Array.from(new Set(judges.value.map((j) => j.unit).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b, 'vi')
-    )
-  );
+  const judgeFilterUnits = computed(() => collectSortedUnique(judges.value, 'unit'));
 
   const hasAccountFilters = computed(() =>
     Boolean(
@@ -241,62 +171,15 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
     Boolean(judgeFilters.keyword.trim() || judgeFilters.unit || judgeFilters.account)
   );
 
-  const filteredAccounts = computed(() => {
-    const keyword = accountFilters.keyword.trim().toLowerCase();
-    return manageableUsers.value.filter((u) => {
-      const matchKeyword =
-        !keyword ||
-        `${u.code || ''} ${u.name} ${u.email} ${u.unit} ${u.phone || ''}`
-          .toLowerCase()
-          .includes(keyword);
-      const matchRole = !accountFilters.role || u.role === accountFilters.role;
-      const matchUnit = !accountFilters.unit || u.unit === accountFilters.unit;
-      const matchStatus =
-        !accountFilters.status ||
-        (accountFilters.status === 'MUST_CHANGE'
-          ? Boolean(u.mustChangePassword)
-          : u.status === accountFilters.status);
-      return matchKeyword && matchRole && matchUnit && matchStatus;
-    });
-  });
+  const filteredAccounts = computed(() => filterAccounts(manageableUsers.value, accountFilters));
 
-  const filteredStudents = computed(() => {
-    const keyword = studentFilters.keyword.trim().toLowerCase();
-    return studentWhitelist.value.filter((s) => {
-      const matchKeyword =
-        !keyword ||
-        `${s.studentId} ${s.fullName} ${s.email} ${s.className || ''} ${s.phone || ''} ${s.advisorEmail || ''}`
-          .toLowerCase()
-          .includes(keyword);
-      const matchFaculty = !studentFilters.faculty || s.faculty === studentFilters.faculty;
-      const matchSource =
-        !studentFilters.source ||
-        (studentFilters.source === 'imported' ? s.isImported : !s.isImported);
-      const hasAccount = userByEmailMap.value.has(s.email.toLowerCase());
-      const matchAccount =
-        !studentFilters.account || (studentFilters.account === 'linked' ? hasAccount : !hasAccount);
-      return matchKeyword && matchFaculty && matchSource && matchAccount;
-    });
-  });
+  const filteredStudents = computed(() =>
+    filterStudents(studentWhitelist.value, studentFilters, userByEmailMap.value)
+  );
 
-  const filteredJudges = computed(() => {
-    const keyword = judgeFilters.keyword.trim().toLowerCase();
-    return judges.value.filter((j) => {
-      const matchKeyword =
-        !keyword ||
-        `${j.staffCode || ''} ${j.email} ${j.name} ${j.unit} ${j.phone || ''}`
-          .toLowerCase()
-          .includes(keyword);
-      const matchUnit = !judgeFilters.unit || j.unit === judgeFilters.unit;
-      const linkedUser = userByEmailMap.value.get(j.email.toLowerCase());
-      const matchAccount =
-        !judgeFilters.account ||
-        (judgeFilters.account === 'linked' && Boolean(linkedUser)) ||
-        (judgeFilters.account === 'unlinked' && !linkedUser) ||
-        (judgeFilters.account === 'nda_pending' && (!linkedUser || !linkedUser.ndaAccepted));
-      return matchKeyword && matchUnit && matchAccount;
-    });
-  });
+  const filteredJudges = computed(() =>
+    filterJudges(judges.value, judgeFilters, userByEmailMap.value)
+  );
 
   function slicePaginated(items, kind) {
     const pager = pagination[kind];
@@ -314,39 +197,14 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
   const paginatedStudents = computed(() => slicePaginated(filteredStudents.value, 'students'));
   const paginatedJudges = computed(() => slicePaginated(filteredJudges.value, 'judges'));
 
-  const kpiStats = computed(() => {
-    const manageable = manageableUsers.value;
-    const activeUsers = manageable.filter((u) => u.status === 'ACTIVE').length;
-    const suspendedUsers = manageable.length - activeUsers;
-    const pendingPassCount = manageable.filter(
-      (u) => u.mustChangePassword || u.lastLoginAt === 'Chưa đăng nhập'
-    ).length;
-
-    const linkedStudents = studentWhitelist.value.filter((s) =>
-      userByEmailMap.value.has(s.email.toLowerCase())
-    ).length;
-    const unlinkedStudents = studentWhitelist.value.length - linkedStudents;
-
-    const linkedJudges = judges.value.filter((j) =>
-      userByEmailMap.value.has(j.email.toLowerCase())
-    ).length;
-    const ndaAcceptedCount = judges.value.filter(
-      (j) => userByEmailMap.value.get(j.email.toLowerCase())?.ndaAccepted
-    ).length;
-
-    return {
-      activeUsers,
-      manageableTotal: manageable.length,
-      suspendedUsers,
-      pendingPassCount,
-      studentWhitelistTotal: studentWhitelist.value.length,
-      linkedStudents,
-      unlinkedStudents,
-      judgeWhitelistTotal: judges.value.length,
-      linkedJudges,
-      ndaAcceptedCount,
-    };
-  });
+  const kpiStats = computed(() =>
+    computeDirectoryKpis({
+      manageableUsers: manageableUsers.value,
+      studentWhitelist: studentWhitelist.value,
+      judges: judges.value,
+      userByEmailMap: userByEmailMap.value,
+    })
+  );
 
   function notify(message, type = 'success') {
     toastStore.add({ message, type });
@@ -511,49 +369,25 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
   }
 
   function findUserByIdOrEmail(idOrEmail) {
-    const needle = String(idOrEmail || '').trim().toLowerCase();
-    return users.value.find(
-      (u) => u.id.toLowerCase() === needle || u.email.toLowerCase() === needle
-    );
+    return findDirectoryUser(users.value, idOrEmail);
   }
 
   function isProtectedAdmin(user) {
-    return !user || user.role === 'admin' || user.id === CURRENT_ADMIN_USER_ID;
+    return isProtectedAdminUser(user, currentAdminUserId.value);
   }
 
   function getUserDetailContext(userId) {
-    const rawTarget = findUserByIdOrEmail(userId);
-    if (rawTarget && isProtectedAdmin(rawTarget)) {
-      return { user: rawTarget, isProtectedAdmin: true };
-    }
-    const user = rawTarget || manageableUsers.value[0];
-    if (!user) return null;
-
-    const lowerEmail = user.email.toLowerCase();
-    const linkedWhitelist = studentWhitelist.value.find(
-      (s) => s.email.toLowerCase() === lowerEmail
-    );
-    const linkedJudge = judges.value.find((j) => j.email.toLowerCase() === lowerEmail);
-    const mentorProfile = mentors.value.find((m) => m.email.toLowerCase() === lowerEmail);
-    const relatedProjects = projects.value.filter(
-      (p) =>
-        p.leaderEmail?.toLowerCase() === lowerEmail ||
-        p.advisorEmail?.toLowerCase() === lowerEmail ||
-        p.members.some((m) => m.toLowerCase().includes(user.name.toLowerCase()))
-    );
-    const userLogs = auditLogs.value
-      .filter((l) => l.targetId === user.email || l.summary.includes(user.name))
-      .slice(0, 4);
-
-    return {
-      user,
-      isProtectedAdmin: false,
-      linkedWhitelist,
-      linkedJudge,
-      mentorProfile,
-      relatedProjects,
-      userLogs,
-    };
+    return resolveUserDetailContext({
+      userId,
+      users: users.value,
+      manageableUsers: manageableUsers.value,
+      currentAdminUserId: currentAdminUserId.value,
+      studentWhitelist: studentWhitelist.value,
+      judges: judges.value,
+      mentors: mentors.value,
+      projects: projects.value,
+      auditLogs: auditLogs.value,
+    });
   }
 
   function getQuickProvisionPrefill(kind, id) {
@@ -600,7 +434,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
     if (!useLiveApi) {
       errorMessage.value = '';
       if (!silent) {
-        notify('Đã làm mới danh sách tài khoản và whitelist mẫu.', 'info');
+        notify('Đã làm mới danh sách tài khoản và whitelist.', 'info');
       }
       return;
     }
@@ -705,21 +539,14 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
         });
       }
 
-      const newUser = {
-        id: makeLocalId('u'),
+      const newUser = createLocalUserRecord({
         code: finalCode,
         name: fullName,
         email,
         unit,
         role,
-        status: 'ACTIVE',
         phone: phoneCheck.value,
-        createdAt: formatTodayDate(),
-        lastLoginAt: 'Chưa đăng nhập',
-        mustChangePassword: true,
-        passwordUpdatedAt: formatNowTimestamp(),
-        ndaAccepted: false,
-      };
+      });
       users.value.unshift(newUser);
 
       let syncedNote = '';
@@ -1181,29 +1008,26 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
             : item.unit || 'Hội đồng chuyên môn';
         const role = kind === 'students' ? 'student' : 'judge';
 
-        issued.push({
-          name,
-          code,
-          email,
-          role: ROLES[role],
-          unit,
-          tempPassword: tempPass,
-        });
+        issued.push(
+          createIssuedCredentialEntry({
+            name,
+            code,
+            email,
+            role,
+            unit,
+            tempPassword: tempPass,
+          })
+        );
 
         return {
-          id: makeLocalId('u'),
-          code,
-          name,
-          email,
-          unit,
-          role,
-          status: 'ACTIVE',
-          phone: item.phone || '',
-          createdAt: formatTodayDate(),
-          lastLoginAt: 'Chưa đăng nhập',
-          mustChangePassword: true,
-          passwordUpdatedAt: formatNowTimestamp(),
-          ndaAccepted: false,
+          ...createLocalUserRecord({
+            code,
+            name,
+            email,
+            unit,
+            role,
+            phone: item.phone || '',
+          }),
           _rawPassword: tempPass,
         };
       });
@@ -1305,8 +1129,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
                 : config.passwordMode === 'from_file' && r.password
                   ? r.password
                   : generateTempPassword();
-            const newUser = {
-              id: makeLocalId('u'),
+            const newUser = createLocalUserRecord({
               code: r.code || `NV${String(users.value.length + 1).padStart(4, '0')}`,
               name: r.fullName,
               email: r.email,
@@ -1314,22 +1137,20 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
               role: r.role,
               status: r.userStatus,
               phone: r.phone || '',
-              createdAt: formatTodayDate(),
-              lastLoginAt: 'Chưa đăng nhập',
-              mustChangePassword: Boolean(config.forceChangePassword),
-              passwordUpdatedAt: formatNowTimestamp(),
-              ndaAccepted: false,
-            };
+              mustChangePassword: config.forceChangePassword,
+            });
             users.value.unshift(newUser);
             created += 1;
-            issuedCredentials.push({
-              name: newUser.name,
-              code: newUser.code,
-              email: newUser.email,
-              role: ROLES[newUser.role] || newUser.role,
-              unit: newUser.unit,
-              tempPassword: tempPass,
-            });
+            issuedCredentials.push(
+              createIssuedCredentialEntry({
+                name: newUser.name,
+                code: newUser.code,
+                email: newUser.email,
+                role: newUser.role,
+                unit: newUser.unit,
+                tempPassword: tempPass,
+              })
+            );
             if (config.autoCreateMentor && ensureMentorProfileByUser(newUser)) {
               createdMentors += 1;
             }
@@ -1493,26 +1314,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
           return;
         }
         const res = await exportSpreadsheet({
-          baseFilename: `tai-khoan-mat-khau-tam-${formatTodayDate().replaceAll('/', '-')}`,
-          sheetName: 'TaiKhoanMoiCap',
-          headers: [
-            'Họ tên',
-            'Mã số',
-            'Email đăng nhập',
-            'Vai trò',
-            'Khoa / Đơn vị',
-            'Mật khẩu tạm ban đầu',
-            'Lưu ý',
-          ],
-          rows: list.map((c) => [
-            c.name,
-            c.code,
-            c.email,
-            c.role,
-            c.unit,
-            c.tempPassword,
-            'Bắt buộc đổi mật khẩu ở lần đầu đăng nhập',
-          ]),
+          ...buildCredentialsExportConfig(list, formatTodayDate()),
           format,
         });
         notify(`Đã xuất ${res.filename} (${list.length} tài khoản kèm mật khẩu tạm).`, 'success');
@@ -1525,12 +1327,8 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
           notify('Không có dòng lỗi nào để xuất.', 'info');
           return;
         }
-        const rawHeaders = importErrorContext?.headers || [];
         await exportSpreadsheet({
-          baseFilename: `dong-loi-can-sua-${kind}`,
-          sheetName: 'DongLoiCanSua',
-          headers: [...rawHeaders, 'Lý do cần kiểm tra'],
-          rows: errorRows.map((r) => [...(r.rawCols || []), r.note]),
+          ...buildErrorRowsExportConfig(kind, errorRows, importErrorContext?.headers || []),
           format,
         });
         notify(`Đã tải ${errorRows.length} dòng cần kiểm tra để sửa lại trong Excel.`, 'info');
@@ -1543,33 +1341,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
           notify('Không có tài khoản nào trong danh sách để xuất.', 'info');
           return;
         }
-        const res = await exportSpreadsheet({
-          baseFilename: 'danh-sach-tai-khoan-sess',
-          sheetName: 'TaiKhoan',
-          headers: [
-            'Mã số',
-            'Họ và tên',
-            'Email',
-            'Vai trò',
-            'Khoa / Đơn vị',
-            'Số điện thoại',
-            'Trạng thái',
-            'Chờ đổi MK',
-            'Đăng nhập gần nhất',
-          ],
-          rows: list.map((u) => [
-            u.code || '',
-            u.name,
-            u.email,
-            ROLES[u.role] || u.role,
-            u.unit,
-            u.phone || '',
-            u.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa',
-            u.mustChangePassword ? 'Có' : 'Không',
-            u.lastLoginAt || 'Chưa đăng nhập',
-          ]),
-          format,
-        });
+        const res = await exportSpreadsheet({ ...buildUsersExportConfig(list), format });
         notify(`Đã xuất ${list.length} tài khoản (${res.filename}).`, 'success');
         return;
       }
@@ -1581,30 +1353,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
           return;
         }
         const res = await exportSpreadsheet({
-          baseFilename: 'danh-sach-sinh-vien-hop-le',
-          sheetName: 'SinhVienHopLe',
-          headers: [
-            'MSSV',
-            'Họ tên',
-            'Email',
-            'Lớp',
-            'Khoa',
-            'Số điện thoại',
-            'Email cố vấn học tập',
-            'Tài khoản hệ thống',
-            'Nguồn',
-          ],
-          rows: list.map((s) => [
-            s.studentId,
-            s.fullName,
-            s.email,
-            s.className,
-            s.faculty,
-            s.phone,
-            s.advisorEmail,
-            userByEmailMap.value.has(s.email.toLowerCase()) ? 'Đã có tài khoản' : 'Chưa cấp TK',
-            s.isImported ? 'Nhập Excel' : 'Thủ công',
-          ]),
+          ...buildStudentsExportConfig(list, userByEmailMap.value),
           format,
         });
         notify(`Đã xuất ${list.length} sinh viên (${res.filename}).`, 'success');
@@ -1617,28 +1366,7 @@ export const useAdminUsersStore = defineStore('admin-users', () => {
         return;
       }
       const res = await exportSpreadsheet({
-        baseFilename: 'danh-sach-ban-giam-khao',
-        sheetName: 'BanGiamKhao',
-        headers: [
-          'Mã cán bộ',
-          'Họ tên',
-          'Email',
-          'Số điện thoại',
-          'Khoa / Đơn vị',
-          'Tài khoản hệ thống',
-          'Nguồn',
-          'Ngày thêm',
-        ],
-        rows: list.map((j) => [
-          j.staffCode || '',
-          j.name,
-          j.email,
-          j.phone || '',
-          j.unit,
-          userByEmailMap.value.has(j.email.toLowerCase()) ? 'Đã có tài khoản' : 'Chưa cấp TK',
-          j.isImported ? 'Nhập Excel' : 'Thủ công',
-          j.date || '',
-        ]),
+        ...buildJudgesExportConfig(list, userByEmailMap.value),
         format,
       });
       notify(`Đã xuất ${list.length} giám khảo (${res.filename}).`, 'success');

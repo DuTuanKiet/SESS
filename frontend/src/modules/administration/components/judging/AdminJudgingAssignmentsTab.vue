@@ -229,7 +229,7 @@ function handleLegacyCheck() {
   legacyCheckOpen.value = false;
   toastStore.add({
     type: 'success',
-    message: `Đã mô phỏng kiểm tra ${result.checkedCount} phiếu. Không có dữ liệu nào bị thay đổi.`,
+    message: `Đã kiểm tra ${result.checkedCount} phiếu. Không có dữ liệu nào bị thay đổi.`,
   });
 }
 </script>

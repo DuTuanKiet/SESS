@@ -208,7 +208,7 @@ import AdminPagination from '@/modules/administration/common/components/ui/Admin
 import AdminStatusBadge from '@/modules/administration/common/components/ui/AdminStatusBadge.vue';
 import AdminAuditLogDetailModal from '@/modules/administration/components/audit/AdminAuditLogDetailModal.vue';
 
-// Trang Nhật ký kiểm toán vận hành với mock state và gộp read-only các thao tác phát sinh trong phiên
+// Trang Nhật ký kiểm toán vận hành qua Pinia store và gộp read-only các thao tác phát sinh trong phiên
 const auditStore = useAdminAuditLogsStore();
 const selectedLog = ref(null);
 

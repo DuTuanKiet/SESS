@@ -1,24 +1,22 @@
 import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { useToastStore } from '@/stores/toast';
-import { createInitialRubricsMockState } from '@/modules/administration/mocks/adminRubricsMockData';
 
 /**
  * Store Pinia quản lý trạng thái nghiệp vụ Bộ tiêu chí đánh giá (Rubrics)
- * Vận hành ở chế độ Mock UI theo yêu cầu giai đoạn hoàn thiện giao diện
  */
 export const useAdminRubricsStore = defineStore('adminRubrics', () => {
   const toastStore = useToastStore();
 
-  // Khởi tạo state từ dữ liệu mock độc lập
-  const rubrics = ref(createInitialRubricsMockState());
+  // Khởi tạo state rỗng (chờ kết nối BE)
+  const rubrics = ref([]);
   const isLoading = ref(false);
   const isSubmitting = ref(false);
   const errorMessage = ref('');
 
   // Chế độ hiển thị: 'grid' (danh sách thẻ) hoặc 'detail' (chi tiết 1 bộ tiêu chí)
   const viewMode = ref('grid');
-  const selectedRubricId = ref('r1');
+  const selectedRubricId = ref('');
 
   // Bộ lọc tìm kiếm & trạng thái
   const filters = reactive({
@@ -31,10 +29,10 @@ export const useAdminRubricsStore = defineStore('adminRubrics', () => {
     toastStore.add({ message, type });
   }
 
-  // Khởi tạo lại dữ liệu nếu cần
+  // Đảm bảo cấu trúc mảng hợp lệ khi khởi tạo
   function initialize() {
-    if (!rubrics.value || !rubrics.value.length) {
-      rubrics.value = createInitialRubricsMockState();
+    if (!Array.isArray(rubrics.value)) {
+      rubrics.value = [];
     }
   }
 

@@ -1,13 +1,12 @@
 import { AUDIT_ACTION_META } from '../constants/adminConstants.js';
 
 export const DEFAULT_AUDIT_ACTOR = {
-  actorEmail: 'admin.phongkhcn@ctuet.edu.vn',
+  actorEmail: '',
   actorRole: 'ADMIN',
-  ipAddress: '10.20.14.8',
+  ipAddress: '—',
 };
 
-// Tập ID đã được seed trong adminUsersMockData để tránh đè mất diff JSON chi tiết khi gộp read-only
-export const SEEDED_USER_AUDIT_IDS = new Set(['al-03', 'al-04', 'al-06', 'al-08']);
+export const SEEDED_USER_AUDIT_IDS = new Set();
 
 /**
  * Suy đoán đối tượng (targetEntity) cho log phát sinh từ các store cũ không lưu sẵn trường này.

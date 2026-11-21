@@ -2,10 +2,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { adminService } from '@/modules/administration/services/adminService';
 import { useToastStore } from '@/stores/toast';
-import {
-  UNASSIGNED_ELIGIBLE_STATUSES,
-  createInitialMentorAssignmentsMockState,
-} from '@/modules/administration/mocks/adminMentorAssignmentsMockData';
+import { UNASSIGNED_ELIGIBLE_STATUSES } from '@/modules/administration/constants/adminConstants';
 import {
   extractArrayPayload,
   formatTimestamp,
@@ -17,6 +14,14 @@ import {
 const VALID_AVAILABILITY = new Set(['all', 'available', 'full']);
 const ELIGIBLE_STATUS_SET = new Set(UNASSIGNED_ELIGIBLE_STATUSES);
 
+function createEmptyMentorAssignmentsState() {
+  return {
+    projects: [],
+    mentors: [],
+    auditLogs: [],
+  };
+}
+
 function sliceByPage(items, page, pageSize) {
   const safeSize = Math.max(1, Number(pageSize) || 5);
   const totalPages = Math.max(1, Math.ceil(items.length / safeSize));
@@ -25,12 +30,12 @@ function sliceByPage(items, page, pageSize) {
   return items.slice(start, start + safeSize);
 }
 
-// Pinia store điều phối cố vấn: mặc định dùng dữ liệu mẫu tĩnh và sẵn sàng bật Live API
+// Pinia store điều phối cố vấn: khởi tạo rỗng và sẵn sàng bật Live API
 export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignments', () => {
   const toastStore = useToastStore();
 
   const isLiveApiEnabled = ref(false);
-  const rawMockState = ref(createInitialMentorAssignmentsMockState());
+  const rawState = ref(createEmptyMentorAssignmentsState());
   const liveUnassignedProjects = ref([]);
   const liveMentors = ref([]);
 
@@ -59,7 +64,7 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
 
   const projectsByCode = computed(() => {
     const map = new Map();
-    (rawMockState.value.projects || []).forEach((proj) => {
+    (rawState.value.projects || []).forEach((proj) => {
       if (proj.code) map.set(proj.code, proj);
     });
     return map;
@@ -69,7 +74,7 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
     if (isLiveApiEnabled.value) {
       return liveUnassignedProjects.value;
     }
-    return (rawMockState.value.projects || [])
+    return (rawState.value.projects || [])
       .filter((p) => !p.advisorInfo && ELIGIBLE_STATUS_SET.has(p.status))
       .map(normalizeUnassignedProject);
   });
@@ -78,7 +83,7 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
     if (isLiveApiEnabled.value) {
       return liveMentors.value;
     }
-    return (rawMockState.value.mentors || []).map((m) =>
+    return (rawState.value.mentors || []).map((m) =>
       normalizeMentorRecord(m, projectsByCode.value)
     );
   });
@@ -308,45 +313,45 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
         return true;
       }
 
-      const mockMentor = rawMockState.value.mentors.find((m) => m.id === targetMentor.id);
-      const mockProject = rawMockState.value.projects.find((p) => p.id === targetProject.id);
-      if (!mockMentor || !mockProject) {
+      const localMentor = rawState.value.mentors.find((m) => m.id === targetMentor.id);
+      const localProject = rawState.value.projects.find((p) => p.id === targetProject.id);
+      if (!localMentor || !localProject) {
         notify('Không tìm thấy dữ liệu dự án hoặc cố vấn.', 'error');
         return false;
       }
 
-      if (!mockMentor.active.includes(mockProject.code)) {
-        mockMentor.active.push(mockProject.code);
+      if (!localMentor.active.includes(localProject.code)) {
+        localMentor.active.push(localProject.code);
       }
-      mockProject.advisorInfo = {
-        name: mockMentor.name,
-        email: mockMentor.email,
-        unit: mockMentor.unit || '',
-        phone: mockMentor.phone || '',
+      localProject.advisorInfo = {
+        name: localMentor.name,
+        email: localMentor.email,
+        unit: localMentor.unit || '',
+        phone: localMentor.phone || '',
       };
-      const oldStatus = mockProject.status;
-      if (['SUBMITTED', 'IN_REVIEW', 'NEED_REVISION'].includes(mockProject.status)) {
-        mockProject.status = 'UNDER_MENTORSHIP';
+      const oldStatus = localProject.status;
+      if (['SUBMITTED', 'IN_REVIEW', 'NEED_REVISION'].includes(localProject.status)) {
+        localProject.status = 'UNDER_MENTORSHIP';
       }
 
-      rawMockState.value.auditLogs.unshift({
+      rawState.value.auditLogs.unshift({
         id: `al-${Date.now()}`,
         timestamp: formatTimestamp(new Date()),
         action: 'ASSIGN_MENTOR',
         targetEntity: 'MentorAssignments',
-        targetId: mockProject.code,
-        projectId: mockProject.id,
-        summary: `Phân công cố vấn ${mockMentor.name} đồng hành cùng dự án ${mockProject.code}`,
+        targetId: localProject.code,
+        projectId: localProject.id,
+        summary: `Phân công cố vấn ${localMentor.name} đồng hành cùng dự án ${localProject.code}`,
         oldValues: { mentor: null, status: oldStatus },
         newValues: {
-          mentorEmail: mockMentor.email,
-          status: mockProject.status,
+          mentorEmail: localMentor.email,
+          status: localProject.status,
           note: cleanNote || undefined,
         },
       });
 
       selectedProjectId.value = null;
-      notify(`Đã phân công ${mockMentor.name} hướng dẫn dự án ${mockProject.code}.`);
+      notify(`Đã phân công ${localMentor.name} hướng dẫn dự án ${localProject.code}.`);
       return true;
     } catch (error) {
       const msg = error?.message || 'Không thể phân công cố vấn cho dự án.';
@@ -393,45 +398,45 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
         return true;
       }
 
-      const currentMockMentor = rawMockState.value.mentors.find((m) => m.id === currentMentorId);
-      const newMockMentor = rawMockState.value.mentors.find((m) => m.id === newMentor.id);
-      if (!newMockMentor) {
+      const currentLocalMentor = rawState.value.mentors.find((m) => m.id === currentMentorId);
+      const newLocalMentor = rawState.value.mentors.find((m) => m.id === newMentor.id);
+      if (!newLocalMentor) {
         notify('Không tìm thấy cố vấn mới.', 'error');
         return false;
       }
 
-      if (currentMockMentor) {
-        currentMockMentor.active = currentMockMentor.active.filter((c) => c !== displayCode);
+      if (currentLocalMentor) {
+        currentLocalMentor.active = currentLocalMentor.active.filter((c) => c !== displayCode);
       }
-      if (!newMockMentor.active.includes(displayCode)) {
-        newMockMentor.active.push(displayCode);
+      if (!newLocalMentor.active.includes(displayCode)) {
+        newLocalMentor.active.push(displayCode);
       }
 
-      const mockProject = rawMockState.value.projects.find(
+      const localProject = rawState.value.projects.find(
         (p) => p.code === displayCode || p.id === projectId
       );
-      if (mockProject) {
-        mockProject.advisorInfo = {
-          name: newMockMentor.name,
-          email: newMockMentor.email,
-          unit: newMockMentor.unit || '',
-          phone: newMockMentor.phone || '',
+      if (localProject) {
+        localProject.advisorInfo = {
+          name: newLocalMentor.name,
+          email: newLocalMentor.email,
+          unit: newLocalMentor.unit || '',
+          phone: newLocalMentor.phone || '',
         };
       }
 
-      rawMockState.value.auditLogs.unshift({
+      rawState.value.auditLogs.unshift({
         id: `al-${Date.now()}`,
         timestamp: formatTimestamp(new Date()),
         action: 'REASSIGN_MENTOR',
         targetEntity: 'MentorAssignments',
         targetId: displayCode,
-        projectId: mockProject?.id || projectId,
-        summary: `Điều chuyển cố vấn ${displayCode}${currentMockMentor ? ` từ ${currentMockMentor.name}` : ''} sang ${newMockMentor.name}`,
-        oldValues: { mentorEmail: currentMockMentor?.email || null },
-        newValues: { mentorEmail: newMockMentor.email, reason: cleanReason },
+        projectId: localProject?.id || projectId,
+        summary: `Điều chuyển cố vấn ${displayCode}${currentLocalMentor ? ` từ ${currentLocalMentor.name}` : ''} sang ${newLocalMentor.name}`,
+        oldValues: { mentorEmail: currentLocalMentor?.email || null },
+        newValues: { mentorEmail: newLocalMentor.email, reason: cleanReason },
       });
 
-      notify(`Đã đổi cố vấn dự án ${displayCode} sang ${newMockMentor.name}.`);
+      notify(`Đã đổi cố vấn dự án ${displayCode} sang ${newLocalMentor.name}.`);
       return true;
     } catch (error) {
       const msg = error?.message || 'Không thể điều chuyển cố vấn.';
@@ -463,7 +468,7 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
     }
 
     const code = projectRef.code || projectRef.displayLabel;
-    const logs = (rawMockState.value.auditLogs || []).filter(
+    const logs = (rawState.value.auditLogs || []).filter(
       (l) =>
         (l.action === 'ASSIGN_MENTOR' || l.action === 'REASSIGN_MENTOR') &&
         (l.targetId === code || (projectRef.projectId && l.projectId === projectRef.projectId))
@@ -473,16 +478,16 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
       return logs.map((item, idx) => normalizeAssignmentHistoryEntry(item, idx));
     }
 
-    const mockProject = (rawMockState.value.projects || []).find(
+    const projectItem = (rawState.value.projects || []).find(
       (p) => p.code === code || p.id === projectRef.projectId
     );
     return [
       {
         id: `fallback-${code}`,
-        summary: mockProject?.advisorInfo?.name || 'Chưa phân công',
+        summary: projectItem?.advisorInfo?.name || 'Chưa phân công',
         timestamp: 'Chưa có biến động phân công trước đó',
         reason: '',
-        badgeLabel: mockProject?.advisorInfo ? 'Đang phụ trách' : '',
+        badgeLabel: projectItem?.advisorInfo ? 'Đang phụ trách' : '',
         badgeTone: 'blue',
         isLatest: true,
       },
@@ -491,7 +496,7 @@ export const useAdminMentorAssignmentsStore = defineStore('adminMentorAssignment
 
   function syncCatalogRename({ kind, oldName, newName } = {}) {
     if (!oldName || !newName || oldName === newName) return;
-    const list = rawMockState.value.projects || [];
+    const list = rawState.value.projects || [];
     if (kind === 'category') {
       list.forEach((proj) => {
         if (proj.category === oldName) proj.category = newName;

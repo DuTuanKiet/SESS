@@ -47,7 +47,7 @@ import { useAdminAwardsNewsStore } from '@/modules/administration/stores/useAdmi
 import {
   ADMIN_NAV_CRUMBS,
   ADMIN_SIDEBAR_GROUPS,
-} from '@/modules/administration/mocks/adminDashboardMockData';
+} from '@/modules/administration/constants/adminConstants';
 import AdminSidebar from '@/modules/administration/common/components/layout/AdminSidebar.vue';
 import AdminHeader from '@/modules/administration/common/components/layout/AdminHeader.vue';
 import AdminSmoothTabTransition from '@/modules/administration/common/components/ui/AdminSmoothTabTransition.vue';
@@ -63,9 +63,9 @@ const isMobileSidebarOpen = ref(false);
 const sidebarGroups = computed(() => ADMIN_SIDEBAR_GROUPS);
 
 const displayName = computed(
-  () => authStore.user?.fullName || authStore.user?.name || authStore.user?.username || 'Nguyễn Văn Quản'
+  () => authStore.user?.fullName || authStore.user?.name || authStore.user?.username || 'Quản trị viên'
 );
-const displayEmail = computed(() => authStore.user?.email || 'admin@ctut.edu.vn');
+const displayEmail = computed(() => authStore.user?.email || '');
 
 const activeNavKey = computed(() => {
   const path = route.path;

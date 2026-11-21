@@ -11,8 +11,25 @@ import {
   LEVEL_ORDER,
   PROJECT_STAGE_GROUPS,
   ROLES,
-  createInitialDashboardMockState,
-} from '@/modules/administration/mocks/adminDashboardMockData';
+} from '@/modules/administration/constants/adminConstants';
+
+function createEmptyDashboardState() {
+  return {
+    projects: [],
+    users: [],
+    mentors: [],
+    competitions: [],
+    evaluations: [],
+    cancellations: [],
+    changeRequests: [],
+    emergencies: [],
+    appeals: [],
+    rewardClaims: [],
+    publicVotes: [],
+    notifications: [],
+    auditLogs: [],
+  };
+}
 
 const OVERVIEW_MAX_RECENT = 5;
 const UNASSIGNED_ELIGIBLE_STATUSES = new Set(['SUBMITTED', 'IN_REVIEW', 'APPROVED']);
@@ -354,9 +371,9 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
   const toastStore = useToastStore();
   const judgingStore = useAdminJudgingStore();
 
-  // Mặc định chạy dữ liệu mẫu tĩnh; khi kết nối BE chỉ cần bật useLiveApi = true
+  // Trạng thái khởi tạo sạch; khi kết nối BE chỉ cần bật useLiveApi = true
   const isLiveApiEnabled = ref(false);
-  const rawState = ref(createInitialDashboardMockState());
+  const rawState = ref(createEmptyDashboardState());
   const backendSummary = ref(null);
 
   const isLoading = ref(false);
@@ -425,11 +442,11 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
       ]);
 
     backendSummary.value = summaryRes?.data || summaryRes || null;
-    const baseMock = createInitialDashboardMockState();
+    const baseState = createEmptyDashboardState();
 
     const apiProjects = extractItems(projectsRes);
     if (apiProjects.length > 0) {
-      baseMock.projects = apiProjects.map((p) => ({
+      baseState.projects = apiProjects.map((p) => ({
         id: String(p._id || p.id),
         code: p.code || '—',
         title: p.title || p.name || 'Dự án chưa đặt tên',
@@ -443,7 +460,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     }
 
     const apiCancels = extractItems(cancelsRes);
-    baseMock.cancellations = apiCancels.map((c) => ({
+    baseState.cancellations = apiCancels.map((c) => ({
       id: String(c._id || c.id),
       project: c.projectId?.code || '—',
       by: c.requesterId?.fullName || c.requesterId?.email || 'Sinh viên',
@@ -453,7 +470,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     }));
 
     const apiChanges = extractItems(changesRes);
-    baseMock.changeRequests = apiChanges.map((r) => ({
+    baseState.changeRequests = apiChanges.map((r) => ({
       id: String(r._id || r.id),
       project: r.projectId?.code || '—',
       type: r.type || 'ADD',
@@ -464,7 +481,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     }));
 
     const apiAppeals = extractItems(appealsRes);
-    baseMock.appeals = apiAppeals.map((a) => ({
+    baseState.appeals = apiAppeals.map((a) => ({
       id: String(a._id || a.id),
       projectCode: a.projectId?.code || '—',
       submittedBy: a.submittedBy?.fullName || 'Sinh viên',
@@ -474,7 +491,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
     }));
 
     const apiNotifs = extractItems(notifsRes);
-    baseMock.notifications = apiNotifs.map((n) => ({
+    baseState.notifications = apiNotifs.map((n) => ({
       id: String(n._id || n.id),
       recipientRole: n.recipientRole || 'admin',
       title: n.title || 'Thông báo hệ thống',
@@ -486,7 +503,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', () => {
       createdAt: n.createdAt ? formatShortTime(new Date(n.createdAt)) : '-',
     }));
 
-    rawState.value = baseMock;
+    rawState.value = baseState;
   }
 
   async function loadDashboard({ useLiveApi = isLiveApiEnabled.value, silent = false } = {}) {

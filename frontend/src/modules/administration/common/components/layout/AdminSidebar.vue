@@ -96,7 +96,7 @@ defineProps({
   },
   semesterLabel: {
     type: String,
-    default: 'Học kỳ I • 2026–2027',
+    default: 'Học kỳ I - 2026–2027',
   },
 });
 

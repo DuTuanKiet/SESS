@@ -71,25 +71,35 @@ export function summarizeCouncil(council, evaluations, projects) {
 }
 
 export function buildEvaluationSummary(evaluation, rubric) {
-  if (!evaluation || evaluation.status !== 'SUBMITTED' || !Number.isFinite(Number(evaluation.score))) {
+  if (!evaluation || evaluation.status !== 'SUBMITTED') {
     return [];
   }
 
-  const criteria = rubric?.criteria || [];
-  return criteria.map((criterion, index) => {
-    const minScore = Number(criterion.min ?? 0);
-    const maxScore = Number(criterion.max ?? 10);
-    const offset = ((index % 3) - 1) * 0.2;
-    const score = Math.min(maxScore, Math.max(minScore, Number(evaluation.score) + offset));
+  const rawScores = Array.isArray(evaluation.scores) ? evaluation.scores : [];
+  if (!rawScores.length) {
+    return [];
+  }
 
-    return {
-      id: criterion.id,
-      name: criterion.name,
-      weight: criterion.weight,
-      score: Number(score.toFixed(1)),
-      weightedScore: Number(((score * Number(criterion.weight || 0)) / 100).toFixed(2)),
-    };
-  });
+  const scoreMap = new Map(
+    rawScores.map((item) => [String(item.criterionId || item.id || ''), item])
+  );
+  const criteria = rubric?.criteria || [];
+
+  return criteria
+    .map((criterion) => {
+      const matched = scoreMap.get(String(criterion.id || criterion._id || ''));
+      if (!matched || !Number.isFinite(Number(matched.score))) return null;
+      const score = Number(matched.score);
+      return {
+        id: criterion.id || criterion._id,
+        name: criterion.name,
+        weight: criterion.weight,
+        score: Number(score.toFixed(1)),
+        weightedScore: Number(((score * Number(criterion.weight || 0)) / 100).toFixed(2)),
+        comment: matched.comment || '',
+      };
+    })
+    .filter(Boolean);
 }
 
 export function paginateItems(items, page, pageSize) {

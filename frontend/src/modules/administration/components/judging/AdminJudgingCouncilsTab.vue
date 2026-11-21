@@ -7,7 +7,6 @@
           <p class="mt-1 text-xs text-slate-500">Theo dõi thành viên và tiến độ đánh giá theo vòng.</p>
         </div>
         <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Cuộc thi</span>
           <select
             :value="store.filters.councilCompetitionId"
             class="h-9 min-w-64 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none transition focus:border-[#1E56D9] focus:ring-2 focus:ring-[#1E56D9]/15"

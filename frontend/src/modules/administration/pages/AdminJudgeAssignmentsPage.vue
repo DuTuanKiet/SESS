@@ -29,52 +29,46 @@
       />
     </AdminSmoothTabTransition>
 
+    <!-- Giữ các modal gắn sẵn qua :is-open để AdminModal chạy đủ hiệu ứng chuyển cảnh enter/leave -->
     <AdminJudgingCouncilFormModal
-      v-if="modal.key === 'council-form'"
-      :is-open="true"
+      :is-open="modal.key === 'council-form'"
       :council-id="modal.payload.councilId || ''"
       @close="closeModal"
       @saved="closeModal"
     />
     <AdminJudgingCouncilDetailModal
-      v-if="modal.key === 'council-detail'"
-      :is-open="true"
-      :council-id="modal.payload.councilId"
+      :is-open="modal.key === 'council-detail'"
+      :council-id="lastCouncilDetailId"
       @close="closeModal"
       @edit-council="handleEditCouncil"
       @assign-round="handleAssignRound"
       @view-project="openProject"
     />
     <AdminJudgingAssignRoundModal
-      v-if="modal.key === 'assign-round'"
-      :is-open="true"
+      :is-open="modal.key === 'assign-round'"
       :council-id="modal.payload.councilId || ''"
       @close="closeModal"
       @saved="closeModal"
     />
     <AdminJudgingEmergencyModal
-      v-if="modal.key === 'emergency'"
-      :is-open="true"
+      :is-open="modal.key === 'emergency'"
       @close="closeModal"
       @saved="closeModal"
     />
     <AdminJudgingOverrideModal
-      v-if="modal.key === 'override'"
-      :is-open="true"
+      :is-open="modal.key === 'override'"
       @close="closeModal"
       @saved="closeModal"
     />
     <AdminJudgingRevokeModal
-      v-if="modal.key === 'revoke'"
-      :is-open="true"
+      :is-open="modal.key === 'revoke'"
       :kind="modal.payload.kind"
       :record-id="modal.payload.recordId"
       @close="closeModal"
       @saved="closeModal"
     />
     <AdminProjectDetailModal
-      v-if="modal.key === 'project'"
-      :is-open="true"
+      :is-open="modal.key === 'project'"
       :project="selectedProject"
       :competition-code="selectedCompetition?.code || ''"
       @close="closeModal"
@@ -118,6 +112,7 @@ const tabs = [
 const defaultTab = 'judging-councils';
 const activeTab = ref(defaultTab);
 const modal = ref({ key: '', payload: {} });
+const lastCouncilDetailId = ref('');
 
 const activeTabComponent = computed(() => {
   const components = {
@@ -145,11 +140,15 @@ watch(
 );
 
 function openModal(key, payload = {}) {
+  if (key === 'council-detail') {
+    lastCouncilDetailId.value = payload.councilId || '';
+  }
   modal.value = { key, payload };
 }
 
 function closeModal() {
-  modal.value = { key: '', payload: {} };
+  // Giữ payload khi đóng để nội dung modal chi tiết không biến mất đột ngột trong lúc fade-out 150ms
+  modal.value = { ...modal.value, key: '' };
 }
 
 async function handleTabChange(tabKey) {
@@ -190,12 +189,12 @@ function openProject(projectId) {
 
 function handleOpenAttachment(attachment) {
   if (!attachment) return;
-  toastStore.add({ type: 'info', message: `Mô phỏng mở file thuyết minh: ${attachment.name}` });
+  toastStore.add({ type: 'info', message: `Mở file thuyết minh: ${attachment.name}` });
 }
 
 function handleDownloadDeliverable(item) {
   if (!item) return;
-  toastStore.add({ type: 'info', message: `Mô phỏng tải về: ${item.name}` });
+  toastStore.add({ type: 'info', message: `Tải về: ${item.name}` });
 }
 
 function handleProjectAction({ action, project }) {

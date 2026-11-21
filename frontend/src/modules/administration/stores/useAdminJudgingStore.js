@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { createInitialJudgingMockState } from '@/modules/administration/mocks/adminJudgingMockData';
+import { useAuthStore } from '@/stores/authStore';
 import {
   getRoundProjects as filterRoundProjects,
   isDuplicateEvaluation,
@@ -10,6 +10,20 @@ import {
 
 const TABLE_KEYS = ['councils', 'evaluations', 'emergencies', 'overrides'];
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
+
+function createEmptyJudgingState() {
+  return {
+    competitions: [],
+    projects: [],
+    judges: [],
+    rubrics: [],
+    councils: [],
+    evaluations: [],
+    emergencies: [],
+    overrides: [],
+    auditLogs: [],
+  };
+}
 
 function formatTodayDate(date = new Date()) {
   return new Intl.DateTimeFormat('vi-VN').format(date);
@@ -23,7 +37,8 @@ function formatTimestamp(date = new Date()) {
 }
 
 export const useAdminJudgingStore = defineStore('adminJudging', () => {
-  const initialState = createInitialJudgingMockState();
+  const authStore = useAuthStore();
+  const initialState = createEmptyJudgingState();
   const competitions = ref(initialState.competitions);
   const projects = ref(initialState.projects);
   const judges = ref(initialState.judges);
@@ -36,9 +51,7 @@ export const useAdminJudgingStore = defineStore('adminJudging', () => {
 
   const filters = ref({
     councilCompetitionId: '',
-    assignmentsRoundKey: competitions.value[0]?.rounds?.[0]
-      ? `${competitions.value[0].id}:${competitions.value[0].rounds[0].roundNumber}`
-      : 'all',
+    assignmentsRoundKey: 'all',
   });
   const pages = ref({ councils: 1, evaluations: 1, emergencies: 1, overrides: 1 });
   const pageSizes = ref({ councils: 5, evaluations: 5, emergencies: 5, overrides: 5 });
@@ -439,7 +452,11 @@ export const useAdminJudgingStore = defineStore('adminJudging', () => {
       from: originalScore,
       to: newScore,
       reason,
-      by: 'Nguyễn Văn Quản',
+      by:
+        authStore.user?.fullName ||
+        authStore.user?.name ||
+        authStore.user?.email ||
+        'Quản trị viên',
       date: formatTodayDate(),
       status: 'ACTIVE',
     };

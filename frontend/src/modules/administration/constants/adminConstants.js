@@ -253,5 +253,169 @@ export const NEWS_STATUS = {
   DRAFT: { label: 'Bản nháp', tone: 'amber' },
 };
 
+export const CHART_PALETTE = ['#1E56D9', '#0D9488', '#D97706', '#6366F1', '#64748B'];
 
+export const FACULTY_SHORT_MAP = {
+  'Công nghệ thông tin': 'CNTT',
+  'Công nghệ hóa học': 'CN Hóa học',
+  'Kỹ thuật cơ khí': 'Cơ khí',
+  'Điện - Điện tử': 'Điện - ĐT',
+  'Kỹ thuật xây dựng': 'Xây dựng',
+};
+
+export const PROJECT_STAGE_GROUPS = [
+  { key: 'DRAFT', label: 'Nháp', statuses: ['DRAFT'], color: '#64748B' },
+  {
+    key: 'PENDING',
+    label: 'Chờ duyệt',
+    statuses: ['SUBMITTED', 'IN_REVIEW', 'NEED_REVISION'],
+    color: '#D97706',
+  },
+  {
+    key: 'MENTORING',
+    label: 'Cố vấn',
+    statuses: ['UNDER_MENTORSHIP'],
+    color: '#1E56D9',
+  },
+  {
+    key: 'COMPLETED',
+    label: 'Hoàn tất',
+    statuses: ['APPROVED', 'EVALUATED', 'COMPLETED'],
+    color: '#059669',
+  },
+  {
+    key: 'REJECTED',
+    label: 'Hủy / Loại',
+    statuses: ['REJECTED', 'CANCELLED'],
+    color: '#E11D48',
+  },
+];
+
+// Cấu hình 5 nhóm điều hướng của Sidebar Admin ánh xạ sang router hiện có
+export const ADMIN_SIDEBAR_GROUPS = [
+  {
+    title: 'Vận hành',
+    items: [
+      { key: 'overview', label: 'Tổng quan', to: '/admin' },
+      { key: 'competitions', label: 'Quản lý cuộc thi', to: '/admin/competitions' },
+    ],
+  },
+  {
+    title: 'Tài khoản',
+    items: [{ key: 'users', label: 'Tài khoản & DS duyệt', to: '/admin/users' }],
+  },
+  {
+    title: 'Dự án',
+    items: [
+      { key: 'projects', label: 'Dự án & Thành viên', to: '/admin/projects' },
+      {
+        key: 'mentors',
+        label: 'Điều phối cố vấn',
+        to: '/admin/mentor-assignments',
+      },
+      {
+        key: 'catalogs',
+        label: 'Danh mục dữ liệu',
+        to: '/admin/catalogs',
+      },
+    ],
+  },
+  {
+    title: 'Đánh giá',
+    items: [
+      { key: 'rubrics', label: 'Bộ tiêu chí', to: '/admin/rubrics' },
+      { key: 'judging', label: 'Chấm điểm & Phúc khảo', to: '/admin/judge-assignments' },
+      {
+        key: 'awards',
+        label: 'Trao giải & Tin tức',
+        to: '/admin/awards-news',
+      },
+    ],
+  },
+  {
+    title: 'Hệ thống',
+    items: [{ key: 'audit', label: 'Nhật ký kiểm toán', to: '/admin/audit-logs' }],
+  },
+];
+
+export const ADMIN_NAV_CRUMBS = {
+  overview: 'Tổng quan',
+  competitions: 'Quản lý cuộc thi',
+  users: 'Tài khoản & Danh sách duyệt',
+  projects: 'Dự án & Thành viên',
+  mentors: 'Điều phối cố vấn',
+  catalogs: 'Danh mục dữ liệu',
+  rubrics: 'Bộ tiêu chí',
+  judging: 'Chấm điểm & Phúc khảo',
+  awards: 'Trao giải & Tin tức',
+  audit: 'Nhật ký kiểm toán',
+};
+
+export function buildSvgBannerDataUri(
+  startHex,
+  endHex,
+  accentHex,
+  patternLabel = 'SESS CTUT'
+) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${startHex}"/>
+        <stop offset="100%" stop-color="${endHex}"/>
+      </linearGradient>
+      <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="800" height="260" fill="url(#g)"/>
+    <rect width="800" height="260" fill="url(#grid)"/>
+    <circle cx="690" cy="40" r="140" fill="${accentHex}" fill-opacity="0.22"/>
+    <circle cx="740" cy="210" r="95" fill="#ffffff" fill-opacity="0.08"/>
+    <circle cx="110" cy="220" r="110" fill="${accentHex}" fill-opacity="0.14"/>
+    <text x="760" y="232" text-anchor="end" fill="#ffffff" fill-opacity="0.18" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="3">${patternLabel}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+export const BANNER_PRESETS = [
+  {
+    key: 'navy',
+    label: 'Xanh CTUT',
+    url: buildSvgBannerDataUri('#0B1F4B', '#1E56D9', '#60A5FA', 'SESS CTUT'),
+  },
+  {
+    key: 'indigo',
+    label: 'Công nghệ & AI',
+    url: buildSvgBannerDataUri('#1E1B4B', '#2563EB', '#38BDF8', 'TECH & AI'),
+  },
+  {
+    key: 'emerald',
+    label: 'Khởi nghiệp Xanh',
+    url: buildSvgBannerDataUri('#064E3B', '#0D9488', '#34D399', 'INNOVATION'),
+  },
+  {
+    key: 'slate',
+    label: 'Lưu trữ',
+    url: buildSvgBannerDataUri('#0F172A', '#334155', '#94A3B8', 'ARCHIVE'),
+  },
+];
+
+// Hằng số nghiệp vụ điều phối cố vấn khớp ràng buộc backend (tối đa 2 dự án/cố vấn)
+export const MAX_PROJECTS_PER_MENTOR = 2;
+
+export const UNASSIGNED_ELIGIBLE_STATUSES = [
+  'SUBMITTED',
+  'IN_REVIEW',
+  'NEED_REVISION',
+  'APPROVED',
+];
+
+export const BASE_DIRECTORY_UNITS = [
+  'Phòng KHCN & HTQT',
+  'Hội đồng chuyên môn',
+  'Đơn vị ngoài trường',
+  'Doanh nghiệp',
+  'ĐH Cần Thơ',
+  'VCCI Cần Thơ',
+];
 

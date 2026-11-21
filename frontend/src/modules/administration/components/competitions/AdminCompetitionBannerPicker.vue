@@ -59,7 +59,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useToastStore } from '@/stores/toast';
-import { BANNER_PRESETS } from '@/modules/administration/mocks/adminCompetitionsMockData';
+import { BANNER_PRESETS } from '@/modules/administration/constants/adminConstants';
 
 const props = defineProps({
   bannerTheme: {
